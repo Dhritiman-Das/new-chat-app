@@ -8,7 +8,17 @@ export function ConditionalAppSidebar({ orgId }: { orgId: string }) {
   const pathname = usePathname();
   const isBotPage = pathname.includes(`/dashboard/${orgId}/bots/`);
 
-  if (!isBotPage) return <OrgSidebar />;
+  // Extract botId from path if on a bot page
+  let botId = "";
+  if (isBotPage) {
+    const pathParts = pathname.split("/");
+    const botIdIndex = pathParts.findIndex((part) => part === "bots") + 1;
+    if (botIdIndex > 0 && botIdIndex < pathParts.length) {
+      botId = pathParts[botIdIndex];
+    }
+  }
 
-  return <AppSidebar />;
+  if (!isBotPage) return <OrgSidebar orgId={orgId} />;
+
+  return <AppSidebar orgId={orgId} botId={botId} />;
 }

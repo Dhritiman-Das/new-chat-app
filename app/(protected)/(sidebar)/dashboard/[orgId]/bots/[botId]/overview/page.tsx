@@ -1,9 +1,8 @@
 import { requireAuth } from "@/utils/auth";
 import {
-  getUserBots,
-  getUserActiveBotCount,
   getUserKnowledgeBaseCount,
   getRecentConversations,
+  getBotById,
 } from "@/lib/queries/cached-queries";
 import {
   Card,
@@ -26,32 +25,33 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
-export default async function Dashboard() {
-  const user = await requireAuth();
+interface PageProps {
+  params: Promise<{ orgId: string; botId: string }>;
+}
+
+export default async function Dashboard({ params }: PageProps) {
+  await requireAuth();
+  const { botId, orgId } = await params;
 
   // Fetch data in parallel
-  const [
-    botsResponse,
-    activeBotCountResponse,
-    knowledgeBaseCountResponse,
-    recentConversationsResponse,
-  ] = await Promise.all([
-    getUserBots(),
-    getUserActiveBotCount(),
-    getUserKnowledgeBaseCount(),
-    getRecentConversations(5),
-  ]);
+  const [botResponse, knowledgeBaseCountResponse, recentConversationsResponse] =
+    await Promise.all([
+      getBotById(botId),
+      getUserKnowledgeBaseCount(),
+      getRecentConversations(5),
+    ]);
 
-  const bots = botsResponse?.data || [];
-  const activeBotCount = activeBotCountResponse?.data || 0;
+  const bot = botResponse?.data;
   const knowledgeBaseCount = knowledgeBaseCountResponse?.data || 0;
   const recentConversations = recentConversationsResponse?.data || [];
 
   const stats = [
     {
-      name: "Total Bots",
-      value: String(bots.length),
-      change: `${activeBotCount} active`,
+      name: "Bot Status",
+      value: bot?.isActive ? "Active" : "Inactive",
+      change: `Created ${new Date(
+        bot?.createdAt || Date.now()
+      ).toLocaleDateString()}`,
       icon: <Icons.Bot className="h-4 w-4 text-muted-foreground" />,
     },
     {
@@ -81,7 +81,19 @@ export default async function Dashboard() {
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Dashboard</BreadcrumbPage>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}/bots`}>
+                  Bots
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Overview</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -89,7 +101,13 @@ export default async function Dashboard() {
       </header>
 
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+        <h1 className="text-2xl font-bold mb-6">
+          {bot?.name || "Bot"} Overview
+        </h1>
+
+        {bot?.description && (
+          <p className="text-muted-foreground mb-6">{bot.description}</p>
+        )}
 
         <div className="mx-auto grid grid-cols-1 gap-px rounded-xl bg-border sm:grid-cols-3 mb-8">
           {stats.map((stat, index) => (
@@ -158,10 +176,26 @@ export default async function Dashboard() {
           </Card>
         )}
 
+        {bot?.systemPrompt && (
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle>System Prompt</CardTitle>
+              <CardDescription>
+                Instructions that guide your bot&apos;s behavior
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-sm">
+                {bot.systemPrompt}
+              </pre>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="bg-card p-4 rounded-lg shadow-sm mt-8">
-          <h2 className="text-lg font-semibold mb-2">Welcome back!</h2>
+          <h2 className="text-lg font-semibold mb-2">Your Bot Details</h2>
           <p className="text-muted-foreground">
-            You are logged in as: {user.email}
+            Organization: {bot?.organization?.name || "Unknown"}
           </p>
         </div>
       </div>

@@ -1,5 +1,9 @@
+"use client";
+
 import { Icons } from "@/components/icons";
 import { SignOutButton } from "@/components/sign-out-button";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 import {
   Sidebar,
@@ -13,72 +17,98 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-// Menu items.
-const items = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: Icons.Home,
-  },
-  {
-    title: "Playground",
-    url: "/playground",
-    icon: Icons.Terminal,
-  },
-  {
-    title: "Tools",
-    url: "/tools",
-    icon: Icons.Hammer,
-  },
-  {
-    title: "Knowledge Vault",
-    url: "/knowledge-vault",
-    icon: Icons.Database,
-  },
-  {
-    title: "Integrations",
-    url: "/integrations",
-    icon: Icons.Cable,
-  },
-  {
-    title: "Deployments",
-    url: "/deployments",
-    icon: Icons.ArrowRight,
-  },
-  {
-    title: "Conversations",
-    url: "/conversations",
-    icon: Icons.MessageSquare,
-  },
-];
+interface AppSidebarProps {
+  orgId: string;
+  botId: string;
+}
 
-// Tool categories
-const tools = [
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Icons.Settings,
-  },
-  {
-    title: "Analytics",
-    url: "/analytics",
-    icon: Icons.Info,
-  },
-];
+export function AppSidebar({ orgId, botId }: AppSidebarProps) {
+  const pathname = usePathname();
 
-export function AppSidebar() {
+  // Menu items with dynamic paths
+  const getItems = (orgId: string, botId: string) => [
+    {
+      title: "Overview",
+      url: `/dashboard/${orgId}/bots/${botId}/overview`,
+      icon: Icons.Home,
+    },
+    {
+      title: "Playground",
+      url: `/dashboard/${orgId}/bots/${botId}/playground`,
+      icon: Icons.Terminal,
+    },
+    {
+      title: "Tools",
+      url: `/dashboard/${orgId}/bots/${botId}/tools`,
+      icon: Icons.Hammer,
+    },
+    {
+      title: "Knowledge Base",
+      url: `/dashboard/${orgId}/bots/${botId}/knowledge`,
+      icon: Icons.Database,
+    },
+    {
+      title: "Integrations",
+      url: `/dashboard/${orgId}/bots/${botId}/integrations`,
+      icon: Icons.Cable,
+    },
+    {
+      title: "Deployments",
+      url: `/dashboard/${orgId}/bots/${botId}/deployments`,
+      icon: Icons.ArrowRight,
+    },
+    {
+      title: "Conversations",
+      url: `/dashboard/${orgId}/bots/${botId}/conversations`,
+      icon: Icons.MessageSquare,
+    },
+  ];
+
+  // Tool categories with dynamic paths
+  const getTools = (orgId: string, botId: string) => [
+    {
+      title: "Settings",
+      url: `/dashboard/${orgId}/bots/${botId}/settings`,
+      icon: Icons.Settings,
+    },
+    {
+      title: "Analytics",
+      url: `/dashboard/${orgId}/bots/${botId}/analytics`,
+      icon: Icons.Info,
+    },
+  ];
+
+  const items = getItems(orgId, botId);
+  const tools = getTools(orgId, botId);
+
+  // Check if a given URL is active
+  const isActive = (url: string) => {
+    return pathname === url || pathname.startsWith(`${url}/`);
+  };
+
   return (
     <Sidebar>
       <SidebarContent className="h-full flex flex-col">
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
+          <SidebarGroupLabel>Bot</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton
+                    asChild
+                    className={cn(
+                      isActive(item.url) &&
+                        "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
                     <a href={item.url}>
-                      <item.icon className="h-4 w-4" />
+                      <item.icon
+                        className={cn(
+                          "h-4 w-4",
+                          isActive(item.url) && "text-accent-foreground"
+                        )}
+                      />
                       <span>{item.title}</span>
                     </a>
                   </SidebarMenuButton>
@@ -96,9 +126,20 @@ export function AppSidebar() {
             <SidebarMenu>
               {tools.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton
+                    asChild
+                    className={cn(
+                      isActive(item.url) &&
+                        "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
                     <a href={item.url}>
-                      <item.icon className="h-4 w-4" />
+                      <item.icon
+                        className={cn(
+                          "h-4 w-4",
+                          isActive(item.url) && "text-accent-foreground"
+                        )}
+                      />
                       <span>{item.title}</span>
                     </a>
                   </SidebarMenuButton>

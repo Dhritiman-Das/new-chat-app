@@ -1,5 +1,9 @@
+"use client";
+
 import { Icons } from "@/components/icons";
 import { SignOutButton } from "@/components/sign-out-button";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 import {
   Sidebar,
@@ -13,72 +17,97 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-// Menu items.
-const items = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: Icons.Home,
-  },
-  {
-    title: "Bots",
-    url: "/bots",
-    icon: Icons.Bot,
-  },
-  {
-    title: "Tools",
-    url: "/tools",
-    icon: Icons.Hammer,
-  },
-  {
-    title: "Knowledge Vault",
-    url: "/knowledge-vault",
-    icon: Icons.Database,
-  },
-  {
-    title: "Integrations",
-    url: "/integrations",
-    icon: Icons.Cable,
-  },
-  {
-    title: "Deployments",
-    url: "/deployments",
-    icon: Icons.ArrowRight,
-  },
-  {
-    title: "Conversations",
-    url: "/conversations",
-    icon: Icons.MessageSquare,
-  },
-];
+interface OrgSidebarProps {
+  orgId: string;
+}
 
-// Tool categories
-const tools = [
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Icons.Settings,
-  },
-  {
-    title: "Analytics",
-    url: "/analytics",
-    icon: Icons.Info,
-  },
-];
+export function OrgSidebar({ orgId }: OrgSidebarProps) {
+  const pathname = usePathname();
 
-export function OrgSidebar() {
+  // Menu items with dynamic orgId
+  const getItems = (orgId: string) => [
+    {
+      title: "Dashboard",
+      url: `/dashboard/${orgId}`,
+      icon: Icons.Home,
+    },
+    {
+      title: "Bots",
+      url: `/dashboard/${orgId}/bots`,
+      icon: Icons.Bot,
+    },
+    {
+      title: "Tools",
+      url: `/dashboard/${orgId}/tools`,
+      icon: Icons.Hammer,
+    },
+    {
+      title: "Knowledge Vault",
+      url: `/dashboard/${orgId}/knowledge-vault`,
+      icon: Icons.Database,
+    },
+    {
+      title: "Integrations",
+      url: `/dashboard/${orgId}/integrations`,
+      icon: Icons.Cable,
+    },
+    {
+      title: "Deployments",
+      url: `/dashboard/${orgId}/deployments`,
+      icon: Icons.ArrowRight,
+    },
+    {
+      title: "Conversations",
+      url: `/dashboard/${orgId}/conversations`,
+      icon: Icons.MessageSquare,
+    },
+  ];
+
+  // Tool categories with dynamic orgId
+  const getTools = (orgId: string) => [
+    {
+      title: "Settings",
+      url: `/dashboard/${orgId}/settings`,
+      icon: Icons.Settings,
+    },
+    {
+      title: "Analytics",
+      url: `/dashboard/${orgId}/analytics`,
+      icon: Icons.Info,
+    },
+  ];
+
+  const items = getItems(orgId);
+  const tools = getTools(orgId);
+
+  // Check if a given URL is active
+  const isActive = (url: string) => {
+    return pathname === url || pathname.startsWith(`${url}/`);
+  };
+
   return (
     <Sidebar>
       <SidebarContent className="h-full flex flex-col">
         <SidebarGroup>
-          <SidebarGroupLabel>Org level</SidebarGroupLabel>
+          <SidebarGroupLabel>Organization</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton
+                    asChild
+                    className={cn(
+                      isActive(item.url) &&
+                        "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
                     <a href={item.url}>
-                      <item.icon className="h-4 w-4" />
+                      <item.icon
+                        className={cn(
+                          "h-4 w-4",
+                          isActive(item.url) && "text-accent-foreground"
+                        )}
+                      />
                       <span>{item.title}</span>
                     </a>
                   </SidebarMenuButton>
@@ -96,9 +125,20 @@ export function OrgSidebar() {
             <SidebarMenu>
               {tools.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton
+                    asChild
+                    className={cn(
+                      isActive(item.url) &&
+                        "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
                     <a href={item.url}>
-                      <item.icon className="h-4 w-4" />
+                      <item.icon
+                        className={cn(
+                          "h-4 w-4",
+                          isActive(item.url) && "text-accent-foreground"
+                        )}
+                      />
                       <span>{item.title}</span>
                     </a>
                   </SidebarMenuButton>

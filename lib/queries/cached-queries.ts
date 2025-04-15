@@ -8,6 +8,7 @@ import {
   getUserOrganizationsQuery,
   getOrganizationBotsQuery,
   getOrganizationActiveBotCountQuery,
+  getBotByIdQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 
@@ -91,7 +92,7 @@ export const getUserActiveBotCount = async () => {
     async () => {
       return getUserActiveBotCountQuery(prisma, userId);
     },
-    ["active_bot_count", userId],
+    ["user_active_bot_count", userId],
     {
       tags: [`user_bots_${userId}`],
       revalidate: 60, // Cache for 1 minute
@@ -129,6 +130,22 @@ export const getRecentConversations = async (limit = 5) => {
     {
       tags: [`user_conversations_${userId}`],
       revalidate: 30, // Cache for 30 seconds (conversations update more frequently)
+    }
+  )();
+};
+
+// Cache bot by ID
+export const getBotById = async (botId: string) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return getBotByIdQuery(prisma, botId);
+    },
+    ["bot", botId],
+    {
+      tags: [`bot_${botId}`],
+      revalidate: 60, // Cache for 1 minute
     }
   )();
 };

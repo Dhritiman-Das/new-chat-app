@@ -30,7 +30,10 @@ import {
   Building,
   SquareTerminal,
 } from "lucide-react";
+import { AiOutlineOpenAI } from "react-icons/ai";
+import { FaXTwitter } from "react-icons/fa6";
 
+// Create an Icons object that contains all icons
 export const Icons = {
   ArrowUpRight,
   Info: InfoIcon,
@@ -62,6 +65,8 @@ export const Icons = {
   MessageCircle,
   Building,
   Terminal: SquareTerminal,
+  OpenAI: AiOutlineOpenAI,
+  XAI: FaXTwitter,
 };
 
 // Export individual icons for direct imports
@@ -87,3 +92,7 @@ export {
   PlusCircle,
   Building,
 };
+
+// Export the React Icons components
+export { AiOutlineOpenAI as OpenAI };
+export { FaXTwitter as XAI };

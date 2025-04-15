@@ -93,6 +93,28 @@ export async function getUserActiveBotCountQuery(
   };
 }
 
+export async function getBotByIdQuery(prisma: PrismaClient, botId: string) {
+  const bot = await prisma.bot.findUnique({
+    where: {
+      id: botId,
+    },
+    include: {
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          logoUrl: true,
+        },
+      },
+    },
+  });
+
+  return {
+    data: bot,
+  };
+}
+
 export async function getOrganizationActiveBotCountQuery(
   prisma: PrismaClient,
   organizationId: string
