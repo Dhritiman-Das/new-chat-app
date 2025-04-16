@@ -45,6 +45,7 @@ model User {
   organizations UserOrganization[]
   bots          Bot[]
   integrations  Integration[]
+  toolCredentials ToolCredential[]
 
   @@map("users")
 }
@@ -86,46 +87,134 @@ model Bot {
   knowledgeBases  KnowledgeBase[]
   botTools        BotTool[]
   botIntegrations BotIntegration[]
+  toolUsageMetrics ToolUsageMetric[]
 
   @@index([userId])
   @@index([organizationId])
   @@map("bots")
 }
 
-// Tool model - represents available tools that can be used by bots
-model Tool {
-  id               String     @id @default(uuid())
-  name             String
-  description      String?
-  type             ToolType
-  integrationType  String?    @map("integration_type") // e.g., "google", "gohighlevel"
-  requiredConfigs  Json?      @map("required_configs") // JSON schema for required configuration
-  createdAt        DateTime   @default(now()) @map("created_at")
-  updatedAt        DateTime   @updatedAt @map("updated_at")
-  
-  // Relations
-  botTools         BotTool[]
-
-  @@map("tools")
-}
-
-// Junction table between Bots and Tools with tool-specific config
-model BotTool {
+// Tool Category model - for organizing tools by category
+model ToolCategory {
   id          String    @id @default(uuid())
-  botId       String    @map("bot_id")
-  toolId      String    @map("tool_id")
-  config      Json?     // Tool-specific configuration as JSONB
+  name        String
+  slug        String    @unique
+  description String?
+  iconName    String?   @map("icon_name")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   
   // Relations
-  bot         Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  tools       Tool[]
+
+  @@map("tool_categories")
+}
+
+// Tool model - represents available tools that can be used by bots
+model Tool {
+  id               String          @id @default(uuid())
+  name             String
+  description      String?
+  type             ToolType
+  isActive         Boolean         @default(true) @map("is_active")
+  integrationType  String?         @map("integration_type") // e.g., "google", "gohighlevel"
+  requiredConfigs  Json?           @map("required_configs") // JSON schema for required configuration
+  functions        Json?           // Available functions/operations for this tool
+  functionsSchema  Json?           @map("functions_schema") // Schema definition for available functions
+  version          String          @default("1.0.0")
+  categoryId       String?         @map("category_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  
+  // Relations
+  category         ToolCategory?   @relation(fields: [categoryId], references: [id])
+  botTools         BotTool[]
+  toolCredentials  ToolCredential[]
+  toolUsageMetrics ToolUsageMetric[]
+  executionErrors  ToolExecutionError[]
+
+  @@index([categoryId])
+  @@map("tools")
+}
+
+// Tool credentials - store authentication credentials for tools
+model ToolCredential {
+  id          String    @id @default(uuid())
+  toolId      String    @map("tool_id")
+  userId      String    @map("user_id")
+  provider    String    // e.g., "google", "microsoft", "zoom" (not tool-specific like "google_calendar")
+  credentials Json      // Encrypted credentials
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
   tool        Tool      @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botTools    BotTool[]
+
+  @@index([toolId])
+  @@index([userId])
+  @@index([provider]) // Add index for efficient provider lookups
+  @@map("tool_credentials")
+}
+
+// Junction table between Bots and Tools with tool-specific config
+model BotTool {
+  id              String          @id @default(uuid())
+  botId           String          @map("bot_id")
+  toolId          String          @map("tool_id")
+  toolCredentialId String?        @map("tool_credential_id")
+  isEnabled       Boolean         @default(true) @map("is_enabled")
+  config          Json?           // Tool-specific configuration as JSONB
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  
+  // Relations
+  bot             Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
+  tool            Tool            @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  toolCredential  ToolCredential? @relation(fields: [toolCredentialId], references: [id])
 
   @@unique([botId, toolId])
   @@index([botId])
   @@index([toolId])
+  @@index([toolCredentialId])
   @@map("bot_tools")
+}
+
+// Tool usage metrics
+model ToolUsageMetric {
+  id         String   @id @default(uuid())
+  toolId     String   @map("tool_id")
+  botId      String   @map("bot_id")
+  functionId String   @map("function_id") // ID/name of the specific function used
+  count      Int      @default(0)
+  lastUsed   DateTime @default(now()) @map("last_used")
+  
+  // Relations
+  tool       Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  bot        Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  
+  @@unique([toolId, botId, functionId])
+  @@map("tool_usage_metrics")
+}
+
+// Tool execution errors
+model ToolExecutionError {
+  id           String   @id @default(uuid())
+  toolId       String   @map("tool_id")
+  botId        String?  @map("bot_id")
+  functionName String   @map("function_name")
+  errorMessage String   @map("error_message")
+  errorStack   String?  @map("error_stack")
+  params       Json?    // The params that caused the error
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  tool         Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  
+  @@index([toolId])
+  @@map("tool_execution_errors")
 }
 
 // Knowledge Base model - collection of knowledge documents for a bot

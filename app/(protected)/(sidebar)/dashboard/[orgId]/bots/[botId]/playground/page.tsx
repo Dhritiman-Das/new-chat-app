@@ -10,6 +10,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getAvailableModels } from "@/lib/models";
+import { getBotById } from "@/lib/queries/cached-queries";
 import ModelComparison from "./components/model-comparison";
 
 interface PageProps {
@@ -20,6 +21,8 @@ export default async function PlaygroundPage({ params }: PageProps) {
   await requireAuth();
   const { orgId, botId } = await params;
   const availableModels = getAvailableModels();
+  const botResponse = await getBotById(botId);
+  const bot = botResponse?.data;
 
   return (
     <div>
@@ -49,7 +52,7 @@ export default async function PlaygroundPage({ params }: PageProps) {
                 <BreadcrumbLink
                   href={`/dashboard/${orgId}/bots/${botId}/overview`}
                 >
-                  Bot
+                  {bot?.name || "Bot"}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

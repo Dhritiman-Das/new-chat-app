@@ -2,11 +2,10 @@
 
 import { getUserOrganizations } from "@/lib/queries/cached-queries";
 import { ActionResponse, appErrors } from "./types";
-import { PlanType, PrismaClient } from "@/lib/generated/prisma";
+import { PlanType } from "@/lib/generated/prisma";
 import { requireAuth } from "@/utils/auth";
 import { revalidateTag } from "next/cache";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/db/prisma";
 
 // Types for organization actions
 type CreateOrganizationInput = {

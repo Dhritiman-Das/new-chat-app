@@ -93,6 +93,14 @@ export default async function Dashboard({ params }: PageProps) {
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
+                <BreadcrumbLink
+                  href={`/dashboard/${orgId}/bots/${botId}/overview`}
+                >
+                  {bot?.name || "Bot"}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
                 <BreadcrumbPage>Overview</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
@@ -101,9 +109,7 @@ export default async function Dashboard({ params }: PageProps) {
       </header>
 
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">
-          {bot?.name || "Bot"} overview
-        </h1>
+        <h1 className="text-2xl font-bold mb-6">Overview</h1>
 
         <div className="mx-auto grid grid-cols-1 gap-px rounded-xl bg-border sm:grid-cols-3 mb-8">
           {stats.map((stat, index) => (

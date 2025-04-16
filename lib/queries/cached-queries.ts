@@ -1,5 +1,4 @@
 import { unstable_cache } from "next/cache";
-import { PrismaClient } from "@/lib/generated/prisma";
 import {
   getUserBotsQuery,
   getUserActiveBotCountQuery,
@@ -11,9 +10,7 @@ import {
   getBotByIdQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
-
-// Initialize Prisma client
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/db/prisma";
 
 // Cache user's organizations
 export const getUserOrganizations = async () => {

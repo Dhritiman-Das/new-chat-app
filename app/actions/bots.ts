@@ -1,13 +1,10 @@
 "use server";
 
 // import { z } from 'zod';
-import { PrismaClient } from "@/lib/generated/prisma";
 import { requireAuth } from "@/utils/auth";
 import { revalidateTag } from "next/cache";
 import { ActionResponse, appErrors } from "./types";
-
-// Create a new Prisma client
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/db/prisma";
 
 // Types for bot actions
 type CreateBotInput = {
