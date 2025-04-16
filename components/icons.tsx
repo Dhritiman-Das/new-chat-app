@@ -29,6 +29,7 @@ import {
   MessageCircle,
   Building,
   SquareTerminal,
+  ChartSpline,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
 import { FaXTwitter } from "react-icons/fa6";
@@ -65,6 +66,7 @@ export const Icons = {
   MessageCircle,
   Building,
   Terminal: SquareTerminal,
+  ChartSpline,
   OpenAI: AiOutlineOpenAI,
   XAI: FaXTwitter,
 };
@@ -91,6 +93,7 @@ export {
   Hammer,
   PlusCircle,
   Building,
+  ChartSpline,
 };
 
 // Export the React Icons components

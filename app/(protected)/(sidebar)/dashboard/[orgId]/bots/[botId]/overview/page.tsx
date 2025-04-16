@@ -102,12 +102,8 @@ export default async function Dashboard({ params }: PageProps) {
 
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">
-          {bot?.name || "Bot"} Overview
+          {bot?.name || "Bot"} overview
         </h1>
-
-        {bot?.description && (
-          <p className="text-muted-foreground mb-6">{bot.description}</p>
-        )}
 
         <div className="mx-auto grid grid-cols-1 gap-px rounded-xl bg-border sm:grid-cols-3 mb-8">
           {stats.map((stat, index) => (
@@ -175,29 +171,6 @@ export default async function Dashboard({ params }: PageProps) {
             </CardContent>
           </Card>
         )}
-
-        {bot?.systemPrompt && (
-          <Card className="mt-8">
-            <CardHeader>
-              <CardTitle>System Prompt</CardTitle>
-              <CardDescription>
-                Instructions that guide your bot&apos;s behavior
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-sm">
-                {bot.systemPrompt}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="bg-card p-4 rounded-lg shadow-sm mt-8">
-          <h2 className="text-lg font-semibold mb-2">Your Bot Details</h2>
-          <p className="text-muted-foreground">
-            Organization: {bot?.organization?.name || "Unknown"}
-          </p>
-        </div>
       </div>
     </div>
   );

@@ -74,7 +74,7 @@ export function AppSidebar({ orgId, botId }: AppSidebarProps) {
     {
       title: "Analytics",
       url: `/dashboard/${orgId}/bots/${botId}/analytics`,
-      icon: Icons.Info,
+      icon: Icons.ChartSpline,
     },
   ];
 
@@ -121,7 +121,7 @@ export function AppSidebar({ orgId, botId }: AppSidebarProps) {
         <SidebarSeparator className="my-2" />
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tools</SidebarGroupLabel>
+          <SidebarGroupLabel>More</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {tools.map((item) => (

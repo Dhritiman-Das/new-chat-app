@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,67 +23,27 @@ import { type Model } from "@/lib/models";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
-interface Message {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-}
-
 interface ChatInterfaceProps {
   model: Model;
   botId: string;
 }
 
 export default function ChatInterface({ model, botId }: ChatInterfaceProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [history, setHistory] = useState<Message[]>([]);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
       api: `/api/chat?model=${model.id}&botId=${botId}`,
-      onFinish: (message) => {
-        setHistory((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: message.content,
-          },
-        ]);
-      },
+      // We no longer need the onFinish callback since useChat will manage the messages
     });
 
-  // When user sends a message, add it to our history
+  // Auto scroll to bottom whenever messages change
   useEffect(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (
-        lastMessage.role === "user" &&
-        !history.some(
-          (m) => m.content === lastMessage.content && m.role === "user"
-        )
-      ) {
-        setHistory((prev) => [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: "user",
-            content: lastMessage.content,
-          },
-        ]);
-      }
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, history]);
-
-  // Auto scroll to bottom on new messages
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({
-        top: scrollAreaRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [history]);
+  }, [messages, isLoading]);
 
   const ProviderIcon =
     model.provider === "xai"
@@ -105,7 +65,7 @@ export default function ChatInterface({ model, botId }: ChatInterfaceProps) {
         className="flex-1 p-4 h-[calc(100vh-25rem)]"
       >
         <div className="space-y-4">
-          {history.length === 0 ? (
+          {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-4">
               <Card className="w-full max-w-md mx-auto border shadow-sm">
                 <CardHeader className="pb-2">
@@ -201,34 +161,47 @@ export default function ChatInterface({ model, botId }: ChatInterfaceProps) {
               </div>
             </div>
           ) : (
-            history.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
+            <div className="space-y-4">
+              {messages.map((msg) => (
                 <div
-                  className={`px-4 py-2 rounded-lg max-w-[80%] ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
+                  key={msg.id}
+                  className={`flex ${
+                    msg.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  {msg.content}
+                  <div
+                    className={`px-4 py-2 rounded-lg max-w-[80%] ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="px-4 py-2 rounded-lg max-w-[80%] bg-muted">
-                <div className="flex space-x-2 items-center">
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" />
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.2s]" />
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.4s]" />
+              ))}
+
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="px-4 py-2 rounded-lg max-w-[80%] bg-muted">
+                    <div className="flex space-x-2 items-center">
+                      <div
+                        className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <div
+                        className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+                        style={{ animationDelay: "150ms" }}
+                      />
+                      <div
+                        className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce"
+                        style={{ animationDelay: "300ms" }}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
           )}
         </div>
