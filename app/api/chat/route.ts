@@ -1,72 +1,129 @@
-import { xai } from "@ai-sdk/xai";
+import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@ai-sdk/openai";
-import { streamText } from "ai";
+import { xai } from "@ai-sdk/xai";
+import { streamText, ToolSet } from "ai";
+import { toolRegistry, ToolExecutionService } from "@/lib/tools";
+import { prisma } from "@/lib/db/prisma";
+import { initializeTools } from "@/lib/tools";
 import { getModelById } from "@/lib/models";
-import prisma from "@/lib/db/prisma";
 
-interface ChatMessage {
-  role: "user" | "system" | "assistant";
-  content: string;
-}
+// Initialize the tools and get tool services
+initializeTools();
+const toolExecutionService = new ToolExecutionService();
 
-export async function POST(req: Request) {
-  const { messages } = await req.json();
-  const url = new URL(req.url);
-  const modelId = url.searchParams.get("model");
-  const botId = url.searchParams.get("botId");
-
-  if (!modelId) {
-    return new Response("Model ID is required", { status: 400 });
-  }
-
-  // Get bot system prompt if botId is provided
-  let systemPrompt = "You are a helpful assistant.";
-  if (botId) {
-    try {
-      const bot = await prisma.bot.findUnique({
-        where: { id: botId },
-      });
-      if (bot) {
-        systemPrompt = bot.systemPrompt;
-      }
-    } catch (error) {
-      console.error("Error fetching bot:", error);
-    }
-  }
-
-  // Add system message if it doesn't exist
-  const hasSystemMessage = messages.some(
-    (message: ChatMessage) => message.role === "system"
-  );
-  const messagesWithSystem = hasSystemMessage
-    ? messages
-    : [{ role: "system", content: systemPrompt }, ...messages];
-
-  const model = getModelById(modelId);
-
-  if (!model) {
-    return new Response("Model not found", { status: 404 });
-  }
-
+export async function POST(req: NextRequest) {
   try {
-    let aiModel;
+    const { messages, botId } = await req.json();
+    const url = new URL(req.url);
+    const modelId = url.searchParams.get("model");
 
+    if (!modelId) {
+      return NextResponse.json(
+        { error: "Model ID is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!botId) {
+      return NextResponse.json(
+        { error: "Bot ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Get the model
+    const model = getModelById(modelId);
+    if (!model) {
+      return NextResponse.json({ error: "Model not found" }, { status: 404 });
+    }
+
+    // Get bot details and enabled tools
+    const bot = await prisma.bot.findUnique({
+      where: { id: botId },
+      include: {
+        botTools: {
+          where: { isEnabled: true },
+          include: { tool: true },
+        },
+      },
+    });
+
+    if (!bot) {
+      return NextResponse.json({ error: "Bot not found" }, { status: 404 });
+    }
+
+    // Create enabled tools for the bot
+    const enabledTools: Record<string, unknown> = {};
+
+    // Use real user and organization IDs in production
+    const userId = bot.userId;
+    const organizationId = bot.organizationId;
+
+    // Process enabled tools
+    for (const botTool of bot.botTools) {
+      // Skip tools that aren't active globally
+      if (!botTool.tool.isActive) continue;
+
+      // Get tool definition from the registry
+      const toolDef = toolRegistry.get(botTool.tool.id);
+      if (!toolDef) continue;
+
+      // Add each function from the tool
+      for (const [functionName, func] of Object.entries(toolDef.functions)) {
+        enabledTools[`${botTool.tool.id}_${functionName}`] = {
+          description: func.description,
+          parameters: func.parameters, // Zod schema will be handled appropriately by the AI SDK
+          execute: async (params: Record<string, unknown>) => {
+            // Execute the tool through the execution service
+            return toolExecutionService.executeTool(
+              botTool.tool.id,
+              functionName,
+              params,
+              {
+                userId,
+                botId,
+                organizationId,
+              }
+            );
+          },
+        };
+      }
+    }
+
+    // Generate system message
+    const systemMessage = bot.systemPrompt || "You are a helpful AI assistant.";
+
+    // Check if we have any tools to use
+    const hasTools = Object.keys(enabledTools).length > 0;
+
+    // Initialize the right AI model based on provider
+    let aiModel;
     if (model.provider === "xai") {
       aiModel = xai(model.id);
     } else if (model.provider === "openai") {
       aiModel = openai(model.id);
     } else {
-      return new Response("Provider not supported", { status: 400 });
+      return NextResponse.json(
+        { error: "Provider not supported" },
+        { status: 400 }
+      );
     }
 
+    // Stream the AI response with tools
     const result = streamText({
       model: aiModel,
-      messages: messagesWithSystem,
+      system: systemMessage,
+      messages,
+      tools: hasTools ? (enabledTools as ToolSet) : undefined,
+      maxSteps: 5, // Allow multiple tool calls if needed
     });
 
     return result.toDataStreamResponse();
   } catch (error) {
-    console.error("Error:", error);
-    return new Response("Error processing your request", { status: 500 });
+    console.error("Chat API error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

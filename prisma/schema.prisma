@@ -120,7 +120,7 @@ model Tool {
   integrationType  String?         @map("integration_type") // e.g., "google", "gohighlevel"
   requiredConfigs  Json?           @map("required_configs") // JSON schema for required configuration
   functions        Json?           // Available functions/operations for this tool
-  functionsSchema  Json?           @map("functions_schema") // Schema definition for available functions
+  functionsSchema  Json?           @map("functions_schema") // Optional schema definition for available functions
   version          String          @default("1.0.0")
   categoryId       String?         @map("category_id")
   createdAt        DateTime        @default(now()) @map("created_at")

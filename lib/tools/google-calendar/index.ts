@@ -1,0 +1,39 @@
+import { ToolDefinition } from "../definitions/tool-interface";
+import {
+  googleCalendarConfigSchema,
+  googleCalendarCredentialSchema,
+} from "./schema";
+import {
+  bookAppointment,
+  rescheduleAppointment,
+  cancelAppointment,
+  listAppointments,
+} from "./functions";
+
+export const googleCalendarTool: ToolDefinition = {
+  id: "google-calendar",
+  name: "Google Calendar",
+  description: "Schedule and manage appointments using Google Calendar",
+  type: "CALENDAR_BOOKING",
+  integrationType: "google",
+  version: "1.0.0",
+  configSchema: googleCalendarConfigSchema,
+  functions: {
+    bookAppointment,
+    rescheduleAppointment,
+    cancelAppointment,
+    listAppointments,
+  },
+  getCredentialSchema: () => googleCalendarCredentialSchema,
+  defaultConfig: {
+    appointmentDuration: 30,
+    availabilityWindowDays: 14,
+    availableTimeSlots: [
+      { day: "monday", startTime: "09:00", endTime: "17:00" },
+      { day: "tuesday", startTime: "09:00", endTime: "17:00" },
+      { day: "wednesday", startTime: "09:00", endTime: "17:00" },
+      { day: "thursday", startTime: "09:00", endTime: "17:00" },
+      { day: "friday", startTime: "09:00", endTime: "17:00" },
+    ],
+  },
+};
