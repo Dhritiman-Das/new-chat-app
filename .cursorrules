@@ -47,31 +47,62 @@ Next.js Specifics
 - Handle errors gracefully and return appropriate responses.
 - Use import type { ActionResponse } from '@/types/actions'
 - Ensure all server actions return the ActionResponse type
-- Implement consistent error handling and success responses using ActionResponse
+- Implement consistent error handling and success responses using
+- Implement toaster whenever applicable
+  Example:
+
+  ```tsx
+  "use client";
+
+  import { toast } from "sonner";
+  import { Button } from "@/components/ui/button";
+
+  export function SonnerDemo() {
+    return (
+      <Button
+        variant="outline"
+        onClick={() =>
+          toast("Event has been created", {
+            description: "Sunday, December 03, 2023 at 9:00 AM",
+            action: {
+              label: "Undo",
+              onClick: () => console.log("Undo"),
+            },
+          })
+        }
+      >
+        Show Toast
+      </Button>
+    );
+  }
+  ```
+
+ActionResponse
+
 - Example:
 
-  ```typescript
-  'use server'
+```typescript
+'use server'
 
-  import { createSafeActionClient } from 'next-safe-action'
-  import { z } from 'zod'
-  import type { ActionResponse } from '@/app/actions/actions'
+import { createSafeActionClient } from 'next-safe-action'
+import { z } from 'zod'
+import type { ActionResponse } from '@/app/actions/actions'
 
-  const schema = z.object({
-    value: z.string()
+const schema = z.object({
+  value: z.string()
+})
+
+export const someAction = createSafeActionClient()
+  .schema(schema)
+  .action(async (input): Promise<ActionResponse> => {
+    try {
+      // Action logic here
+      return { success: true, data: /* result */ }
+    } catch (error) {
+      return { success: false, error: error instanceof AppError ? error : appErrors.UNEXPECTED_ERROR, }
+    }
   })
-
-  export const someAction = createSafeActionClient()
-    .schema(schema)
-    .action(async (input): Promise<ActionResponse> => {
-      try {
-        // Action logic here
-        return { success: true, data: /* result */ }
-      } catch (error) {
-        return { success: false, error: error instanceof AppError ? error : appErrors.UNEXPECTED_ERROR, }
-      }
-    })
-  ```
+```
 
 - Use useQueryState for all query state management.
 - Example:

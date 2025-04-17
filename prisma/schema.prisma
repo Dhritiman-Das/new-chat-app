@@ -153,6 +153,7 @@ model ToolCredential {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   botTools    BotTool[]
 
+  @@unique([userId, toolId, provider])
   @@index([toolId])
   @@index([userId])
   @@index([provider]) // Add index for efficient provider lookups

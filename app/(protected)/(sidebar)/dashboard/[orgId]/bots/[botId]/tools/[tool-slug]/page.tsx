@@ -1,5 +1,5 @@
 import { requireAuth } from "@/utils/auth";
-import { getBotById } from "@/lib/queries/cached-queries";
+import { getBotById, getBotTool } from "@/lib/queries/cached-queries";
 import { Icons } from "@/components/icons";
 import {
   Breadcrumb,
@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { initializeTools } from "@/lib/tools";
 import { notFound } from "next/navigation";
 import ToolComponentWrapper from "@/components/tools/tool-component-wrapper";
+import InstallToolCard from "@/components/tools/install-tool-card";
 
 // Define a serializable tool interface without function references
 interface SerializableTool {
@@ -40,14 +41,23 @@ export default async function ToolDetailPage({ params }: PageProps) {
   const botResponse = await getBotById(botId);
   const bot = botResponse?.data;
 
+  if (!bot) {
+    notFound();
+  }
+
   // Initialize and get specific tool from registry
   const { toolRegistry } = initializeTools();
   const tool = toolRegistry.get(toolSlug);
 
-  // If tool not found, return 404
+  // If tool not found in registry, return 404
   if (!tool) {
     notFound();
   }
+
+  // Check if the tool is installed for this bot
+  const botToolResponse = await getBotTool(botId, toolSlug);
+  const botTool = botToolResponse?.data;
+  const isToolInstalled = !!botTool;
 
   // Create a serializable version of the tool without function references
   const serializableTool: SerializableTool = {
@@ -148,12 +158,19 @@ export default async function ToolDetailPage({ params }: PageProps) {
           </AlertDescription>
         </Alert>
 
-        {/* Render tool-specific component via client wrapper */}
-        <ToolComponentWrapper
-          toolSlug={toolSlug}
-          tool={serializableTool}
-          botId={botId}
-        />
+        {/* Conditionally render either the installation card or the tool component */}
+        {isToolInstalled ? (
+          // Tool is installed, show the configuration component
+          <ToolComponentWrapper
+            toolSlug={toolSlug}
+            tool={serializableTool}
+            botId={botId}
+            orgId={orgId}
+          />
+        ) : (
+          // Tool is not installed, show the installation card
+          <InstallToolCard tool={serializableTool} botId={botId} />
+        )}
       </div>
     </div>
   );

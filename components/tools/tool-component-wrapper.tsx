@@ -37,6 +37,7 @@ interface ToolComponentWrapperProps {
   toolSlug: string;
   tool: SerializableTool;
   botId: string;
+  orgId: string;
 }
 
 // Loading placeholder component
@@ -64,11 +65,14 @@ function ToolLoading({ name }: { name: string }) {
 function DefaultToolComponent({
   tool,
   botId,
+  orgId,
 }: {
   tool: SerializableTool;
   botId: string;
+  orgId: string;
 }) {
   console.log("botId", botId);
+  console.log("orgId", orgId);
   return (
     <>
       <Card className="mb-8">
@@ -116,14 +120,15 @@ export default function ToolComponentWrapper({
   toolSlug,
   tool,
   botId,
+  orgId,
 }: ToolComponentWrapperProps) {
   // Render the appropriate component based on toolSlug
   switch (toolSlug) {
     case "google-calendar":
-      return <GoogleCalendarTool tool={tool} botId={botId} />;
+      return <GoogleCalendarTool tool={tool} botId={botId} orgId={orgId} />;
     case "lead-capture":
       return <LeadCaptureTool tool={tool} botId={botId} />;
     default:
-      return <DefaultToolComponent tool={tool} botId={botId} />;
+      return <DefaultToolComponent tool={tool} botId={botId} orgId={orgId} />;
   }
 }

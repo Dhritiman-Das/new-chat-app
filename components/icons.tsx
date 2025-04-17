@@ -30,6 +30,21 @@ import {
   Building,
   SquareTerminal,
   ChartSpline,
+  Loader2,
+  SunMedium,
+  Moon,
+  Laptop,
+  CreditCard,
+  MoreVertical,
+  Plus,
+  HelpCircle,
+  User,
+  File,
+  FileText,
+  Image,
+  Trash,
+  Twitter,
+  RefreshCw,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
 import { FaXTwitter } from "react-icons/fa6";
@@ -69,6 +84,21 @@ export const Icons = {
   ChartSpline,
   OpenAI: AiOutlineOpenAI,
   XAI: FaXTwitter,
+  Spinner: Loader2,
+  Sun: SunMedium,
+  Moon,
+  Laptop,
+  Billing: CreditCard,
+  Ellipsis: MoreVertical,
+  Add: Plus,
+  Warning: HelpCircle,
+  User,
+  File,
+  FileText,
+  Image,
+  Trash,
+  Twitter,
+  RefreshCw,
 };
 
 // Export individual icons for direct imports

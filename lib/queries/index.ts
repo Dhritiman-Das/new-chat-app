@@ -115,6 +115,28 @@ export async function getBotByIdQuery(prisma: PrismaClient, botId: string) {
   };
 }
 
+export async function getBotToolQuery(
+  prisma: PrismaClient,
+  botId: string,
+  toolId: string
+) {
+  const botTool = await prisma.botTool.findUnique({
+    where: {
+      botId_toolId: {
+        botId,
+        toolId,
+      },
+    },
+    include: {
+      tool: true,
+    },
+  });
+
+  return {
+    data: botTool,
+  };
+}
+
 export async function getOrganizationActiveBotCountQuery(
   prisma: PrismaClient,
   organizationId: string

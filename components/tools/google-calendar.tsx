@@ -32,7 +32,10 @@ import { Separator } from "@/components/ui/separator";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import { connectGoogleCalendar } from "@/app/actions/tool-credentials";
+import { useRouter, useSearchParams } from "next/navigation";
 
 // Interface for serialized tool object
 interface SerializableTool {
@@ -49,6 +52,16 @@ interface SerializableTool {
 interface GoogleCalendarToolProps {
   tool: SerializableTool;
   botId: string; // Used for API calls when saving configuration
+  orgId: string; // Used for redirects after OAuth flows
+}
+
+interface Calendar {
+  id: string;
+  name: string;
+  isPrimary?: boolean;
+  description?: string;
+  backgroundColor?: string;
+  foregroundColor?: string;
 }
 
 const timeSlotSchema = z.object({
@@ -76,8 +89,16 @@ const configSchema = z.object({
 export default function GoogleCalendarTool({
   tool,
   botId,
+  orgId,
 }: GoogleCalendarToolProps) {
   const [activeTab, setActiveTab] = useState("settings");
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [calendars, setCalendars] = useState<Calendar[]>([]);
+  const [selectedCalendar, setSelectedCalendar] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const form = useForm<z.infer<typeof configSchema>>({
     resolver: zodResolver(configSchema),
@@ -99,10 +120,165 @@ export default function GoogleCalendarTool({
     },
   });
 
-  function onSubmit(values: z.infer<typeof configSchema>) {
-    // TODO: Implement save configuration using botId for API calls
-    console.log(values, botId);
+  // Check if user already has Google Calendar connected
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        setIsLoading(true);
+        // Check if we just returned from OAuth flow
+        const connected = searchParams.get("connected");
+        const toolId = searchParams.get("toolId");
+
+        if (connected === "true" && toolId === tool.id) {
+          setIsConnected(true);
+          toast.success("Successfully connected to Google Calendar");
+          // Remove the query params to prevent confusion on page refresh
+          const url = new URL(window.location.href);
+          url.searchParams.delete("connected");
+          url.searchParams.delete("toolId");
+          router.replace(url.pathname + url.search);
+        }
+
+        // Check for existing connection
+        const response = await fetch(
+          `/api/tools/${tool.id}/credentials?provider=google`
+        );
+        if (!response.ok) {
+          if (response.status !== 404) {
+            // Only show error for unexpected failures, not for "not found"
+            console.error(
+              "Error checking Google connection:",
+              response.statusText
+            );
+            toast.error("Failed to check Google Calendar connection status");
+          }
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          setIsConnected(true);
+          // If we have calendars, set them
+          if (data.data.calendars && data.data.calendars.length > 0) {
+            setCalendars(data.data.calendars);
+            // If there's a default calendar, select it
+            if (data.data.defaultCalendarId) {
+              setSelectedCalendar(data.data.defaultCalendarId);
+              form.setValue("defaultCalendarId", data.data.defaultCalendarId);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error checking Google connection:", error);
+        toast.error("Failed to check Google Calendar connection status");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkConnection();
+  }, [tool.id, searchParams, router, form]);
+
+  async function onSubmit(values: z.infer<typeof configSchema>) {
+    try {
+      // Save the configuration
+      const response = await fetch(
+        `/api/bots/${botId}/tools/${tool.id}/config`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(values),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to save configuration: ${response.statusText}`);
+      }
+
+      toast.success("Configuration saved successfully");
+    } catch (error) {
+      console.error("Error saving configuration:", error);
+      toast.error("Failed to save configuration");
+    }
   }
+
+  // Handle connecting to Google Calendar
+  const handleConnectGoogleCalendar = async () => {
+    setIsConnecting(true);
+    try {
+      const response = await connectGoogleCalendar({
+        toolId: tool.id,
+        botId,
+        orgId,
+      });
+
+      // Check if the response has a success flag and authUrl
+      if (response?.data?.success && response.data?.data?.authUrl) {
+        window.location.href = response.data.data.authUrl;
+      } else {
+        toast.error(
+          response?.data?.error?.message ||
+            "Failed to connect to Google Calendar"
+        );
+      }
+    } catch (error) {
+      console.error("Error connecting to Google Calendar:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Handle calendar selection
+  const handleCalendarSelection = async (calendarId: string) => {
+    setSelectedCalendar(calendarId);
+    form.setValue("defaultCalendarId", calendarId);
+
+    try {
+      // Save the selection immediately
+      await onSubmit(form.getValues());
+    } catch (error) {
+      console.error("Error saving calendar selection:", error);
+    }
+  };
+
+  // Handle disconnecting Google Calendar
+  const handleDisconnectGoogleCalendar = async () => {
+    if (
+      !confirm(
+        "Are you sure you want to disconnect Google Calendar? This will remove access to all calendars."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/tools/${tool.id}/credentials/delete?provider=google`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to disconnect: ${response.statusText}`);
+      }
+
+      // Reset states
+      setIsConnected(false);
+      setCalendars([]);
+      setSelectedCalendar(null);
+      form.setValue("defaultCalendarId", undefined);
+
+      toast.success("Successfully disconnected from Google Calendar");
+    } catch (error) {
+      console.error("Error disconnecting from Google Calendar:", error);
+      toast.error("Failed to disconnect from Google Calendar");
+    }
+  };
 
   return (
     <div>
@@ -345,10 +521,47 @@ export default function GoogleCalendarTool({
                       Grant permissions to manage your calendars
                     </p>
                   </div>
-                  <Button variant="outline">
-                    <Icons.Calendar className="mr-2 h-4 w-4" />
-                    Connect Account
-                  </Button>
+                  {isLoading ? (
+                    <Button variant="outline" disabled>
+                      <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </Button>
+                  ) : isConnected ? (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleDisconnectGoogleCalendar}
+                        className="text-destructive border-destructive hover:bg-destructive/10"
+                      >
+                        <Icons.X className="mr-2 h-4 w-4" />
+                        Disconnect
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={handleConnectGoogleCalendar}
+                      >
+                        <Icons.RefreshCw className="mr-2 h-4 w-4" />
+                        Reconnect
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleConnectGoogleCalendar}
+                      disabled={isConnecting}
+                    >
+                      {isConnecting ? (
+                        <>
+                          <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Icons.Calendar className="mr-2 h-4 w-4" />
+                          Connect Account
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
 
                 <Separator />
@@ -360,14 +573,53 @@ export default function GoogleCalendarTool({
                       Select a default calendar for appointments
                     </p>
                   </div>
-                  <Select disabled>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="No calendars available" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="primary">Primary Calendar</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {isLoading ? (
+                    <div className="w-[200px] h-10 flex items-center justify-center">
+                      <Icons.Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <Select
+                      disabled={!isConnected || calendars.length === 0}
+                      value={selectedCalendar || undefined}
+                      onValueChange={handleCalendarSelection}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue
+                          placeholder={
+                            !isConnected
+                              ? "Connect account first"
+                              : calendars.length === 0
+                              ? "No calendars available"
+                              : "Select a calendar"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {calendars.map((calendar) => (
+                          <SelectItem
+                            key={calendar.id}
+                            value={calendar.id}
+                            className="flex items-center"
+                          >
+                            <div className="flex items-center gap-2">
+                              {calendar.backgroundColor && (
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{
+                                    backgroundColor: calendar.backgroundColor,
+                                  }}
+                                ></div>
+                              )}
+                              <span>
+                                {calendar.name}
+                                {calendar.isPrimary && " (Primary)"}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <Separator />
@@ -380,7 +632,7 @@ export default function GoogleCalendarTool({
                       bot
                     </p>
                   </div>
-                  <Switch />
+                  <Switch disabled={!isConnected} />
                 </div>
               </div>
             </CardContent>

@@ -1,17 +1,85 @@
 import { prisma } from "@/lib/db/prisma";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
+import crypto from "crypto";
 
-// In a real app, you'd want to encrypt/decrypt credentials
-// For this example, we'll skip that part but you should implement it
-// using something like crypto or a dedicated encryption library
+// Encryption implementation using Node.js crypto
+// In a real app, consider using a dedicated key management system
+// and rotating encryption keys periodically
 function encryptData(data: Record<string, unknown>): Record<string, unknown> {
-  // In a real implementation, encrypt the data
-  return data;
+  try {
+    const encryptionKey = process.env.CREDENTIALS_ENCRYPTION_KEY;
+    if (!encryptionKey || encryptionKey.length < 32) {
+      console.warn(
+        "Warning: Missing or insufficient encryption key. Using unencrypted storage."
+      );
+      return data;
+    }
+
+    // We'll encrypt the stringified data
+    const stringData = JSON.stringify(data);
+
+    // Generate a random initialization vector
+    const iv = crypto.randomBytes(16);
+
+    // Create cipher using AES-256-CBC
+    const cipher = crypto.createCipheriv(
+      "aes-256-cbc",
+      Buffer.from(encryptionKey.slice(0, 32)),
+      iv
+    );
+
+    // Encrypt the data
+    let encrypted = cipher.update(stringData, "utf8", "base64");
+    encrypted += cipher.final("base64");
+
+    // Return object with IV and encrypted data
+    return {
+      __encrypted: true,
+      iv: iv.toString("hex"),
+      data: encrypted,
+    };
+  } catch (error) {
+    console.error("Encryption error:", error);
+    // Fallback to unencrypted in case of error
+    return data;
+  }
 }
 
 function decryptData(data: Record<string, unknown>): Record<string, unknown> {
-  // In a real implementation, decrypt the data
-  return data;
+  try {
+    // Check if the data is encrypted
+    if (!data.__encrypted) {
+      return data;
+    }
+
+    const encryptionKey = process.env.CREDENTIALS_ENCRYPTION_KEY;
+    if (!encryptionKey || encryptionKey.length < 32) {
+      console.warn("Warning: Missing or insufficient decryption key.");
+      return data;
+    }
+
+    // Get the IV and encrypted data
+    const iv = Buffer.from(data.iv as string, "hex");
+    const encryptedData = data.data as string;
+
+    // Create decipher
+    const decipher = crypto.createDecipheriv(
+      "aes-256-cbc",
+      Buffer.from(encryptionKey.slice(0, 32)),
+      iv
+    );
+
+    // Decrypt the data
+    let decrypted = decipher.update(encryptedData, "base64", "utf8");
+    decrypted += decipher.final("utf8");
+
+    // Parse and return the original data
+    return JSON.parse(decrypted);
+  } catch (error) {
+    console.error("Decryption error:", error);
+    // Return the data as is in case of error
+    return data;
+  }
 }
 
 export class ToolCredentialsService {
