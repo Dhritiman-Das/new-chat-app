@@ -120,6 +120,8 @@ export async function GET(request: Request) {
       },
     });
 
+    let credentialId: string;
+
     // Store or update the credentials in the database
     if (existingCredential) {
       // Safely extract the existing refresh token if needed
@@ -145,9 +147,11 @@ export async function GET(request: Request) {
           },
         },
       });
+
+      credentialId = existingCredential.id;
     } else {
       try {
-        await prisma.toolCredential.create({
+        const newCredential = await prisma.toolCredential.create({
           data: {
             toolId,
             userId,
@@ -161,6 +165,8 @@ export async function GET(request: Request) {
             },
           },
         });
+
+        credentialId = newCredential.id;
       } catch (createError) {
         console.error("Error creating tool credential:", createError);
         throw new Error(
@@ -169,6 +175,24 @@ export async function GET(request: Request) {
           }`
         );
       }
+    }
+
+    // Update the BotTool record with the credential ID
+    try {
+      await prisma.botTool.update({
+        where: {
+          botId_toolId: {
+            botId,
+            toolId,
+          },
+        },
+        data: {
+          toolCredentialId: credentialId,
+        },
+      });
+    } catch (updateError) {
+      console.error("Error updating BotTool with credential ID:", updateError);
+      // We continue even if this fails - the credentials are still stored
     }
 
     // Clear the OAuth cookies
