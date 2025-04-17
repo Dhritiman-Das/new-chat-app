@@ -6,29 +6,44 @@ import {
   Card,
   CardFooter,
   CardHeader,
-  CardTitle,
   CardContent,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  MessageSquare,
   ArrowUpRight,
   XAI,
   OpenAI,
   ArrowUpRight as ExternalLink,
+  PlusCircle,
 } from "@/components/icons";
 import { useChat } from "ai/react";
 import { type Model } from "@/lib/models";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ChatInterfaceProps {
   model: Model;
   botId: string;
+  models: Model[];
+  onModelChange: (modelId: string) => void;
+  onAddPlayground: () => void;
 }
 
-export default function ChatInterface({ model, botId }: ChatInterfaceProps) {
+export default function ChatInterface({
+  model,
+  botId,
+  models,
+  onModelChange,
+  onAddPlayground,
+}: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -45,25 +60,99 @@ export default function ChatInterface({ model, botId }: ChatInterfaceProps) {
     }
   }, [messages, isLoading]);
 
-  const ProviderIcon =
-    model.provider === "xai"
-      ? XAI
-      : model.provider === "openai"
-      ? OpenAI
-      : null;
+  const getProviderIcon = (provider: string) => {
+    return provider === "xai" ? XAI : provider === "openai" ? OpenAI : null;
+  };
+
+  const ProviderIcon = getProviderIcon(model.provider);
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col overflow-hidden">
       <CardHeader className="pb-2 border-b flex-none">
-        <CardTitle className="text-base font-medium flex items-center">
-          <MessageSquare className="h-4 w-4 mr-2" />
-          {model.name}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Select value={model.id} onValueChange={onModelChange}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue>
+                  {ProviderIcon && (
+                    <ProviderIcon className="h-4 w-4 mr-2 inline" />
+                  )}
+                  {model.providerName} / {model.name}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((m) => {
+                  const ModelIcon = getProviderIcon(m.provider);
+                  return (
+                    <SelectItem key={m.id} value={m.id}>
+                      <div className="flex items-center">
+                        {ModelIcon && <ModelIcon className="h-4 w-4 mr-2" />}
+                        <span>
+                          {m.providerName} / {m.name}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="sm">
+              Synced
+            </Button>
+            <Button variant="outline" size="sm" className="px-2">
+              <svg
+                className="h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+              </svg>
+            </Button>
+            <Button variant="outline" size="sm" className="px-2">
+              <svg
+                className="h-4 w-4"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+            </Button>
+            <Button variant="outline" size="sm" className="px-2">
+              <span className="text-lg">⋯</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-2"
+              onClick={onAddPlayground}
+            >
+              <PlusCircle className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </div>
+        </div>
       </CardHeader>
-      <ScrollArea
-        ref={scrollAreaRef}
-        className="flex-1 p-4 h-[calc(100vh-25rem)]"
-      >
+      <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 overflow-y-auto">
         <div className="space-y-4">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-4">
