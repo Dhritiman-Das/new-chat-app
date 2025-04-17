@@ -4,6 +4,8 @@ import { createSafeActionClient } from "next-safe-action";
 import { z } from "zod";
 import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
+import { auth } from "@/lib/auth";
+import prisma from "@/lib/db/prisma";
 
 const actionClient = createSafeActionClient();
 
@@ -102,3 +104,81 @@ export const connectGoogleCalendar = actionClient
       }
     }
   );
+
+/**
+ * Server action to disconnect Google Calendar
+ */
+export const disconnectGoogleCalendar = actionClient
+  .schema(
+    z.object({
+      toolId: z.string(),
+    })
+  )
+  .action(async ({ parsedInput }): Promise<ActionResponse> => {
+    try {
+      const { toolId } = parsedInput;
+
+      // Get the authenticated user
+      const session = await auth();
+      if (!session?.user?.id) {
+        return {
+          success: false,
+          error: {
+            message: "User not authenticated",
+          },
+        };
+      }
+
+      const userId = session.user.id;
+
+      // Find the credential
+      const credential = await prisma.toolCredential.findFirst({
+        where: {
+          userId,
+          toolId,
+          provider: "google",
+        },
+      });
+
+      if (!credential) {
+        return {
+          success: false,
+          error: {
+            message: "Google Calendar is not connected",
+          },
+        };
+      }
+
+      // Delete the credential
+      await prisma.toolCredential.delete({
+        where: {
+          id: credential.id,
+        },
+      });
+
+      // Update any related bot tools to remove the credential ID
+      await prisma.botTool.updateMany({
+        where: {
+          toolCredentialId: credential.id,
+        },
+        data: {
+          toolCredentialId: null,
+        },
+      });
+
+      return {
+        success: true,
+        data: {
+          message: "Google Calendar disconnected successfully",
+        },
+      };
+    } catch (error) {
+      console.error("Error disconnecting Google Calendar:", error);
+      return {
+        success: false,
+        error: {
+          message: "Failed to disconnect Google Calendar",
+        },
+      };
+    }
+  });

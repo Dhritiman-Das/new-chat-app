@@ -9,6 +9,7 @@ import {
   getOrganizationActiveBotCountQuery,
   getBotByIdQuery,
   getBotToolQuery,
+  getToolCredentialQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -159,6 +160,26 @@ export const getBotTool = async (botId: string, toolId: string) => {
     ["bot_tool", botId, toolId],
     {
       tags: [`bot_${botId}`, `bot_tools_${botId}`],
+      revalidate: 60, // Cache for 1 minute
+    }
+  )();
+};
+
+// Cache tool credential by tool ID, user ID and provider
+export const getToolCredential = async (toolId: string, provider: string) => {
+  const user = await requireAuth();
+  const userId = user.id;
+
+  return unstable_cache(
+    async () => {
+      return getToolCredentialQuery(prisma, toolId, userId, provider);
+    },
+    ["tool_credential", toolId, userId, provider],
+    {
+      tags: [
+        `tool_credentials_${userId}`,
+        `tool_credential_${toolId}_${provider}`,
+      ],
       revalidate: 60, // Cache for 1 minute
     }
   )();

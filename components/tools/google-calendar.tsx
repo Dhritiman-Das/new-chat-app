@@ -34,7 +34,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { connectGoogleCalendar } from "@/app/actions/tool-credentials";
+import {
+  connectGoogleCalendar,
+  disconnectGoogleCalendar,
+} from "@/app/actions/tool-credentials";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // Interface for serialized tool object
@@ -168,6 +171,9 @@ export default function GoogleCalendarTool({
               form.setValue("defaultCalendarId", data.data.defaultCalendarId);
             }
           }
+        } else if (data.exists) {
+          // Handle the case where credential exists but no calendars
+          setIsConnected(true);
         }
       } catch (error) {
         console.error("Error checking Google connection:", error);
@@ -232,19 +238,6 @@ export default function GoogleCalendarTool({
     }
   };
 
-  // Handle calendar selection
-  const handleCalendarSelection = async (calendarId: string) => {
-    setSelectedCalendar(calendarId);
-    form.setValue("defaultCalendarId", calendarId);
-
-    try {
-      // Save the selection immediately
-      await onSubmit(form.getValues());
-    } catch (error) {
-      console.error("Error saving calendar selection:", error);
-    }
-  };
-
   // Handle disconnecting Google Calendar
   const handleDisconnectGoogleCalendar = async () => {
     if (
@@ -255,28 +248,49 @@ export default function GoogleCalendarTool({
       return;
     }
 
+    setIsConnecting(true);
     try {
-      const response = await fetch(
-        `/api/tools/${tool.id}/credentials/delete?provider=google`,
-        {
-          method: "DELETE",
-        }
-      );
+      const result = await disconnectGoogleCalendar({
+        toolId: tool.id,
+      });
 
-      if (!response.ok) {
-        throw new Error(`Failed to disconnect: ${response.statusText}`);
+      if (result && result.data && result.data.success) {
+        // Reset states
+        setIsConnected(false);
+        setCalendars([]);
+        setSelectedCalendar(null);
+        form.setValue("defaultCalendarId", undefined);
+        toast.success("Successfully disconnected from Google Calendar");
+      } else {
+        toast.error("Failed to disconnect from Google Calendar");
       }
-
-      // Reset states
-      setIsConnected(false);
-      setCalendars([]);
-      setSelectedCalendar(null);
-      form.setValue("defaultCalendarId", undefined);
-
-      toast.success("Successfully disconnected from Google Calendar");
     } catch (error) {
       console.error("Error disconnecting from Google Calendar:", error);
       toast.error("Failed to disconnect from Google Calendar");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Toggle connection (connect or disconnect based on current state)
+  const handleToggleConnection = async () => {
+    if (isConnected) {
+      await handleDisconnectGoogleCalendar();
+    } else {
+      await handleConnectGoogleCalendar();
+    }
+  };
+
+  // Handle calendar selection
+  const handleCalendarSelection = async (calendarId: string) => {
+    setSelectedCalendar(calendarId);
+    form.setValue("defaultCalendarId", calendarId);
+
+    try {
+      // Save the selection immediately
+      await onSubmit(form.getValues());
+    } catch (error) {
+      console.error("Error saving calendar selection:", error);
     }
   };
 
@@ -526,33 +540,26 @@ export default function GoogleCalendarTool({
                       <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
                       Loading...
                     </Button>
-                  ) : isConnected ? (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={handleDisconnectGoogleCalendar}
-                        className="text-destructive border-destructive hover:bg-destructive/10"
-                      >
-                        <Icons.X className="mr-2 h-4 w-4" />
-                        Disconnect
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={handleConnectGoogleCalendar}
-                      >
-                        <Icons.RefreshCw className="mr-2 h-4 w-4" />
-                        Reconnect
-                      </Button>
-                    </div>
                   ) : (
                     <Button
-                      onClick={handleConnectGoogleCalendar}
+                      onClick={handleToggleConnection}
                       disabled={isConnecting}
+                      variant={isConnected ? "outline" : "default"}
+                      className={
+                        isConnected
+                          ? "text-destructive border-destructive hover:bg-destructive/10"
+                          : ""
+                      }
                     >
                       {isConnecting ? (
                         <>
                           <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-                          Connecting...
+                          {isConnected ? "Disconnecting..." : "Connecting..."}
+                        </>
+                      ) : isConnected ? (
+                        <>
+                          <Icons.X className="mr-2 h-4 w-4" />
+                          Disconnect Account
                         </>
                       ) : (
                         <>

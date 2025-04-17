@@ -212,3 +212,22 @@ export async function getRecentConversationsQuery(
     data: conversations,
   };
 }
+
+export async function getToolCredentialQuery(
+  prisma: PrismaClient,
+  toolId: string,
+  userId: string,
+  provider: string
+) {
+  const credential = await prisma.toolCredential.findFirst({
+    where: {
+      toolId,
+      userId,
+      provider,
+    },
+  });
+
+  return {
+    data: credential,
+  };
+}
