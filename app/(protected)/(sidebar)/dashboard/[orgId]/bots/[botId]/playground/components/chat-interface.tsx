@@ -155,7 +155,7 @@ export default function ChatInterface({
       <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 overflow-y-auto">
         <div className="space-y-4">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-4">
+            <div className="flex flex-col items-center justify-center h-full min-h-[50vh]">
               <Card className="w-full max-w-md mx-auto border shadow-sm">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2">
