@@ -13,7 +13,8 @@ import {
 export const googleCalendarTool: ToolDefinition = {
   id: "google-calendar",
   name: "Google Calendar",
-  description: "Schedule and manage appointments using Google Calendar",
+  description:
+    "Book, reschedule, cancel, and list appointments on Google Calendar",
   type: "CALENDAR_BOOKING",
   integrationType: "google",
   version: "1.0.0",

@@ -6,6 +6,7 @@ import { toolRegistry, ToolExecutionService } from "@/lib/tools";
 import { prisma } from "@/lib/db/prisma";
 import { initializeTools } from "@/lib/tools";
 import { getModelById } from "@/lib/models";
+import { format } from "date-fns";
 
 // Initialize the tools and get tool services
 initializeTools();
@@ -13,9 +14,10 @@ const toolExecutionService = new ToolExecutionService();
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, botId } = await req.json();
+    const { messages } = await req.json();
     const url = new URL(req.url);
     const modelId = url.searchParams.get("model");
+    const botId = url.searchParams.get("botId");
 
     if (!modelId) {
       return NextResponse.json(
@@ -89,10 +91,15 @@ export async function POST(req: NextRequest) {
         };
       }
     }
-
+    console.log("enabledTools", enabledTools);
     // Generate system message
-    const systemMessage = bot.systemPrompt || "You are a helpful AI assistant.";
-
+    let systemMessage = bot.systemPrompt || "You are a helpful AI assistant.";
+    const timeContext = `The current date and time is ${new Date().toLocaleString()}. Today's DD/MM/YYYY is ${format(
+      new Date(),
+      "dd/MM/yyyy"
+    )}.`;
+    const behaviorContext = `The responses should be concise and to the point. Refrain from sending links. Should the responses be in a rich text format (like **example**)? => False.`;
+    systemMessage += [timeContext, behaviorContext].join("\n\n");
     // Check if we have any tools to use
     const hasTools = Object.keys(enabledTools).length > 0;
 

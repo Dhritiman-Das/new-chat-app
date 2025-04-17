@@ -22,3 +22,5 @@ export * from "./registry";
 export * from "./definitions/tool-interface";
 export * from "./services/tool-execution-service";
 export * from "./services/credentials-service";
+export * from "./google-calendar";
+export * from "./lead-capture";
