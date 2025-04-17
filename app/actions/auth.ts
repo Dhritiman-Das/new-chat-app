@@ -3,10 +3,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { createSafeActionClient } from "next-safe-action";
 import { z } from "zod";
-import type { ActionResponse } from "@/app/types/actions";
 import { AppError, appErrors } from "@/app/types/errors";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { ActionResponse } from "./types";
 
 // Create a safe action client
 const action = createSafeActionClient();

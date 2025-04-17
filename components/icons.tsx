@@ -47,6 +47,13 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
+import {
+  PiFileTxt,
+  PiFilePdf,
+  PiFileDoc,
+  PiFileXls,
+  PiFilePpt,
+} from "react-icons/pi";
 import { FaXTwitter } from "react-icons/fa6";
 
 // Create an Icons object that contains all icons
@@ -99,6 +106,11 @@ export const Icons = {
   Trash,
   Twitter,
   RefreshCw,
+  Txt: PiFileTxt,
+  Pdf: PiFilePdf,
+  Doc: PiFileDoc,
+  Xls: PiFileXls,
+  Ppt: PiFilePpt,
 };
 
 // Export individual icons for direct imports

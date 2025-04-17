@@ -1,3 +1,6 @@
+/**
+ * Custom application error class
+ */
 export class AppError extends Error {
   code: string;
 
@@ -8,22 +11,45 @@ export class AppError extends Error {
   }
 }
 
-// Common app errors
+/**
+ * Common application errors
+ */
 export const appErrors = {
-  AUTHENTICATION_ERROR: new AppError("auth/error", "Authentication error"),
-  INVALID_CREDENTIALS: new AppError(
-    "auth/invalid-credentials",
-    "Invalid email or password"
-  ),
-  USER_NOT_FOUND: new AppError("auth/user-not-found", "User not found"),
-  EMAIL_ALREADY_IN_USE: new AppError(
-    "auth/email-in-use",
-    "Email already in use"
-  ),
-  WEAK_PASSWORD: new AppError("auth/weak-password", "Password is too weak"),
-  UNAUTHORIZED: new AppError("auth/unauthorized", "You are not authorized"),
-  UNEXPECTED_ERROR: new AppError(
-    "app/unexpected",
-    "An unexpected error occurred"
-  ),
+  UNEXPECTED_ERROR: {
+    code: "common/unexpected",
+    message: "An unexpected error occurred",
+  },
+  UNAUTHORIZED: {
+    code: "auth/unauthorized",
+    message: "You are not authorized to perform this action",
+  },
+  NOT_FOUND: {
+    code: "common/not-found",
+    message: "The requested resource was not found",
+  },
+  VALIDATION_ERROR: {
+    code: "common/validation",
+    message: "Invalid input data",
+  },
+  // Knowledge specific errors
+  KNOWLEDGE_BASE_NOT_FOUND: {
+    code: "knowledge/kb-not-found",
+    message: "Knowledge base not found",
+  },
+  FILE_NOT_FOUND: {
+    code: "knowledge/file-not-found",
+    message: "File not found",
+  },
+  FILE_TOO_LARGE: {
+    code: "knowledge/file-too-large",
+    message: "File exceeds the maximum size limit",
+  },
+  INVALID_FILE_TYPE: {
+    code: "knowledge/invalid-file-type",
+    message: "Invalid file type",
+  },
+  PROCESSING_ERROR: {
+    code: "knowledge/processing-error",
+    message: "Error processing file",
+  },
 };

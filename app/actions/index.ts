@@ -10,3 +10,4 @@ export {
   createOrganization,
   updateOrganization,
 } from "./organizations";
+export { uploadFile, deleteFile } from "./knowledge";
