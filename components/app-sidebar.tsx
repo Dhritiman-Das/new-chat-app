@@ -74,7 +74,7 @@ export function AppSidebar({ orgId, botId }: AppSidebarProps) {
     {
       title: "Analytics",
       url: `/dashboard/${orgId}/bots/${botId}/analytics`,
-      icon: Icons.ChartSpline,
+      icon: Icons.Chart,
     },
   ];
 

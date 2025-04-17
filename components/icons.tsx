@@ -29,7 +29,7 @@ import {
   MessageCircle,
   Building,
   SquareTerminal,
-  ChartSpline,
+  ChartColumn,
   Loader2,
   SunMedium,
   Moon,
@@ -88,7 +88,7 @@ export const Icons = {
   MessageCircle,
   Building,
   Terminal: SquareTerminal,
-  ChartSpline,
+  Chart: ChartColumn,
   OpenAI: AiOutlineOpenAI,
   XAI: FaXTwitter,
   Spinner: Loader2,
@@ -135,7 +135,7 @@ export {
   Hammer,
   PlusCircle,
   Building,
-  ChartSpline,
+  ChartColumn as Chart,
 };
 
 // Export the React Icons components
