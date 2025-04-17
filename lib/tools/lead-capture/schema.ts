@@ -4,7 +4,7 @@ import { z } from "zod";
 export const leadCaptureConfigSchema = z.object({
   requiredFields: z
     .array(z.enum(["name", "email", "phone", "company", "message"]))
-    .default(["name", "email"])
+    .default(["name", "phone"])
     .describe("Fields that must be collected"),
   leadNotifications: z
     .boolean()
@@ -17,7 +17,7 @@ export const leadCaptureConfigSchema = z.object({
     .describe("Email address to send lead notifications to"),
   leadCaptureTriggers: z
     .array(z.string())
-    .optional()
+    .default(["pricing", "demo", "contact", "quote", "trial"])
     .describe("Keywords that trigger lead capture"),
 });
 
@@ -26,11 +26,23 @@ export const leadCaptureCredentialSchema = z.object({});
 
 // Function parameter schemas
 export const saveLeadSchema = z.object({
-  name: z.string().describe("Full name of the lead"),
-  email: z.string().email().describe("Email address of the lead"),
-  phone: z.string().optional().describe("Phone number of the lead"),
+  name: z.string().min(1).describe("Full name of the lead (required)"),
+  phone: z.string().min(1).describe("Phone number of the lead (required)"),
+  email: z
+    .string()
+    .email()
+    .optional()
+    .describe("Email address of the lead (optional)"),
   company: z.string().optional().describe("Company name of the lead"),
   notes: z.string().optional().describe("Additional notes about the lead"),
+  source: z
+    .string()
+    .optional()
+    .describe("Source of the lead (e.g., 'chat', 'website')"),
+  triggerKeyword: z
+    .string()
+    .optional()
+    .describe("Keyword that triggered the lead capture"),
 });
 
 export const requestLeadInfoSchema = z.object({
@@ -41,4 +53,13 @@ export const requestLeadInfoSchema = z.object({
     .string()
     .optional()
     .describe("Custom message to display when requesting information"),
+  triggerKeyword: z
+    .string()
+    .optional()
+    .describe("Keyword that triggered the lead capture"),
+});
+
+// Schema for the keyword detection function
+export const detectTriggerKeywordSchema = z.object({
+  message: z.string().describe("User message to check for trigger keywords"),
 });

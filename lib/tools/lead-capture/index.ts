@@ -1,6 +1,6 @@
 import { ToolDefinition } from "../definitions/tool-interface";
 import { leadCaptureConfigSchema, leadCaptureCredentialSchema } from "./schema";
-import { saveLead, requestLeadInfo } from "./functions";
+import { saveLead, requestLeadInfo, detectTriggerKeyword } from "./functions";
 
 export const leadCaptureTool: ToolDefinition = {
   id: "lead-capture",
@@ -13,11 +13,12 @@ export const leadCaptureTool: ToolDefinition = {
   functions: {
     saveLead,
     requestLeadInfo,
+    detectTriggerKeyword,
   },
   getCredentialSchema: () => leadCaptureCredentialSchema,
   defaultConfig: {
-    requiredFields: ["name", "email"],
+    requiredFields: ["name", "phone"],
     leadNotifications: true,
-    leadCaptureTriggers: ["pricing", "demo", "contact", "quote"],
+    leadCaptureTriggers: ["pricing", "demo", "contact", "quote", "trial"],
   },
 };
