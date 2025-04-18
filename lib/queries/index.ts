@@ -1,5 +1,17 @@
 import { PrismaClient } from "@/lib/generated/prisma";
 
+export async function getMeQuery(prisma: PrismaClient, userId: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+  });
+
+  return {
+    data: user,
+  };
+}
+
 export async function getUserOrganizationsQuery(
   prisma: PrismaClient,
   userId: string

@@ -1,7 +1,6 @@
 "use client";
 
 import { Icons } from "@/components/icons";
-import { SignOutButton } from "@/components/sign-out-button";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -16,12 +15,15 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { NavUser } from "./nav-user";
+import { User } from "@/lib/generated/prisma";
 
 interface OrgSidebarProps {
   orgId: string;
+  user: User;
 }
 
-export function OrgSidebar({ orgId }: OrgSidebarProps) {
+export function OrgSidebar({ orgId, user }: OrgSidebarProps) {
   const pathname = usePathname();
 
   // Menu items with dynamic orgId
@@ -150,9 +152,7 @@ export function OrgSidebar({ orgId }: OrgSidebarProps) {
 
         <div className="mt-auto">
           <SidebarSeparator />
-          <SidebarMenuItem>
-            <SignOutButton />
-          </SidebarMenuItem>
+          <NavUser user={user} />
         </div>
       </SidebarContent>
     </Sidebar>

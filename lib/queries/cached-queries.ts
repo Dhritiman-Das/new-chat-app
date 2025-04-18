@@ -10,9 +10,17 @@ import {
   getBotByIdQuery,
   getBotToolQuery,
   getToolCredentialQuery,
+  getMeQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
+
+export const getMe = async () => {
+  const user = await requireAuth();
+  const userId = user.id;
+
+  return getMeQuery(prisma, userId);
+};
 
 // Cache user's organizations
 export const getUserOrganizations = async () => {

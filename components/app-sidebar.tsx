@@ -1,7 +1,7 @@
 "use client";
 
 import { Icons } from "@/components/icons";
-import { SignOutButton } from "@/components/sign-out-button";
+import { NavUser } from "@/components/nav-user";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -16,13 +16,15 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { User } from "@/lib/generated/prisma";
 
 interface AppSidebarProps {
   orgId: string;
   botId: string;
+  user: User;
 }
 
-export function AppSidebar({ orgId, botId }: AppSidebarProps) {
+export function AppSidebar({ orgId, botId, user }: AppSidebarProps) {
   const pathname = usePathname();
 
   // Menu items with dynamic paths
@@ -151,9 +153,7 @@ export function AppSidebar({ orgId, botId }: AppSidebarProps) {
 
         <div className="mt-auto">
           <SidebarSeparator />
-          <SidebarMenuItem>
-            <SignOutButton />
-          </SidebarMenuItem>
+          <NavUser user={user} />
         </div>
       </SidebarContent>
     </Sidebar>

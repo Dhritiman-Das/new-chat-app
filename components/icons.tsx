@@ -45,6 +45,11 @@ import {
   Trash,
   Twitter,
   RefreshCw,
+  BadgeCheck,
+  Bell,
+  ChevronsUpDown,
+  LogOut,
+  Sparkles,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
 import {
@@ -111,6 +116,11 @@ export const Icons = {
   Doc: PiFileDoc,
   Xls: PiFileXls,
   Ppt: PiFilePpt,
+  BadgeCheck,
+  Bell,
+  ChevronsUpDown,
+  LogOut,
+  Sparkles,
 };
 
 // Export individual icons for direct imports
