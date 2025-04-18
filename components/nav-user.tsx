@@ -24,9 +24,16 @@ import { User } from "@/lib/generated/prisma";
 export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const name = user.name ?? "No name";
+
+  const firstName = user.firstName ?? "";
+  const lastName = user.lastName ?? "";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ") || "No name";
   const email = user.email ?? "No email";
   const avatarUrl = user.avatarUrl ?? "";
+  const initials =
+    firstName && lastName
+      ? `${firstName.charAt(0)}${lastName.charAt(0)}`
+      : fullName.charAt(0) || "U";
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -48,13 +55,13 @@ export function NavUser({ user }: { user: User }) {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={avatarUrl} alt={name} />
+                <AvatarImage src={avatarUrl} alt={fullName} />
                 <AvatarFallback className="rounded-lg">
-                  {name.charAt(0)}
+                  {initials}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{name}</span>
+                <span className="truncate font-semibold">{fullName}</span>
                 <span className="truncate text-xs">{email}</span>
               </div>
               <Icons.ChevronsUpDown className="ml-auto size-4" />
@@ -69,13 +76,13 @@ export function NavUser({ user }: { user: User }) {
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={avatarUrl} alt={name} />
+                  <AvatarImage src={avatarUrl} alt={fullName} />
                   <AvatarFallback className="rounded-lg">
-                    {name.charAt(0)}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{name}</span>
+                  <span className="truncate font-semibold">{fullName}</span>
                   <span className="truncate text-xs">{email}</span>
                 </div>
               </div>
