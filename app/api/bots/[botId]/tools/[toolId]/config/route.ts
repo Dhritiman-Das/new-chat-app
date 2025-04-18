@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { botId: string; toolId: string } }
-) {
+interface Params {
+  params: Promise<{ botId: string; toolId: string }>;
+}
+
+export async function PATCH(request: Request, { params }: Params) {
   try {
     // Get the authenticated user
     const session = await auth();
@@ -17,7 +18,7 @@ export async function PATCH(
     }
 
     const userId = session.user.id;
-    const { botId, toolId } = params;
+    const { botId, toolId } = await params;
 
     // Verify that the user has access to this bot
     const bot = await prisma.bot.findFirst({

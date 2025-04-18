@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { toolId: string } }
-) {
+interface Params {
+  params: Promise<{ toolId: string }>;
+}
+
+export async function DELETE(request: Request, { params }: Params) {
   try {
     // Get the authenticated user
     const session = await auth();
@@ -19,6 +20,7 @@ export async function DELETE(
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider");
+    const { toolId } = await params;
 
     if (!provider) {
       return NextResponse.json(
@@ -31,7 +33,7 @@ export async function DELETE(
     const credential = await prisma.toolCredential.findFirst({
       where: {
         userId,
-        toolId: params.toolId,
+        toolId,
         provider,
       },
     });
