@@ -49,7 +49,8 @@ export async function getOrganizationBotsQuery(
         select: {
           id: true,
           email: true,
-          name: true,
+          firstName: true,
+          lastName: true,
           avatarUrl: true,
         },
       },

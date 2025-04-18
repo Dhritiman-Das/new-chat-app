@@ -1,30 +1,31 @@
 // Common type definitions for server actions
 
-export type ActionResponse<T = unknown> = {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-};
+export interface AppError {
+  code: string;
+  message: string;
+}
 
-// Common app errors
 export const appErrors = {
-  UNAUTHORIZED: {
-    code: "UNAUTHORIZED",
-    message: "You are not authorized to perform this action",
+  INVALID_INPUT: {
+    code: "INVALID_INPUT",
+    message: "The provided input is invalid",
   },
   UNEXPECTED_ERROR: {
     code: "UNEXPECTED_ERROR",
     message: "An unexpected error occurred",
   },
+  UNAUTHORIZED: {
+    code: "UNAUTHORIZED",
+    message: "You are not authorized to perform this action",
+  },
   NOT_FOUND: {
     code: "NOT_FOUND",
-    message: "The requested resource was not found",
-  },
-  INVALID_INPUT: {
-    code: "INVALID_INPUT",
-    message: "The provided input is invalid",
+    message: "Resource not found",
   },
 };
+
+export interface ActionResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: AppError;
+}
