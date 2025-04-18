@@ -1,6 +1,8 @@
 import {
+  Organization,
   KnowledgeBase as PrismaKnowledgeBase,
   KnowledgeFile as PrismaKnowledgeFile,
+  UserRole,
 } from "@/lib/generated/prisma";
 
 // Extend the metadata type for KnowledgeFile
@@ -17,4 +19,8 @@ export interface KnowledgeFile extends Omit<PrismaKnowledgeFile, "metadata"> {
 // Extend the PrismaKnowledgeBase to ensure files property exists
 export interface KnowledgeBase extends PrismaKnowledgeBase {
   files: KnowledgeFile[];
+}
+
+export interface UserOrganization extends Organization {
+  role: UserRole;
 }

@@ -4,12 +4,16 @@ import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { OrgSidebar } from "./org-sidebar";
 import { User } from "@/lib/generated/prisma";
+import { UserOrganization } from "@/lib/types/prisma";
+
 export function ConditionalAppSidebar({
   orgId,
   user,
+  userOrganizations,
 }: {
   orgId: string;
   user: User;
+  userOrganizations: UserOrganization[];
 }) {
   const pathname = usePathname();
   const isBotPage = pathname.includes(`/dashboard/${orgId}/bots/`);
@@ -24,7 +28,14 @@ export function ConditionalAppSidebar({
     }
   }
 
-  if (!isBotPage) return <OrgSidebar orgId={orgId} user={user} />;
+  if (!isBotPage)
+    return (
+      <OrgSidebar
+        orgId={orgId}
+        user={user}
+        userOrganizations={userOrganizations}
+      />
+    );
 
   return <AppSidebar orgId={orgId} botId={botId} user={user} />;
 }

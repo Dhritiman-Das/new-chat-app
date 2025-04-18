@@ -17,70 +17,90 @@ import {
 } from "@/components/ui/sidebar";
 import { NavUser } from "./nav-user";
 import { User } from "@/lib/generated/prisma";
+import { useEffect, useState } from "react";
+import { UserOrganization } from "@/lib/types/prisma";
+// import { getUserOrganizations } from "@/lib/queries/cached-queries";
+
+interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl?: string | null;
+  role: string;
+}
 
 interface OrgSidebarProps {
   orgId: string;
   user: User;
+  userOrganizations: UserOrganization[];
 }
 
-export function OrgSidebar({ orgId, user }: OrgSidebarProps) {
+export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
   const pathname = usePathname();
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
 
-  // Menu items with dynamic orgId
-  const getItems = (orgId: string) => [
+  useEffect(() => {
+    const fetchOrganizations = async () => {
+      try {
+        setOrganizations(userOrganizations);
+      } catch (error) {
+        console.error("Failed to fetch organizations:", error);
+      }
+    };
+
+    fetchOrganizations();
+  }, []);
+
+  // Bot level
+  const getBotItems = () => [
     {
-      title: "Dashboard",
-      url: `/dashboard/${orgId}`,
-      icon: Icons.Home,
-    },
-    {
-      title: "Bots",
-      url: `/dashboard/${orgId}/bots`,
-      icon: Icons.Bot,
-    },
-    {
-      title: "Tools",
-      url: `/dashboard/${orgId}/tools`,
-      icon: Icons.Hammer,
-    },
-    {
-      title: "Knowledge Vault",
-      url: `/dashboard/${orgId}/knowledge-vault`,
-      icon: Icons.Database,
-    },
-    {
-      title: "Integrations",
-      url: `/dashboard/${orgId}/integrations`,
-      icon: Icons.Cable,
-    },
-    {
-      title: "Deployments",
-      url: `/dashboard/${orgId}/deployments`,
-      icon: Icons.ArrowRight,
-    },
-    {
-      title: "Conversations",
-      url: `/dashboard/${orgId}/conversations`,
-      icon: Icons.MessageSquare,
+      title: "All bots",
+      url: `/dashboard/bots`,
     },
   ];
 
-  // Tool categories with dynamic orgId
-  const getTools = (orgId: string) => [
+  const getOrgItems = () => {
+    return organizations.map((org) => ({
+      title: org.name,
+      url: `/dashboard/${org.id}`,
+    }));
+  };
+
+  const getAccountItems = () => [
     {
-      title: "Settings",
-      url: `/dashboard/${orgId}/settings`,
-      icon: Icons.Settings,
+      title: "My account",
+      url: `/dashboard/account/me`,
+      icon: Icons.User,
     },
     {
-      title: "Analytics",
-      url: `/dashboard/${orgId}/analytics`,
-      icon: Icons.Info,
+      title: "Access tokens",
+      url: `/dashboard/access-tokens`,
+      icon: Icons.Key,
+    },
+    {
+      title: "Notifications",
+      url: `/dashboard/notifications`,
+      icon: Icons.Bell,
     },
   ];
 
-  const items = getItems(orgId);
-  const tools = getTools(orgId);
+  const getDocumentationItems = () => [
+    {
+      title: "API Reference",
+      url: `/dashboard/api-reference`,
+      icon: Icons.ExternalLink,
+    },
+    {
+      title: "Change log",
+      url: `/dashboard/change-log`,
+      icon: Icons.ExternalLink,
+    },
+  ];
+
+  const botItems = getBotItems();
+  const orgItems = getOrgItems();
+  const accountItems = getAccountItems();
+  const documentationItems = getDocumentationItems();
 
   // Check if a given URL is active
   const isActive = (url: string) => {
@@ -91,10 +111,60 @@ export function OrgSidebar({ orgId, user }: OrgSidebarProps) {
     <Sidebar>
       <SidebarContent className="h-full flex flex-col">
         <SidebarGroup>
-          <SidebarGroupLabel>Organization</SidebarGroupLabel>
+          <SidebarGroupLabel>Bots</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {botItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    className={cn(
+                      isActive(item.url) &&
+                        "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    <a href={item.url}>
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator className="" />
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Organizations</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {orgItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    className={cn(
+                      isActive(item.url) &&
+                        "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    <a href={item.url}>
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator className="" />
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {accountItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
@@ -119,13 +189,13 @@ export function OrgSidebar({ orgId, user }: OrgSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarSeparator className="my-2" />
+        <SidebarSeparator className="" />
 
         <SidebarGroup>
-          <SidebarGroupLabel>Tools</SidebarGroupLabel>
+          <SidebarGroupLabel>Documentation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {tools.map((item) => (
+              {documentationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

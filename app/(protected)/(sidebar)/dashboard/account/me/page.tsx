@@ -52,7 +52,7 @@ export default async function AccountPage() {
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>Settings</BreadcrumbPage>
+                <BreadcrumbPage>Me</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>

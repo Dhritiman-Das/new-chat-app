@@ -46,10 +46,12 @@ import {
   Twitter,
   RefreshCw,
   BadgeCheck,
-  Bell,
   ChevronsUpDown,
   LogOut,
   Sparkles,
+  KeyRound,
+  Bell,
+  ExternalLinkIcon,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
 import {
@@ -121,6 +123,8 @@ export const Icons = {
   ChevronsUpDown,
   LogOut,
   Sparkles,
+  Key: KeyRound,
+  ExternalLink: ExternalLinkIcon,
 };
 
 // Export individual icons for direct imports
