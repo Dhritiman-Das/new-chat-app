@@ -48,6 +48,33 @@ Next.js Specifics
 - Use import type { ActionResponse } from '@/types/actions'
 - Ensure all server actions return the ActionResponse type
 - Implement consistent error handling and success responses using
+  ActionResponse (can be imported via `import { ActionResponse } from "@/app/actions/types";`)
+
+- Example:
+
+```typescript
+'use server'
+
+import { createSafeActionClient } from 'next-safe-action'
+import { z } from 'zod'
+import type { ActionResponse } from '@/app/actions/actions'
+
+const schema = z.object({
+  value: z.string()
+})
+
+export const someAction = createSafeActionClient()
+  .schema(schema)
+  .action(async (input): Promise<ActionResponse> => {
+    try {
+      // Action logic here
+      return { success: true, data: /* result */ }
+    } catch (error) {
+      return { success: false, error: error instanceof AppError ? error : appErrors.UNEXPECTED_ERROR, }
+    }
+  })
+```
+
 - Implement toaster whenever applicable
   Example:
 
@@ -76,33 +103,6 @@ Next.js Specifics
     );
   }
   ```
-
-ActionResponse
-
-- Example:
-
-```typescript
-'use server'
-
-import { createSafeActionClient } from 'next-safe-action'
-import { z } from 'zod'
-import type { ActionResponse } from '@/app/actions/actions'
-
-const schema = z.object({
-  value: z.string()
-})
-
-export const someAction = createSafeActionClient()
-  .schema(schema)
-  .action(async (input): Promise<ActionResponse> => {
-    try {
-      // Action logic here
-      return { success: true, data: /* result */ }
-    } catch (error) {
-      return { success: false, error: error instanceof AppError ? error : appErrors.UNEXPECTED_ERROR, }
-    }
-  })
-```
 
 - Use useQueryState for all query state management.
 - Example:

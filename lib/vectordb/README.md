@@ -14,7 +14,7 @@ async function storeData() {
   const vectorDb = await getVectorDb();
   const result = await vectorDb.upsert(
     {
-      userId: "user123",
+      botId: "bot_123",
       documentId: "doc456",
     },
     "This is some text that will be embedded and stored in the vector database."
@@ -27,7 +27,7 @@ async function storeData() {
 async function queryData() {
   const vectorDb = await getVectorDb();
   const results = await vectorDb.query(
-    { userId: "user123" },
+    { botId: "user123" },
     "Find text similar to this query",
     5 // top K results
   );

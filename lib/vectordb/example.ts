@@ -8,7 +8,7 @@ import { toast } from "sonner";
  */
 export async function storeInVectorDb(
   text: string,
-  userId: string,
+  botId: string,
   documentId: string
 ) {
   try {
@@ -18,7 +18,7 @@ export async function storeInVectorDb(
     // Store the text with additional metadata
     const result = await vectorDb.upsert(
       {
-        userId,
+        botId,
         documentId,
         timestamp: new Date().toISOString(),
       },
@@ -45,13 +45,13 @@ export async function storeInVectorDb(
 /**
  * Example function to search the vector database
  */
-export async function searchVectorDb(query: string, userId: string, topK = 5) {
+export async function searchVectorDb(query: string, botId: string, topK = 5) {
   try {
     // Get the vector database instance
     const vectorDb = await getVectorDb();
 
     // Search with a filter for the specific user
-    const results = await vectorDb.query({ userId }, query, topK);
+    const results = await vectorDb.query({ botId }, query, topK);
 
     return {
       success: true,

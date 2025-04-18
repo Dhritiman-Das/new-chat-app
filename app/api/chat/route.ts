@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { initializeTools } from "@/lib/tools";
 import { getModelById } from "@/lib/models";
 import { format } from "date-fns";
+import { getVectorDb } from "@/lib/vectordb";
 
 // Initialize the tools and get tool services
 initializeTools();
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
           where: { isEnabled: true },
           include: { tool: true },
         },
+        knowledgeBases: true, // Include knowledge bases relation
       },
     });
 
@@ -54,12 +56,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Bot not found" }, { status: 404 });
     }
 
-    // Create enabled tools for the bot
-    const enabledTools: Record<string, unknown> = {};
-
     // Use real user and organization IDs in production
     const userId = bot.userId;
     const organizationId = bot.organizationId;
+
+    // Retrieve context from knowledge base if there are any
+    let contextualInfo = "";
+    if (bot.knowledgeBases && bot.knowledgeBases.length > 0) {
+      // Get the last user message for context retrieval
+      const lastUserMessage = [...messages]
+        .reverse()
+        .find((m) => m.role === "user");
+
+      if (lastUserMessage && lastUserMessage.content) {
+        try {
+          // Get vectorDb instance
+          const vectorDb = await getVectorDb();
+
+          // Query the vector database for relevant context
+          // Use the filter with userId to restrict to this user's embeddings
+          const contextResults = await vectorDb.query(
+            { botId },
+            lastUserMessage.content,
+            5 // Get top 5 most relevant chunks
+          );
+          console.log("contextResults", contextResults);
+          if (contextResults.length > 0) {
+            contextualInfo =
+              "### Relevant information from knowledge base:\n\n" +
+              contextResults.join("\n\n") +
+              "\n\n";
+          }
+        } catch (error) {
+          console.error(
+            "Error retrieving context from vector database:",
+            error
+          );
+          // Continue without context if there's an error
+        }
+      }
+    }
+
+    // Create enabled tools for the bot
+    const enabledTools: Record<string, unknown> = {};
 
     // Process enabled tools
     for (const botTool of bot.botTools) {
@@ -92,14 +131,22 @@ export async function POST(req: NextRequest) {
       }
     }
     console.log("enabledTools", enabledTools);
+
     // Generate system message
     let systemMessage = bot.systemPrompt || "You are a helpful AI assistant.";
+
+    // Add contextual information if available
+    if (contextualInfo) {
+      systemMessage = `${systemMessage}\n\n${contextualInfo}`;
+    }
+
     const timeContext = `The current date and time is ${new Date().toLocaleString()}. Today's DD/MM/YYYY is ${format(
       new Date(),
       "dd/MM/yyyy"
     )}.`;
     const behaviorContext = `The responses should be concise and to the point. Refrain from sending links. Should the responses be in a rich text format (like **example**)? => False.`;
     systemMessage += [timeContext, behaviorContext].join("\n\n");
+
     // Check if we have any tools to use
     const hasTools = Object.keys(enabledTools).length > 0;
 

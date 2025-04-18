@@ -102,7 +102,7 @@ export async function processAndStoreFile(
       await vectorDb.upsert(
         {
           documentId: file.id,
-          userId: fileData.orgId,
+          botId: fileData.botId,
           namespace: `kb-${knowledgeBase.id}`,
           timestamp: new Date().toISOString(),
         },

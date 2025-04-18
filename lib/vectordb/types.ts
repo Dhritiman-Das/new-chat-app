@@ -16,7 +16,7 @@ export type BaseMetadata = z.infer<typeof BaseMetadataSchema>;
 export const AdditionalMetadataSchema = z
   .object({
     agentId: z.string().optional(),
-    userId: z.string().optional(),
+    botId: z.string().optional(),
     documentId: z.string().optional(),
     accountId: z.string().optional(),
     namespace: z.string().optional(),
