@@ -4,20 +4,14 @@ import { getMe, getUserOrganizations } from "@/lib/queries/cached-queries";
 import { User } from "@/lib/generated/prisma";
 interface BotsLayoutProps {
   children: React.ReactNode;
-  params: Promise<{ orgId: string }>;
 }
 
-export default async function BotsLayout({
-  children,
-  params,
-}: BotsLayoutProps) {
-  const { orgId } = await params;
+export default async function BotsLayout({ children }: BotsLayoutProps) {
   const user = await getMe();
   const userOrganizations = await getUserOrganizations();
   return (
     <SidebarProvider>
       <ConditionalAppSidebar
-        orgId={orgId}
         user={user.data as User}
         userOrganizations={userOrganizations.data}
       />

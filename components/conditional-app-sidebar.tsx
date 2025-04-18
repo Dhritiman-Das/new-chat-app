@@ -7,21 +7,29 @@ import { User } from "@/lib/generated/prisma";
 import { UserOrganization } from "@/lib/types/prisma";
 
 export function ConditionalAppSidebar({
-  orgId,
   user,
   userOrganizations,
 }: {
-  orgId: string;
   user: User;
   userOrganizations: UserOrganization[];
 }) {
   const pathname = usePathname();
-  const isBotPage = pathname.includes(`/dashboard/${orgId}/bots/`);
+  const isBotPage = pathname.includes(`/bots/`);
+
+  // Extract orgId from path
+  let orgId = "";
+  const pathParts = pathname.split("/");
+  const dashboardIndex = pathParts.findIndex((part) => part === "dashboard");
+  const isOrgIdPresent =
+    dashboardIndex >= 0 && dashboardIndex + 1 < pathParts.length;
+
+  if (isOrgIdPresent) {
+    orgId = pathParts[dashboardIndex + 1];
+  }
 
   // Extract botId from path if on a bot page
   let botId = "";
   if (isBotPage) {
-    const pathParts = pathname.split("/");
     const botIdIndex = pathParts.findIndex((part) => part === "bots") + 1;
     if (botIdIndex > 0 && botIdIndex < pathParts.length) {
       botId = pathParts[botIdIndex];
