@@ -20,6 +20,7 @@ import {
 import { Icons } from "@/components/icons";
 import { useState } from "react";
 import { User } from "@/lib/generated/prisma";
+import Link from "next/link";
 
 export function NavUser({ user }: { user: User }) {
   const { isMobile } = useSidebar();
@@ -96,9 +97,11 @@ export function NavUser({ user }: { user: User }) {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Icons.BadgeCheck />
-                Account
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/account/me">
+                  <Icons.BadgeCheck />
+                  Account
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <Icons.Billing />

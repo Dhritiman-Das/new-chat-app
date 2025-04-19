@@ -13,8 +13,8 @@ const action = createSafeActionClient();
 
 // Update profile schema
 const updateProfileSchema = z.object({
-  firstName: z.string().min(1, "First name is required").max(255).optional(),
-  lastName: z.string().min(1, "Last name is required").max(255).optional(),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
   avatarUrl: z.string().optional(),
 });
 
@@ -26,34 +26,35 @@ const deleteAccountSchema = z.object({
 // Update user profile
 export const updateProfile = action
   .schema(updateProfileSchema)
-  .action(async (data): Promise<ActionResponse> => {
+  .action(async ({ parsedInput }): Promise<ActionResponse> => {
     try {
       const user = await requireAuth();
 
       const updatedUser = await prisma.user.update({
-        where: {
-          id: user.id,
-        },
+        where: { id: user.id },
         data: {
-          firstName: data.parsedInput.firstName,
-          lastName: data.parsedInput.lastName,
-          avatarUrl: data.parsedInput.avatarUrl,
-          updatedAt: new Date(),
+          firstName: parsedInput.firstName,
+          lastName: parsedInput.lastName,
+          avatarUrl: parsedInput.avatarUrl,
         },
       });
 
       // Revalidate user cache
-      revalidateTag(`user_${user.id}`);
+      revalidateTag(`user_${updatedUser.id}`);
 
       return {
         success: true,
-        data: updatedUser,
+        data: { user: updatedUser },
       };
     } catch (error) {
       console.error("Error updating profile:", error);
       return {
         success: false,
-        error: appErrors.UNEXPECTED_ERROR,
+        error: {
+          message:
+            error instanceof Error ? error.message : "Failed to update profile",
+          code: "UPDATE_FAILED",
+        },
       };
     }
   });
@@ -79,6 +80,41 @@ export const deleteAccount = action
       return {
         success: false,
         error: appErrors.UNEXPECTED_ERROR,
+      };
+    }
+  });
+
+// Update just the avatar URL
+const updateAvatarSchema = z.object({
+  avatarUrl: z.string(),
+});
+
+export const updateAvatar = action
+  .schema(updateAvatarSchema)
+  .action(async ({ parsedInput }): Promise<ActionResponse> => {
+    try {
+      const user = await requireAuth();
+
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          avatarUrl: parsedInput.avatarUrl,
+        },
+      });
+
+      return {
+        success: true,
+        data: { user: updatedUser },
+      };
+    } catch (error) {
+      console.error("Error updating avatar:", error);
+      return {
+        success: false,
+        error: {
+          message:
+            error instanceof Error ? error.message : "Failed to update avatar",
+          code: "UPDATE_FAILED",
+        },
       };
     }
   });
