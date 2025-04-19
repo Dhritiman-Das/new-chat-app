@@ -1,6 +1,6 @@
-import OrganizationForm from "@/components/organization-form";
 import { getUserOrganizations } from "@/lib/queries/cached-queries";
 import { redirect } from "next/navigation";
+import OrganizationClient from "./_components/organization-client";
 
 export default async function OrganizationOnboardingPage() {
   // Check if the user already has an organization
@@ -12,17 +12,8 @@ export default async function OrganizationOnboardingPage() {
   }
 
   return (
-    <div className="container max-w-3xl py-8 space-y-6">
-      <div className="space-y-2 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">
-          Welcome to AI Bots
-        </h1>
-        <p className="text-muted-foreground">
-          Let&apos;s set up your organization to get started.
-        </p>
-      </div>
-
-      <OrganizationForm isOnboarding={true} />
+    <div className="container max-w-2xl px-4">
+      <OrganizationClient redirectPath="/onboarding/survey" />
     </div>
   );
 }

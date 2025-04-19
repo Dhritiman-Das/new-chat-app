@@ -36,8 +36,8 @@ model Organization {
 model User {
   id            String         @id
   email         String         @unique
-  firstName     String?
-  lastName      String?
+  firstName     String?        @map("first_name")
+  lastName      String?        @map("last_name")
   avatarUrl     String?        @map("avatar_url")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
@@ -47,6 +47,7 @@ model User {
   bots          Bot[]
   integrations  Integration[]
   toolCredentials ToolCredential[]
+  survey        Survey?        // Added relation to Survey
 
   @@map("users")
 }
@@ -404,4 +405,22 @@ enum PlanType {
   STARTER
   PRO
   ENTERPRISE
+}
+
+// Survey model - stores user onboarding survey responses
+model Survey {
+  id              String    @id @default(uuid())
+  userId          String    @unique @map("user_id")
+  referralSource  String?   @map("referral_source")
+  primaryUseCase  String[]  @map("primary_use_case")
+  expectedBots    String?   @map("expected_bots")
+  integrations    String[]
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("surveys")
 }

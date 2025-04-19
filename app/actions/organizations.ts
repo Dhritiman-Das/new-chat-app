@@ -6,6 +6,12 @@ import { PlanType } from "@/lib/generated/prisma";
 import { requireAuth } from "@/utils/auth";
 import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
+import { checkOrganizationSlugAvailability } from "@/lib/queries/cached-queries";
+import { createSafeActionClient } from "next-safe-action";
+import { z } from "zod";
+
+// Create safe action client
+const action = createSafeActionClient();
 
 // Types for organization actions
 type CreateOrganizationInput = {
@@ -22,6 +28,17 @@ type UpdateOrganizationInput = {
   plan?: string;
   logoUrl?: string;
 };
+
+// Schema for slug validation
+const slugSchema = z.object({
+  slug: z
+    .string()
+    .min(2)
+    .regex(/^[a-z0-9-]+$/, {
+      message: "Slug must contain only lowercase letters, numbers, and hyphens",
+    }),
+  organizationId: z.string().optional(),
+});
 
 // Action to get user organizations
 export async function getOrganizationsAction(): Promise<ActionResponse> {
@@ -235,3 +252,33 @@ export async function updateOrganization(
     };
   }
 }
+
+// Action to check slug availability
+export const checkSlugAvailability = action
+  .schema(slugSchema)
+  .action(
+    async ({
+      parsedInput,
+    }): Promise<ActionResponse<{ available: boolean; slug: string }>> => {
+      try {
+        const { slug, organizationId } = parsedInput;
+
+        // Check if slug is available
+        const { data } = await checkOrganizationSlugAvailability(
+          slug,
+          organizationId
+        );
+
+        return {
+          success: true,
+          data,
+        };
+      } catch (error) {
+        console.error("Error checking slug availability:", error);
+        return {
+          success: false,
+          error: appErrors.UNEXPECTED_ERROR,
+        };
+      }
+    }
+  );

@@ -11,6 +11,7 @@ import {
   getBotToolQuery,
   getToolCredentialQuery,
   getMeQuery,
+  checkOrganizationSlugAvailabilityQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -189,6 +190,25 @@ export const getToolCredential = async (toolId: string, provider: string) => {
         `tool_credential_${toolId}_${provider}`,
       ],
       revalidate: 60, // Cache for 1 minute
+    }
+  )();
+};
+
+// Check if an organization slug is available
+export const checkOrganizationSlugAvailability = async (
+  slug: string,
+  excludeOrgId?: string
+) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return checkOrganizationSlugAvailabilityQuery(prisma, slug, excludeOrgId);
+    },
+    ["organization_slug_availability", slug, excludeOrgId || ""],
+    {
+      tags: [`organization_slugs`],
+      revalidate: 5, // Cache for 5 seconds since we need this to be fairly up-to-date
     }
   )();
 };

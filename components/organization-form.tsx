@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -30,6 +30,8 @@ import {
   createOrganization,
   updateOrganization,
 } from "@/app/actions/organizations";
+import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 
 const slugRegex = /^[a-z0-9-]+$/;
 
@@ -58,15 +60,23 @@ interface Organization {
 interface OrganizationFormProps {
   organization?: Organization;
   isOnboarding?: boolean;
+  redirectPath?: string;
 }
 
 export default function OrganizationForm({
   organization,
   isOnboarding = false,
+  redirectPath,
 }: OrganizationFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingSlug, setIsCheckingSlug] = useState(false);
+  const [slugStatus, setSlugStatus] = useState<
+    "available" | "unavailable" | "unchanged" | null
+  >(null);
   const isEditMode = !!organization;
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const previousSlugRef = useRef<string>(organization?.slug || "");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -76,30 +86,132 @@ export default function OrganizationForm({
     },
   });
 
+  const generateSlug = (name: string) => {
+    if (!name) return "";
+
+    return name
+      .toLowerCase()
+      .replace(/\s+/g, "-") // Replace spaces with hyphens
+      .replace(/[^a-z0-9-]/g, "") // Remove invalid characters
+      .replace(/-+/g, "-") // Replace multiple hyphens with a single one
+      .replace(/^-|-$/g, ""); // Remove leading and trailing hyphens
+  };
+
+  // Check if slug is available
+  const checkSlug = async (slug: string) => {
+    if (!slug || slug.length < 2 || !slugRegex.test(slug)) return;
+
+    // Skip the check if the slug hasn't changed from the previous value
+    if (slug === previousSlugRef.current) return;
+
+    // Update the previous slug reference
+    previousSlugRef.current = slug;
+
+    // If we're in edit mode and the slug hasn't changed, mark it as unchanged
+    if (isEditMode && organization?.slug === slug) {
+      setSlugStatus("unchanged");
+      return;
+    }
+
+    setIsCheckingSlug(true);
+    try {
+      // Build URL with query parameters
+      const url = new URL(
+        "/api/organization/slug-check",
+        window.location.origin
+      );
+      url.searchParams.append("slug", slug);
+      if (organization?.id) {
+        url.searchParams.append("excludeOrgId", organization.id);
+      }
+
+      // Fetch from the API
+      const response = await fetch(url.toString());
+      const data = await response.json();
+
+      if (response.ok) {
+        setSlugStatus(data.available ? "available" : "unavailable");
+
+        if (!data.available) {
+          form.setError("slug", {
+            message: "This slug is already taken. Please choose another one.",
+          });
+        } else {
+          form.clearErrors("slug");
+        }
+      }
+    } catch (error) {
+      console.error("Error checking slug:", error);
+    } finally {
+      setIsCheckingSlug(false);
+    }
+  };
+
+  // Watch the name field to update slug automatically
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      // Always update slug when name changes (both in create and edit mode)
+      if (name === "name" && value.name) {
+        const newSlug = generateSlug(value.name);
+
+        // Only update slug if it's different from the current value
+        if (newSlug !== form.getValues("slug")) {
+          form.setValue("slug", newSlug, { shouldValidate: true });
+        }
+      }
+
+      // Check slug availability when slug changes (with debounce)
+      if (name === "slug" && value.slug) {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+
+        timeoutRef.current = setTimeout(() => {
+          // Only check if the slug has actually changed
+          const currentSlug = value.slug || "";
+          if (currentSlug !== previousSlugRef.current) {
+            checkSlug(currentSlug);
+          }
+        }, 1000); // 1 second debounce
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [form, isEditMode]);
+
   async function onSubmit(data: FormValues) {
     setIsLoading(true);
     try {
-      let result;
+      let result: ActionResponse;
 
       if (isEditMode && organization) {
         // Update existing organization
-        result = (await updateOrganization({
+        result = await updateOrganization({
           id: organization.id,
           name: data.name,
           slug: data.slug,
-        })) as ActionResponse;
+        });
       } else {
         // Create new organization
-        result = (await createOrganization({
+        result = await createOrganization({
           name: data.name,
           slug: data.slug,
-        })) as ActionResponse;
+        });
       }
 
-      if (result && result.success) {
+      if (result?.success) {
         // Redirect to appropriate page
         if (isOnboarding) {
-          router.push("/dashboard");
+          if (redirectPath) {
+            router.push(redirectPath);
+          } else {
+            router.push("/dashboard");
+          }
         } else {
           router.push("/organizations");
         }
@@ -132,22 +244,8 @@ export default function OrganizationForm({
     }
   }
 
-  const generateSlug = () => {
-    const name = form.getValues("name");
-    if (!name) return;
-
-    const slug = name
-      .toLowerCase()
-      .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .replace(/[^a-z0-9-]/g, "") // Remove invalid characters
-      .replace(/-+/g, "-") // Replace multiple hyphens with a single one
-      .replace(/^-|-$/g, ""); // Remove leading and trailing hyphens
-
-    form.setValue("slug", slug, { shouldValidate: true });
-  };
-
   return (
-    <Card className="w-full">
+    <Card className="">
       <CardHeader>
         <CardTitle>
           {isEditMode ? "Update Organization" : "Create Your Organization"}
@@ -168,18 +266,7 @@ export default function OrganizationForm({
                 <FormItem>
                   <FormLabel>Organization Name</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Acme Corp"
-                      {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                        // Only auto-generate slug when creating a new organization
-                        // and the user hasn't manually edited the slug yet
-                        if (!isEditMode && !form.getValues("slug")) {
-                          setTimeout(generateSlug, 200);
-                        }
-                      }}
-                    />
+                    <Input placeholder="Acme Corp" {...field} />
                   </FormControl>
                   <FormDescription>
                     The name of your organization
@@ -198,14 +285,24 @@ export default function OrganizationForm({
                     <FormControl>
                       <Input placeholder="acme-corp" {...field} />
                     </FormControl>
-                    {!isEditMode && (
-                      <Button
-                        type="button"
+                    {isCheckingSlug && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                    {!isCheckingSlug && slugStatus === "available" && (
+                      <Badge
                         variant="outline"
-                        onClick={generateSlug}
+                        className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200"
                       >
-                        Generate
-                      </Button>
+                        Available
+                      </Badge>
+                    )}
+                    {!isCheckingSlug && slugStatus === "unavailable" && (
+                      <Badge
+                        variant="outline"
+                        className="bg-red-50 text-red-700 hover:bg-red-50 border-red-200"
+                      >
+                        Unavailable
+                      </Badge>
                     )}
                   </div>
                   <FormDescription>
@@ -222,7 +319,7 @@ export default function OrganizationForm({
               </div>
             )}
           </CardContent>
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex justify-between pt-6">
             {!isOnboarding && (
               <Button variant="outline" asChild>
                 <Link
@@ -238,7 +335,9 @@ export default function OrganizationForm({
             )}
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={
+                isLoading || slugStatus === "unavailable" || isCheckingSlug
+              }
               className={isOnboarding ? "w-full" : ""}
             >
               {isLoading

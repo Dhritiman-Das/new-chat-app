@@ -244,3 +244,28 @@ export async function getToolCredentialQuery(
     data: credential,
   };
 }
+
+export async function checkOrganizationSlugAvailabilityQuery(
+  prisma: PrismaClient,
+  slug: string,
+  excludeOrgId?: string
+) {
+  // If we're updating an existing organization, we need to exclude it from the check
+  // to prevent false positives when the slug hasn't changed
+  const existingOrg = await prisma.organization.findFirst({
+    where: {
+      slug,
+      ...(excludeOrgId ? { id: { not: excludeOrgId } } : {}),
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return {
+    data: {
+      available: !existingOrg,
+      slug,
+    },
+  };
+}
