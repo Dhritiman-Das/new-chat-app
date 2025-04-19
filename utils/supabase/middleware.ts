@@ -62,7 +62,7 @@ export const updateSession = async (request: NextRequest) => {
         pathname === "/") &&
       user
     ) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      return NextResponse.redirect(new URL("/dashboard/bots", request.url));
     }
 
     return response;

@@ -64,8 +64,8 @@ export default async function PlaygroundPage({ params }: PageProps) {
         </div>
       </header>
 
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">AI Playground</h1>
+      <div className="p-6 h-[calc(100vh-4rem)] flex flex-col">
+        {/* <h1 className="text-2xl font-bold mb-6">AI Playground</h1> */}
         <ModelComparison models={availableModels} botId={botId} />
       </div>
     </div>

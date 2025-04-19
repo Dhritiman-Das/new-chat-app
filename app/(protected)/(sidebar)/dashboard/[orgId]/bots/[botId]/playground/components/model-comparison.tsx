@@ -54,7 +54,7 @@ export default function ModelComparison({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-13rem)] max-h-[calc(100vh-13rem)]">
+    <div className="flex flex-col h-full">
       <div className="flex gap-4 h-full overflow-x-auto pb-2">
         {playgrounds.map((playground) => {
           const model =
