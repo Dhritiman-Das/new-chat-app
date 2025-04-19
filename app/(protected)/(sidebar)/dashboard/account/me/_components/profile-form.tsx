@@ -62,8 +62,8 @@ export function ProfileForm({ user }: ProfileFormProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+      <Card className="md:col-span-3 border-none shadow-none">
         <CardHeader>
           <CardTitle>Profile Picture</CardTitle>
         </CardHeader>
@@ -72,7 +72,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="md:col-span-9 border-none shadow-none">
         <CardHeader>
           <CardTitle>Personal Information</CardTitle>
         </CardHeader>
