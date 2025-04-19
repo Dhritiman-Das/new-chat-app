@@ -14,7 +14,8 @@ export function ConditionalAppSidebar({
   userOrganizations: UserOrganization[];
 }) {
   const pathname = usePathname();
-  const isBotPage = pathname.includes(`/bots/`);
+  const isBotPage =
+    pathname.includes(`/bots/`) && !pathname.includes(`/bots/new`);
 
   // Extract orgId from path
   let orgId = "";
