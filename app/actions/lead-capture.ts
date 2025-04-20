@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
 import { ActionResponse } from "./types";
+import { Prisma } from "@/lib/generated/prisma";
 
 const actionClient = createSafeActionClient();
 
@@ -110,11 +111,24 @@ export const updateLeadCaptureConfig = actionClient
     }
   });
 
-// Schema for fetching leads
+// Enhanced schema for fetching leads with filters
 const getLeadsSchema = z.object({
   botId: z.string(),
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(10),
+  filters: z
+    .object({
+      search: z.string().optional(),
+      status: z.string().optional(),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
+      source: z.string().optional(),
+      // Custom property filters can be added dynamically
+      customProperties: z.record(z.unknown()).optional(),
+    })
+    .optional(),
+  sortBy: z.string().optional().default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
 /**
@@ -124,7 +138,7 @@ export const getLeads = actionClient
   .schema(getLeadsSchema)
   .action(async ({ parsedInput }): Promise<ActionResponse> => {
     try {
-      const { botId, page, limit } = parsedInput;
+      const { botId, page, limit, filters, sortBy, sortOrder } = parsedInput;
 
       // Get the authenticated user
       const session = await auth();
@@ -158,38 +172,114 @@ export const getLeads = actionClient
         };
       }
 
-      // In a real implementation, fetch leads from a Lead model with pagination
-      // For now, return mock data
-      const mockLeads = [
-        {
-          id: "lead_1",
-          name: "John Doe",
-          email: "john.doe@example.com",
-          phone: "123-456-7890",
-          company: "Acme Inc",
-          status: "New",
-          createdAt: new Date(Date.now() - 2 * 86400000), // 2 days ago
-        },
-        {
-          id: "lead_2",
-          name: "Jane Smith",
-          email: "jane.smith@example.com",
-          phone: "987-654-3210",
-          company: "ABC Corp",
-          status: "Contacted",
-          createdAt: new Date(Date.now() - 5 * 86400000), // 5 days ago
-        },
-      ];
+      // Build query conditions
+      const where: Prisma.LeadWhereInput = { botId };
 
-      // Simulate pagination using the limit and page parameters
-      const totalCount = mockLeads.length;
+      // Apply standard filters
+      if (filters) {
+        // Text search filter (searches in name, email, phone, company)
+        if (filters.search) {
+          where.OR = [
+            { name: { contains: filters.search, mode: "insensitive" } },
+            { email: { contains: filters.search, mode: "insensitive" } },
+            { phone: { contains: filters.search, mode: "insensitive" } },
+            { company: { contains: filters.search, mode: "insensitive" } },
+          ];
+        }
+
+        // Status filter
+        if (filters.status) {
+          where.status = filters.status;
+        }
+
+        // Source filter
+        if (filters.source) {
+          where.source = filters.source;
+        }
+
+        // Date range filter
+        if (filters.startDate) {
+          where.createdAt = {
+            ...((where.createdAt as object) || {}),
+            gte: new Date(filters.startDate),
+          };
+        }
+
+        if (filters.endDate) {
+          where.createdAt = {
+            ...((where.createdAt as object) || {}),
+            lte: new Date(filters.endDate),
+          };
+        }
+
+        // Custom property filters
+        // This is a simplified approach for demo purposes
+        // In production, you'd use proper database-specific JSON queries
+        if (
+          filters.customProperties &&
+          Object.keys(filters.customProperties).length > 0
+        ) {
+          // For simplicity, we'll use a naive approach and fetch all leads first
+          // and then filter them in memory for custom properties
+          console.log("Custom property filters:", filters.customProperties);
+          // In a real implementation, you would use proper database-specific JSON queries
+          // This is just a placeholder to show the concept
+        }
+      }
+
+      // Calculate pagination parameters
+      const skip = (page - 1) * limit;
+
+      // Build the sort parameter
+      const orderBy: Record<string, unknown> = {};
+      // Handle both standard fields and JSON properties for sorting
+      if (sortBy.includes(".")) {
+        // If sortBy includes a dot, it's a custom property
+        const [propertyField, path] = sortBy.split(".");
+        // This is PostgreSQL specific for sorting by JSON fields
+        orderBy[propertyField] = Prisma.sql`->'${path}' ${
+          sortOrder === "desc" ? "DESC" : "ASC"
+        }` as unknown;
+      } else {
+        // Standard field sorting
+        orderBy[sortBy] = sortOrder;
+      }
+
+      // Get total count of leads for this bot with the applied filters
+      const totalCount = await prisma.lead.count({
+        where,
+      });
+
+      // Calculate total pages
       const totalPages = Math.ceil(totalCount / limit);
-      const paginatedLeads = mockLeads.slice((page - 1) * limit, page * limit);
+
+      // Fetch leads with pagination and applied filters
+      const leads = await prisma.lead.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        // Make sure we select all fields, including properties and metadata
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          company: true,
+          source: true,
+          status: true,
+          triggerKeyword: true,
+          properties: true,
+          metadata: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
 
       return {
         success: true,
         data: {
-          leads: paginatedLeads,
+          leads,
           totalCount,
           page,
           totalPages,
@@ -255,13 +345,33 @@ export const exportLeads = actionClient
         };
       }
 
-      // In a real implementation, generate and return a download URL
-      // For now, return a mock URL
+      // Fetch all leads for export
+      const leads = await prisma.lead.findMany({
+        where: { botId },
+        orderBy: { createdAt: "desc" },
+      });
+
+      // In a real implementation, you would:
+      // 1. Generate a CSV or JSON file with the leads data
+      // 2. Store it temporarily or in a blob storage
+      // 3. Return a signed URL for download
+
+      // For now, create a signed URL with query parameters
+      const downloadUrlParams = new URLSearchParams({
+        botId,
+        format,
+        timestamp: Date.now().toString(),
+        // In production, add a signature for security
+      });
+
       return {
         success: true,
         data: {
-          downloadUrl: `/api/bots/${botId}/leads/export?format=${format}`,
-          message: `Leads exported successfully as ${format.toUpperCase()}`,
+          downloadUrl: `/api/bots/${botId}/leads/export?${downloadUrlParams}`,
+          message: `${
+            leads.length
+          } leads exported successfully as ${format.toUpperCase()}`,
+          count: leads.length,
         },
       };
     } catch (error) {
@@ -271,6 +381,106 @@ export const exportLeads = actionClient
         error: {
           message: "Failed to export leads",
           code: "EXPORT_FAILED",
+        },
+      };
+    }
+  });
+
+// Schema for saving lead information
+const saveLeadSchema = z.object({
+  botId: z.string(),
+  name: z.string().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  company: z.string().optional(),
+  source: z.string().optional(),
+  triggerKeyword: z.string().optional(),
+  // Use record for dynamic properties
+  properties: z.record(z.unknown()).optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+/**
+ * Server action to save lead information with flexible fields
+ */
+export const saveLead = actionClient
+  .schema(saveLeadSchema)
+  .action(async ({ parsedInput }): Promise<ActionResponse> => {
+    try {
+      // Extract data from the parsed input
+      const {
+        botId,
+        name,
+        email,
+        phone,
+        company,
+        source,
+        triggerKeyword,
+        properties,
+        metadata,
+      } = parsedInput;
+
+      // Get the authenticated user
+      const session = await auth();
+      if (!session?.user?.id) {
+        return {
+          success: false,
+          error: {
+            message: "User not authenticated",
+            code: "UNAUTHORIZED",
+          },
+        };
+      }
+
+      const userId = session.user.id;
+
+      // Verify that the user has access to this bot
+      const bot = await prisma.bot.findFirst({
+        where: {
+          id: botId,
+          userId,
+        },
+      });
+
+      if (!bot) {
+        return {
+          success: false,
+          error: {
+            message: "Bot not found or access denied",
+            code: "NOT_FOUND",
+          },
+        };
+      }
+
+      // Create the lead with both standard and custom fields
+      const lead = await prisma.lead.create({
+        data: {
+          botId,
+          name: name || null,
+          email: email || null,
+          phone: phone || null,
+          company: company || null,
+          source: source || "chat",
+          triggerKeyword: triggerKeyword || null,
+          properties: (properties as Prisma.JsonValue) || Prisma.JsonNull,
+          metadata: (metadata as Prisma.JsonValue) || Prisma.JsonNull,
+        },
+      });
+
+      return {
+        success: true,
+        data: {
+          lead,
+          message: "Lead saved successfully",
+        },
+      };
+    } catch (error) {
+      console.error("Error saving lead:", error);
+      return {
+        success: false,
+        error: {
+          message: "Failed to save lead",
+          code: "SAVE_FAILED",
         },
       };
     }

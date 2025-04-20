@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     const toolsWithExecutionConditions: string[] = [];
     if (enabledTools["lead-capture_detectTriggerKeyword"]) {
       toolsWithExecutionConditions.push(
-        "Run the `lead-capture_detectTriggerKeyword` tool in every message. And if it returns `{detected: true}`, then run the `lead-capture_requestLeadInfo` tool."
+        "Run the `lead-capture_detectTriggerKeyword` tool in every message. And if it returns `{detected: true}`, then run the `lead-capture_requestLeadInfo` tool. Once you have collected all the information, run the `lead-capture_saveLead` tool."
       );
     }
 

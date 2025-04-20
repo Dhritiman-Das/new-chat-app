@@ -9,10 +9,14 @@ generator client {
   output   = "../lib/generated/prisma"
 }
 
+
+
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
+        
 
 // Organization model
 model Organization {
@@ -90,6 +94,7 @@ model Bot {
   botTools        BotTool[]
   botIntegrations BotIntegration[]
   toolUsageMetrics ToolUsageMetric[]
+  leads           Lead[]
 
   @@index([userId])
   @@index([organizationId])
@@ -423,4 +428,31 @@ model Survey {
 
   @@index([userId])
   @@map("surveys")
+}
+
+// Lead model - stores lead information with flexible structure
+model Lead {
+  id            String    @id @default(uuid())
+  botId         String    @map("bot_id")
+  name          String?
+  email         String?
+  phone         String?
+  company       String?
+  source        String?   @default("chat")
+  status        String?   @default("New")
+  triggerKeyword String?  @map("trigger_keyword")
+  properties    Json?     // JSONB column for storing arbitrary properties
+  metadata      Json?     // Additional metadata about the lead capture process
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  bot           Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId])
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+  @@index([createdAt])
+  @@map("leads")
 }

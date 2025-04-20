@@ -42,6 +42,23 @@ import {
   getLeads,
   exportLeads,
 } from "@/app/actions/lead-capture";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { CopyIcon, InfoIcon, MailIcon } from "lucide-react";
 
 // Interface for serialized tool object
 interface SerializableTool {
@@ -63,12 +80,17 @@ interface LeadCaptureToolProps {
 // Define a Lead type for capturing lead data
 interface Lead {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  company?: string;
-  status: string;
-  createdAt: Date;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  source: string | null;
+  status: string | null;
+  triggerKeyword: string | null;
+  properties: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const fieldOptions = [
@@ -117,6 +139,8 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [isLeadDetailsOpen, setIsLeadDetailsOpen] = useState(false);
 
   const form = useForm<z.infer<typeof configSchema>>({
     resolver: zodResolver(configSchema),
@@ -228,6 +252,25 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
     }
   };
 
+  // Add this new function to get all field keys from leads
+  const getAllLeadFieldKeys = (leads: Lead[]) => {
+    const fieldKeys = new Set<string>();
+
+    // Add standard fields first
+    ["name", "email", "phone", "company", "source", "status"].forEach((field) =>
+      fieldKeys.add(field)
+    );
+
+    // Add custom property fields
+    leads.forEach((lead) => {
+      if (lead.properties) {
+        Object.keys(lead.properties).forEach((key) => fieldKeys.add(key));
+      }
+    });
+
+    return Array.from(fieldKeys);
+  };
+
   async function onSubmit(values: z.infer<typeof configSchema>) {
     try {
       setIsSaving(true);
@@ -312,6 +355,58 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  // Function to open lead details dialog
+  const openLeadDetails = (lead: Lead) => {
+    setSelectedLead(lead);
+    setIsLeadDetailsOpen(true);
+  };
+
+  // Add a function to copy lead data to clipboard
+  const copyLeadToClipboard = (lead: Lead) => {
+    // Create a formatted object with lead data
+    const leadData: Record<string, string | number | boolean | object> = {
+      name: lead.name || "—",
+      email: lead.email || "—",
+      phone: lead.phone || "—",
+      company: lead.company || "—",
+      source: lead.source || "—",
+      status: lead.status || "—",
+      triggerKeyword: lead.triggerKeyword || "—",
+      date: new Date(lead.createdAt).toLocaleString(),
+    };
+
+    // Add custom properties
+    if (lead.properties) {
+      Object.entries(lead.properties).forEach(([key, value]) => {
+        leadData[key] = value === null || value === undefined ? "—" : value;
+      });
+    }
+
+    // Convert to JSON string with formatting
+    const leadString = JSON.stringify(
+      leadData,
+      (key, value) => {
+        // Handle null and undefined values
+        if (value === null || value === undefined) {
+          return "—";
+        }
+        return value;
+      },
+      2
+    );
+
+    // Copy to clipboard
+    navigator.clipboard
+      .writeText(leadString)
+      .then(() => {
+        toast.success("Lead data copied to clipboard");
+      })
+      .catch((err) => {
+        console.error("Could not copy text: ", err);
+        toast.error("Failed to copy lead data");
+      });
   };
 
   return (
@@ -600,37 +695,124 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
                   </p>
                 </div>
               ) : (
-                <Table>
+                <Table className="min-w-full">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Date Captured</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="w-[180px]">Name</TableHead>
+                      <TableHead className="w-[200px]">Email</TableHead>
+                      <TableHead className="w-[150px]">Phone</TableHead>
+                      {/* Dynamically add columns for custom properties */}
+                      {leads.length > 0 &&
+                        getAllLeadFieldKeys(leads)
+                          .filter(
+                            (key) =>
+                              ![
+                                "name",
+                                "email",
+                                "phone",
+                                "id",
+                                "createdAt",
+                                "updatedAt",
+                                "metadata",
+                              ].includes(key)
+                          )
+                          .map((key) => (
+                            <TableHead key={key} className="w-[120px]">
+                              {key.charAt(0).toUpperCase() + key.slice(1)}
+                            </TableHead>
+                          ))}
+                      <TableHead className="w-[120px]">Date Captured</TableHead>
+                      <TableHead className="w-[60px] text-right">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {leads.map((lead) => (
                       <TableRow key={lead.id}>
-                        <TableCell className="font-medium">
-                          {lead.name}
+                        <TableCell className="font-medium truncate">
+                          {lead.name || "—"}
                         </TableCell>
-                        <TableCell>{lead.email}</TableCell>
+                        <TableCell className="truncate">
+                          {lead.email || "—"}
+                        </TableCell>
+                        <TableCell className="truncate">
+                          {lead.phone || "—"}
+                        </TableCell>
+                        {/* Render custom property cells */}
+                        {getAllLeadFieldKeys(leads)
+                          .filter(
+                            (key) =>
+                              ![
+                                "name",
+                                "email",
+                                "phone",
+                                "id",
+                                "createdAt",
+                                "updatedAt",
+                                "metadata",
+                              ].includes(key)
+                          )
+                          .map((key) => (
+                            <TableCell key={key} className="truncate">
+                              {key === "company"
+                                ? lead.company || "—"
+                                : key === "source"
+                                ? lead.source || "—"
+                                : key === "status"
+                                ? lead.status || "—"
+                                : key === "triggerKeyword"
+                                ? lead.triggerKeyword || "—"
+                                : lead.properties &&
+                                  lead.properties[key] !== undefined
+                                ? typeof lead.properties[key] === "object"
+                                  ? lead.properties[key]
+                                    ? JSON.stringify(lead.properties[key])
+                                    : "—"
+                                  : String(lead.properties[key] || "—")
+                                : "—"}
+                            </TableCell>
+                          ))}
                         <TableCell>
                           {new Date(lead.createdAt).toLocaleDateString()}
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{lead.status}</Badge>
-                        </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                          >
-                            <Icons.MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <Icons.MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem
+                                onClick={() => openLeadDetails(lead)}
+                              >
+                                <InfoIcon className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => copyLeadToClipboard(lead)}
+                              >
+                                <CopyIcon className="mr-2 h-4 w-4" />
+                                Copy Data
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  window.open(`mailto:${lead.email}`, "_blank")
+                                }
+                                disabled={!lead.email}
+                              >
+                                <MailIcon className="mr-2 h-4 w-4" />
+                                Email Lead
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -682,6 +864,144 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Lead Details Dialog */}
+      <Dialog open={isLeadDetailsOpen} onOpenChange={setIsLeadDetailsOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Lead Details</DialogTitle>
+            <DialogDescription>
+              All captured information for this lead
+            </DialogDescription>
+          </DialogHeader>
+          {selectedLead && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Name</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedLead.name || "—"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Email</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedLead.email || "—"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Phone</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedLead.phone || "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Company</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedLead.company || "—"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Source</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedLead.source || "—"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Status</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedLead.status || "—"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Trigger Keyword</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedLead.triggerKeyword || "—"}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Date Captured</p>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(selectedLead.createdAt).toLocaleString()}
+                </p>
+              </div>
+
+              {/* Custom Properties */}
+              {selectedLead.properties &&
+                Object.keys(selectedLead.properties).length > 0 && (
+                  <>
+                    <Separator className="my-2" />
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold">
+                        Custom Properties
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(selectedLead.properties).map(
+                          ([key, value]) => (
+                            <div key={key} className="space-y-1">
+                              <p className="text-sm font-medium capitalize">
+                                {key}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {value === null || value === undefined
+                                  ? "—"
+                                  : typeof value === "object"
+                                  ? value
+                                    ? JSON.stringify(value)
+                                    : "—"
+                                  : String(value)}
+                              </p>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+              {/* Metadata */}
+              {selectedLead.metadata &&
+                Object.keys(selectedLead.metadata).length > 0 && (
+                  <>
+                    <Separator className="my-2" />
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold">Metadata</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(selectedLead.metadata).map(
+                          ([key, value]) => (
+                            <div key={key} className="space-y-1">
+                              <p className="text-sm font-medium capitalize">
+                                {key}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {value === null || value === undefined
+                                  ? "—"
+                                  : typeof value === "object"
+                                  ? value
+                                    ? JSON.stringify(value)
+                                    : "—"
+                                  : String(value)}
+                              </p>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+            </div>
+          )}
+          <DialogClose asChild>
+            <Button variant="outline">Close</Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

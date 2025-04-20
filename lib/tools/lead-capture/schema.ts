@@ -42,8 +42,8 @@ export const leadCaptureCredentialSchema = z.object({});
 
 // Function parameter schemas
 export const saveLeadSchema = z.object({
-  name: z.string().min(1).describe("Full name of the lead (required)"),
-  phone: z.string().min(1).describe("Phone number of the lead (required)"),
+  name: z.string().min(1).optional().describe("Full name of the lead"),
+  phone: z.string().min(1).optional().describe("Phone number of the lead"),
   email: z
     .string()
     .email()
@@ -65,20 +65,7 @@ export const saveLeadSchema = z.object({
 });
 
 export const requestLeadInfoSchema = z.object({
-  fields: z
-    .array(
-      z.enum([
-        "name",
-        "email",
-        "phone",
-        "company",
-        "message",
-        "website",
-        "budget",
-        "timeline",
-      ])
-    )
-    .describe("Fields to request from the lead"),
+  fields: z.array(z.string()).describe("Fields to request from the lead"),
   message: z
     .string()
     .optional()

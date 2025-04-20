@@ -4,6 +4,15 @@ import {
   requestLeadInfoSchema,
   detectTriggerKeywordSchema,
 } from "./schema";
+import { saveLead as saveLeadAction } from "@/app/actions/lead-capture";
+
+// Extended ToolContext with the fields we need
+interface LeadCaptureToolContext {
+  botId: string;
+  toolId?: string;
+  conversationId?: string;
+  config?: Record<string, unknown>;
+}
 
 // Type for config
 interface LeadCaptureConfig {
@@ -18,10 +27,22 @@ export const saveLead: ToolFunction = {
   parameters: saveLeadSchema,
   execute: async (params, context) => {
     try {
-      const { name, phone, email, company, source, triggerKeyword } = params;
+      // Type-safe cast of context
+      const toolContext = context as unknown as LeadCaptureToolContext;
+
+      // Extract parameters with proper typing
+      const {
+        name = "",
+        phone = "",
+        email,
+        company,
+        source,
+        triggerKeyword,
+        ...rest
+      } = params as Record<string, unknown>;
 
       // Get config from context and type it correctly
-      const config = (context.config || {}) as LeadCaptureConfig;
+      const config = (toolContext.config || {}) as LeadCaptureConfig;
 
       // Get the required fields from config
       const requiredFields = config.requiredFields || ["name", "phone"];
@@ -34,7 +55,7 @@ export const saveLead: ToolFunction = {
         source: source || "chat",
         triggerKeyword,
       });
-      console.log("Context:", context);
+      console.log("Context:", toolContext);
 
       // Validate required fields from config
       const missingFields = requiredFields.filter((field) => {
@@ -56,30 +77,75 @@ export const saveLead: ToolFunction = {
         };
       }
 
-      // In a real implementation, you would:
-      // 1. Save the lead to a database
-      // 2. Maybe trigger a notification to the team if leadNotifications is true
-      // 3. Maybe add the lead to a CRM
+      // Save lead to the database
+      try {
+        // Extract custom properties (fields not in our standard schema)
+        const standardFields = [
+          "name",
+          "phone",
+          "email",
+          "company",
+          "source",
+          "triggerKeyword",
+        ];
+        const properties = Object.entries(rest).reduce((acc, [key, value]) => {
+          if (!standardFields.includes(key)) {
+            acc[key] = value;
+          }
+          return acc;
+        }, {} as Record<string, unknown>);
 
-      // Check if we should send notifications based on config
-      const shouldNotify = config.leadNotifications !== false;
+        // Save to database via server action
+        const result = await saveLeadAction({
+          botId: toolContext.botId,
+          name: String(name),
+          phone: String(phone),
+          email: email ? String(email) : undefined,
+          company: company ? String(company) : undefined,
+          source: source ? String(source) : "chat",
+          triggerKeyword: triggerKeyword ? String(triggerKeyword) : undefined,
+          properties:
+            Object.keys(properties).length > 0 ? properties : undefined,
+          metadata: {
+            capturedAt: new Date().toISOString(),
+            toolId: toolContext.toolId || "lead-capture",
+            conversationId: toolContext.conversationId || null,
+          },
+        });
 
-      // For now, return a successful response
-      return {
-        success: true,
-        leadId: "lead_" + Math.random().toString(36).substring(2, 10),
-        message: `Successfully saved lead information for ${name}.`,
-        data: {
-          name,
-          phone,
-          email,
-          company,
-          source: source || "chat",
-          triggerKeyword,
-          timestamp: new Date().toISOString(),
-          notificationSent: shouldNotify,
-        },
-      };
+        if (!result?.data?.success) {
+          console.error("Error saving lead to database:", result?.data?.error);
+          throw new Error(
+            result?.data?.error?.message || "Failed to save lead to database"
+          );
+        }
+
+        // Generate a unique lead ID for reference
+        const leadId = `lead_${Date.now()}`;
+
+        // Check if we should send notifications based on config
+        const shouldNotify = config.leadNotifications !== false;
+        if (shouldNotify) {
+          // In a real implementation, you would send notifications here
+          console.log("Would send lead notification");
+        }
+
+        return {
+          success: true,
+          leadId: leadId,
+          message: `Successfully saved lead information for ${name}.`,
+          data: {
+            name: String(name),
+            email: email ? String(email) : null,
+            phone: String(phone),
+            company: company ? String(company) : null,
+            notificationSent: shouldNotify,
+          },
+        };
+      } catch (dbError) {
+        console.error("Database error when saving lead:", dbError);
+        throw dbError;
+      }
     } catch (error) {
       console.error("Error saving lead info:", error);
       return {
@@ -116,7 +182,7 @@ export const requestLeadInfo: ToolFunction = {
       const { fields, message, triggerKeyword } = params;
 
       // Use the fields from params, or fall back to required fields from config
-      const fieldsToRequest = fields || configRequiredFields;
+      const fieldsToRequest = configRequiredFields || fields;
 
       // In a real implementation, this might show a form to the user
       // For now, return instructions for the assistant
