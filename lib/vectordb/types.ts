@@ -67,3 +67,9 @@ export interface VectorDbResponse {
   data?: unknown;
   error?: Error | string;
 }
+
+export interface QueryResult {
+  chunk: string;
+  metadata: Metadata;
+  score?: number;
+}

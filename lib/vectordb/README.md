@@ -47,6 +47,58 @@ async function deleteData() {
 
 See `example.ts` for complete examples of using the vector database with server actions.
 
+### Document Tracking in Chat
+
+To track which documents were used in a chat response:
+
+1. Make sure to include `documentId` in the metadata when storing documents:
+
+```typescript
+await vectorDb.upsert(
+  {
+    documentId: knowledgeFile.id, // Important for tracking
+    botId: botId,
+    namespace: `kb-${knowledgeBaseId}`,
+  },
+  documentText
+);
+```
+
+2. When querying for context in a chat, extract the document IDs and their relevance scores:
+
+```typescript
+// Current workaround: Extract document IDs and scores from content
+// Format like "[docId:abc123|score:0.87]" in the text chunks
+const usedDocuments = [];
+
+for (const chunk of contextResults) {
+  const docMatch = chunk.match(
+    /\[docId:([a-zA-Z0-9-]+)(?:\|score:([\d.]+))?\]/
+  );
+  if (docMatch) {
+    const documentId = docMatch[1];
+    const score = docMatch[2] ? parseFloat(docMatch[2]) : 1.0;
+
+    usedDocuments.push({
+      documentId,
+      score,
+    });
+  }
+}
+```
+
+3. Store just the document references in `contextUsed` when adding a message:
+
+```typescript
+addMessage({
+  // ...other message data
+  contextUsed: {
+    documents: usedDocuments,
+    hasKnowledgeContext: usedDocuments.length > 0,
+  },
+});
+```
+
 ## Configuration
 
 ### Environment Variables

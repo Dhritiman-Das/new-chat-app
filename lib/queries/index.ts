@@ -462,3 +462,20 @@ export async function getBotToolMetricsQuery(
     throw error;
   }
 }
+
+export async function getBotDetailsQuery(prisma: PrismaClient, botId: string) {
+  const bot = await prisma.bot.findUnique({
+    where: { id: botId },
+    include: {
+      botTools: {
+        where: { isEnabled: true },
+        include: { tool: true },
+      },
+      knowledgeBases: true,
+    },
+  });
+
+  return {
+    data: bot,
+  };
+}

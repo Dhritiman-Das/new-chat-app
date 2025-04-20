@@ -12,6 +12,8 @@ import { appErrors } from "./types";
 import { prisma } from "@/lib/db/prisma";
 import { revalidateTag } from "next/cache";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
+import { getVectorDb } from "@/lib/vectordb";
+import { QueryResult } from "@/lib/vectordb/types";
 
 const action = createSafeActionClient();
 
@@ -29,7 +31,7 @@ const addMessageSchema = z.object({
   conversationId: z.string(),
   role: z.enum(["USER", "ASSISTANT", "SYSTEM"]),
   content: z.string(),
-  toolCalls: z.array(z.record(z.unknown())).optional(),
+  responseMessages: z.array(z.record(z.unknown())).optional(),
   contextUsed: z.record(z.unknown()).optional(),
   processingTime: z.number().int().optional(),
   tokenCount: z.number().int().optional(),
@@ -134,7 +136,7 @@ export const addMessage = action
         conversationId,
         role,
         content,
-        toolCalls,
+        responseMessages,
         contextUsed,
         processingTime,
         tokenCount,
@@ -144,7 +146,7 @@ export const addMessage = action
           conversationId: conversationId,
           role: role,
           content: content,
-          toolCalls: toolCalls as InputJsonValue,
+          responseMessages: responseMessages as InputJsonValue,
           contextUsed: contextUsed as InputJsonValue,
           processingTime: processingTime || null,
           tokenCount: tokenCount || null,
@@ -174,8 +176,9 @@ export const addMessage = action
           conversationId: message.conversationId,
           role: message.role,
           content: message.content,
-          toolCalls:
-            (message.toolCalls as Record<string, unknown>[]) || undefined,
+          responseMessages:
+            (message.responseMessages as Record<string, unknown>[]) ||
+            undefined,
           contextUsed:
             (message.contextUsed as Record<string, unknown>) || undefined,
           processingTime: message.processingTime || undefined,
@@ -373,3 +376,77 @@ export const updateToolExecution = action
       }
     }
   );
+
+/**
+ * Retrieve context from knowledge base for a bot and query
+ */
+export async function retrieveKnowledgeContext(
+  botId: string,
+  query: string,
+  limit = 5
+) {
+  try {
+    const vectorDb = await getVectorDb();
+
+    // Query the vector database for relevant context
+    const vectorDbQueryResults: QueryResult[] = await vectorDb.query(
+      { botId },
+      query,
+      limit
+    );
+
+    const usedDocuments = vectorDbQueryResults.map((document: QueryResult) => ({
+      documentId: document.metadata.documentId || "",
+      score: document.score,
+    }));
+
+    let contextualInfo = "";
+    if (vectorDbQueryResults.length > 0) {
+      contextualInfo = vectorDbQueryResults
+        .map((result: QueryResult) => result.chunk)
+        .join("\n\n");
+    }
+
+    return {
+      success: true,
+      data: {
+        usedDocuments,
+        contextualInfo,
+        hasKnowledgeContext: vectorDbQueryResults.length > 0,
+      },
+    };
+  } catch (error) {
+    console.error("Error retrieving knowledge context:", error);
+    return {
+      success: false,
+      error: appErrors.UNEXPECTED_ERROR,
+    };
+  }
+}
+
+/**
+ * Mark conversation as completed
+ */
+export async function completeConversation(conversationId: string) {
+  try {
+    await prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        endedAt: new Date(),
+        status: "COMPLETED",
+      },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error completing conversation:", error);
+    return {
+      success: false,
+      error: appErrors.CONVERSATION_ERROR,
+    };
+  }
+}

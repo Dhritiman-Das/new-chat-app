@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -46,12 +46,34 @@ export default function ChatInterface({
 }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat({
-      api: `/api/chat?model=${model.id}&botId=${botId}`,
-      // We no longer need the onFinish callback since useChat will manage the messages
-    });
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    isLoading,
+    setMessages,
+  } = useChat({
+    api: `/api/chat?model=${model.id}&botId=${botId}`,
+    body: {
+      conversationId,
+    },
+    onResponse: (response) => {
+      // Extract conversation ID from response headers
+      const newConversationId = response.headers.get("X-Conversation-ID");
+      if (newConversationId) {
+        setConversationId(newConversationId);
+      }
+    },
+  });
+
+  // Reset conversation ID when model changes
+  useEffect(() => {
+    setConversationId(null);
+    setMessages([]);
+  }, [model.id, setMessages]);
 
   // Auto scroll to bottom whenever messages change
   useEffect(() => {

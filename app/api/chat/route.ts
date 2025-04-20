@@ -7,7 +7,13 @@ import { prisma } from "@/lib/db/prisma";
 import { initializeTools } from "@/lib/tools";
 import { getModelById } from "@/lib/models";
 import { format } from "date-fns";
-import { getVectorDb } from "@/lib/vectordb";
+import {
+  addMessage,
+  completeConversation,
+  retrieveKnowledgeContext,
+} from "@/app/actions/conversation-tracking";
+import { DocumentReference, KnowledgeContext } from "@/app/actions/types";
+import { getBotDetails } from "@/lib/queries/cached-queries";
 
 // Initialize the tools and get tool services
 initializeTools();
@@ -42,16 +48,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Get bot details and enabled tools
-    const bot = await prisma.bot.findUnique({
-      where: { id: botId },
-      include: {
-        botTools: {
-          where: { isEnabled: true },
-          include: { tool: true },
-        },
-        knowledgeBases: true, // Include knowledge bases relation
-      },
-    });
+    const botResponse = await getBotDetails(botId);
+    const bot = botResponse.data;
 
     if (!bot) {
       return NextResponse.json({ error: "Bot not found" }, { status: 404 });
@@ -76,26 +74,35 @@ export async function POST(req: NextRequest) {
         });
 
         currentConversationId = conversation.id;
-
-        // Add initial user message to the conversation
-        const userMessage = messages[messages.length - 1];
-        if (userMessage && userMessage.role === "user") {
-          await prisma.message.create({
-            data: {
-              conversationId: currentConversationId,
-              role: "USER",
-              content: userMessage.content,
-            },
-          });
-        }
       } catch (error) {
         console.error("Error creating conversation:", error);
         // Continue even if conversation tracking fails
       }
     }
 
+    // Add user message to the conversation in all cases
+    try {
+      const userMessage = messages[messages.length - 1];
+      if (userMessage && userMessage.role === "user") {
+        await addMessage({
+          conversationId: currentConversationId,
+          role: "USER",
+          content: userMessage.content,
+          responseMessages: [],
+          contextUsed: {},
+          processingTime: 0,
+          tokenCount: 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error adding user message:", error);
+      // Continue even if message tracking fails
+    }
+
     // Retrieve context from knowledge base if there are any
     let contextualInfo = "";
+    const usedDocuments: DocumentReference[] = [];
+
     if (bot.knowledgeBases && bot.knowledgeBases.length > 0) {
       // Get the last user message for context retrieval
       const lastUserMessage = [...messages]
@@ -104,22 +111,21 @@ export async function POST(req: NextRequest) {
 
       if (lastUserMessage && lastUserMessage.content) {
         try {
-          // Get vectorDb instance
-          const vectorDb = await getVectorDb();
-
-          // Query the vector database for relevant context
-          // Use the filter with userId to restrict to this user's embeddings
-          const contextResults = await vectorDb.query(
-            { botId },
+          const contextResult = await retrieveKnowledgeContext(
+            botId,
             lastUserMessage.content,
-            5 // Get top 5 most relevant chunks
+            5
           );
 
-          if (contextResults.length > 0) {
-            contextualInfo =
-              "### Relevant information from knowledge base:\n\n" +
-              contextResults.join("\n\n") +
-              "\n\n";
+          if (contextResult.success && contextResult.data) {
+            usedDocuments.push(...contextResult.data.usedDocuments);
+
+            if (contextResult.data.contextualInfo) {
+              contextualInfo =
+                "### Relevant information from knowledge base:\n\n" +
+                contextResult.data.contextualInfo +
+                "\n\n";
+            }
           }
         } catch (error) {
           console.error(
@@ -210,12 +216,38 @@ export async function POST(req: NextRequest) {
     }
 
     // Stream the AI response with tools
+    const startProcessingTime = Date.now(); // Track when processing starts
+
     const response = streamText({
       model: aiModel,
       system: systemMessage,
       messages,
       tools: hasTools ? (enabledTools as ToolSet) : undefined,
       maxSteps: 5, // Allow multiple tool calls if needed,
+      onFinish({ response, usage, text }) {
+        // Create the simplified knowledge context
+        const knowledgeContext: KnowledgeContext = {
+          documents: usedDocuments,
+          hasKnowledgeContext: usedDocuments.length > 0,
+        };
+
+        // Calculate processing time in milliseconds (capped at 30 seconds to stay within INT4)
+        const processingTimeMs = Math.min(
+          30000,
+          Date.now() - startProcessingTime
+        );
+
+        // Save conversation and tool calls/results here
+        addMessage({
+          role: "ASSISTANT",
+          content: text,
+          conversationId: currentConversationId,
+          responseMessages: JSON.parse(JSON.stringify(response.messages)),
+          tokenCount: usage.totalTokens,
+          contextUsed: knowledgeContext as unknown as Record<string, unknown>,
+          processingTime: processingTimeMs,
+        });
+      },
     });
 
     // Record the completion in a background process
@@ -223,14 +255,7 @@ export async function POST(req: NextRequest) {
       setTimeout(async () => {
         try {
           // Mark conversation as completed
-          await prisma.conversation.update({
-            where: {
-              id: currentConversationId!,
-            },
-            data: {
-              endedAt: new Date(),
-            },
-          });
+          await completeConversation(currentConversationId!);
         } catch (error) {
           console.error("Error updating conversation completion:", error);
         }

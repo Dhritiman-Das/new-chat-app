@@ -349,7 +349,7 @@ model Message {
   conversationId  String      @map("conversation_id")
   role            MessageRole
   content         String
-  toolCalls       Json?       @map("tool_calls") // JSON containing tool call requests (params, etc.)
+  responseMessages Json?       @map("response_messages") // JSON containing response messages that were generated during the call (assistant/tool)
   contextUsed     Json?       @map("context_used") // Context from knowledge base that was used
   processingTime  Int?        @map("processing_time") // Processing time in milliseconds
   tokenCount      Int?        @map("token_count") // Number of tokens in the message

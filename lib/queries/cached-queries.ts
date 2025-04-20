@@ -12,6 +12,7 @@ import {
   getToolCredentialQuery,
   getMeQuery,
   checkOrganizationSlugAvailabilityQuery,
+  getBotDetailsQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -547,6 +548,26 @@ export const getBotConversationMetrics = async (
     {
       tags: [`bot_conversations_${botId}`, `user_conversations_${userId}`],
       revalidate: 60 * 5, // Cache for 5 minutes
+    }
+  )();
+};
+
+// Cache bot details with tools and knowledge bases
+export const getBotDetails = async (botId: string) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return getBotDetailsQuery(prisma, botId);
+    },
+    ["bot_details", botId],
+    {
+      tags: [
+        `bot_${botId}`,
+        `bot_tools_${botId}`,
+        `bot_knowledge_bases_${botId}`,
+      ],
+      revalidate: 60, // Cache for 1 minute
     }
   )();
 };

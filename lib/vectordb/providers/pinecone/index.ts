@@ -12,6 +12,7 @@ import {
   AdditionalMetadata,
   Document,
   Metadata,
+  QueryResult,
   VectorDbConfig,
   VectorDbFilter,
   VectorDbResponse,
@@ -129,7 +130,7 @@ export class PineconeVectorDb implements VectorDbService {
     filter: VectorDbFilter,
     text: string,
     topK: number = this.config.topK || 5
-  ): Promise<string[]> {
+  ): Promise<QueryResult[]> {
     if (!this.index) {
       await this.initialize();
     }
@@ -156,9 +157,11 @@ export class PineconeVectorDb implements VectorDbService {
       );
 
       // Extract the chunks from the metadata
-      return qualifyingDocs
-        .map((match) => (match.metadata?.chunk as string) || "")
-        .filter(Boolean);
+      return qualifyingDocs.map((match) => ({
+        chunk: match.metadata?.chunk as string,
+        metadata: match.metadata as Metadata,
+        score: match.score,
+      }));
     } catch (error) {
       console.error("Error querying Pinecone:", error);
       throw new Error(

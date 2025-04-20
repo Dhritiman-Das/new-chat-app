@@ -1,5 +1,6 @@
 import {
   AdditionalMetadata,
+  QueryResult,
   VectorDbConfig,
   VectorDbFilter,
   VectorDbResponse,
@@ -19,8 +20,18 @@ export interface VectorDbService {
    * @param filter - Filter to apply to the query
    * @param text - Text to query for similar vectors
    * @param topK - Number of results to return
+   *
+   * TODO: Enhancement - Update this interface to return full match data including metadata
+   * Return interface should include:
+   * - text: The matched content
+   * - metadata: Record with documentId and other metadata
+   * - score: The relevance score
    */
-  query(filter: VectorDbFilter, text: string, topK?: number): Promise<string[]>;
+  query(
+    filter: VectorDbFilter,
+    text: string,
+    topK?: number
+  ): Promise<QueryResult[]>;
 
   /**
    * Upsert data into the vector database

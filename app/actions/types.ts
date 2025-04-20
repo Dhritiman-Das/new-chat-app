@@ -34,6 +34,17 @@ export interface ActionResponse<T = unknown> {
   error?: AppError;
 }
 
+// Knowledge context types
+export interface DocumentReference {
+  documentId: string;
+  score?: number;
+}
+
+export interface KnowledgeContext {
+  documents: DocumentReference[];
+  hasKnowledgeContext: boolean;
+}
+
 // Conversation tracking types
 export interface ConversationData {
   id?: string; // Optional for existing conversation
@@ -49,8 +60,8 @@ export interface MessageData {
   conversationId: string;
   role: "USER" | "ASSISTANT" | "SYSTEM";
   content: string;
-  toolCalls?: Record<string, unknown>[];
-  contextUsed?: Record<string, unknown>;
+  responseMessages?: Record<string, unknown>[];
+  contextUsed?: KnowledgeContext | Record<string, unknown>;
   processingTime?: number;
   tokenCount?: number;
 }
