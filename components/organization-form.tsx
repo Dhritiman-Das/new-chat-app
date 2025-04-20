@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -98,54 +98,57 @@ export default function OrganizationForm({
   };
 
   // Check if slug is available
-  const checkSlug = async (slug: string) => {
-    if (!slug || slug.length < 2 || !slugRegex.test(slug)) return;
+  const checkSlug = useCallback(
+    async (slug: string) => {
+      if (!slug || slug.length < 2 || !slugRegex.test(slug)) return;
 
-    // Skip the check if the slug hasn't changed from the previous value
-    if (slug === previousSlugRef.current) return;
+      // Skip the check if the slug hasn't changed from the previous value
+      if (slug === previousSlugRef.current) return;
 
-    // Update the previous slug reference
-    previousSlugRef.current = slug;
+      // Update the previous slug reference
+      previousSlugRef.current = slug;
 
-    // If we're in edit mode and the slug hasn't changed, mark it as unchanged
-    if (isEditMode && organization?.slug === slug) {
-      setSlugStatus("unchanged");
-      return;
-    }
-
-    setIsCheckingSlug(true);
-    try {
-      // Build URL with query parameters
-      const url = new URL(
-        "/api/organization/slug-check",
-        window.location.origin
-      );
-      url.searchParams.append("slug", slug);
-      if (organization?.id) {
-        url.searchParams.append("excludeOrgId", organization.id);
+      // If we're in edit mode and the slug hasn't changed, mark it as unchanged
+      if (isEditMode && organization?.slug === slug) {
+        setSlugStatus("unchanged");
+        return;
       }
 
-      // Fetch from the API
-      const response = await fetch(url.toString());
-      const data = await response.json();
-
-      if (response.ok) {
-        setSlugStatus(data.available ? "available" : "unavailable");
-
-        if (!data.available) {
-          form.setError("slug", {
-            message: "This slug is already taken. Please choose another one.",
-          });
-        } else {
-          form.clearErrors("slug");
+      setIsCheckingSlug(true);
+      try {
+        // Build URL with query parameters
+        const url = new URL(
+          "/api/organization/slug-check",
+          window.location.origin
+        );
+        url.searchParams.append("slug", slug);
+        if (organization?.id) {
+          url.searchParams.append("excludeOrgId", organization.id);
         }
+
+        // Fetch from the API
+        const response = await fetch(url.toString());
+        const data = await response.json();
+
+        if (response.ok) {
+          setSlugStatus(data.available ? "available" : "unavailable");
+
+          if (!data.available) {
+            form.setError("slug", {
+              message: "This slug is already taken. Please choose another one.",
+            });
+          } else {
+            form.clearErrors("slug");
+          }
+        }
+      } catch (error) {
+        console.error("Error checking slug:", error);
+      } finally {
+        setIsCheckingSlug(false);
       }
-    } catch (error) {
-      console.error("Error checking slug:", error);
-    } finally {
-      setIsCheckingSlug(false);
-    }
-  };
+    },
+    [isEditMode, organization, form]
+  );
 
   // Watch the name field to update slug automatically
   useEffect(() => {
@@ -182,7 +185,7 @@ export default function OrganizationForm({
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [form, isEditMode]);
+  }, [form, isEditMode, checkSlug]);
 
   async function onSubmit(data: FormValues) {
     setIsLoading(true);

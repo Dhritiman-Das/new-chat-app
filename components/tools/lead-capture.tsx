@@ -35,7 +35,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   updateLeadCaptureConfig,
@@ -158,6 +158,31 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
     },
   });
 
+  // Fetch leads function
+  const fetchLeads = useCallback(async () => {
+    try {
+      setLeadsLoading(true);
+      const result = await getLeads({
+        botId,
+        page: currentPage,
+        limit: 10,
+      });
+
+      if (result?.data?.success && result.data?.data) {
+        const leadsData = result.data.data as LeadsResponse;
+        setLeads(leadsData.leads);
+        setTotalPages(leadsData.totalPages);
+      } else {
+        toast.error("Failed to fetch leads");
+      }
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      toast.error("Failed to fetch leads");
+    } finally {
+      setLeadsLoading(false);
+    }
+  }, [botId, currentPage, setLeads, setTotalPages, setLeadsLoading]);
+
   // Fetch initial configuration
   useEffect(() => {
     const fetchConfig = async () => {
@@ -221,32 +246,7 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
     if (activeTab === "leads") {
       fetchLeads();
     }
-  }, [activeTab, currentPage, botId]);
-
-  // Fetch leads function
-  const fetchLeads = async () => {
-    try {
-      setLeadsLoading(true);
-      const result = await getLeads({
-        botId,
-        page: currentPage,
-        limit: 10,
-      });
-
-      if (result?.data?.success && result.data?.data) {
-        const leadsData = result.data.data as LeadsResponse;
-        setLeads(leadsData.leads);
-        setTotalPages(leadsData.totalPages);
-      } else {
-        toast.error("Failed to fetch leads");
-      }
-    } catch (error) {
-      console.error("Error fetching leads:", error);
-      toast.error("Failed to fetch leads");
-    } finally {
-      setLeadsLoading(false);
-    }
-  };
+  }, [activeTab, currentPage, botId, fetchLeads]);
 
   // Add this new function to get all field keys from leads
   const getAllLeadFieldKeys = (leads: Lead[]) => {

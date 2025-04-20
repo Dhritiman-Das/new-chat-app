@@ -123,13 +123,42 @@ export default function SurveyForm({
     },
   });
 
+  const onSubmit = useCallback(
+    async (values: z.infer<typeof formSchema>) => {
+      setIsLoading(true);
+
+      try {
+        const response = await submitSurvey(values);
+
+        if (response?.data?.success) {
+          toast.success("Survey completed", {
+            description: "Thanks for your feedback!",
+          });
+          router.push(redirectPath);
+        } else {
+          toast.error("Error submitting survey", {
+            description: "Please try again later",
+          });
+        }
+      } catch (error) {
+        console.error("Error submitting survey:", error);
+        toast.error("Error submitting survey", {
+          description: "Please try again later",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [setIsLoading, router, redirectPath]
+  );
+
   const nextStep = useCallback(() => {
     if (currentStepIndex < surveySteps.length - 1) {
       setCurrentStepIndex((prev) => prev + 1);
     } else {
       form.handleSubmit(onSubmit)();
     }
-  }, [currentStepIndex, form]);
+  }, [currentStepIndex, form, onSubmit]);
 
   const prevStep = useCallback(() => {
     if (currentStepIndex > 0) {
@@ -140,32 +169,6 @@ export default function SurveyForm({
   const skipStep = useCallback(() => {
     nextStep();
   }, [nextStep]);
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
-
-    try {
-      const response = await submitSurvey(values);
-
-      if (response?.data?.success) {
-        toast.success("Survey completed", {
-          description: "Thanks for your feedback!",
-        });
-        router.push(redirectPath);
-      } else {
-        toast.error("Error submitting survey", {
-          description: "Please try again later",
-        });
-      }
-    } catch (error) {
-      console.error("Error submitting survey:", error);
-      toast.error("Error submitting survey", {
-        description: "Please try again later",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   const currentStep = surveySteps[currentStepIndex];
   const progress = ((currentStepIndex + 1) / surveySteps.length) * 100;

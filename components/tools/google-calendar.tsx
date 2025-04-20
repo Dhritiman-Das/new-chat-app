@@ -32,7 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   connectGoogleCalendar,
@@ -135,6 +135,60 @@ export default function GoogleCalendarTool({
     },
   });
 
+  // Fetch bot tool config
+  const fetchToolConfig = useCallback(async () => {
+    try {
+      setIsConfigLoading(true);
+      const response = await fetch(
+        `/api/bots/${botId}/tools/${tool.id}/config`
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tool config: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.config) {
+        // Update the form with existing config values
+        if (data.config.appointmentDuration) {
+          form.setValue("appointmentDuration", data.config.appointmentDuration);
+        }
+
+        if (data.config.availabilityWindowDays) {
+          form.setValue(
+            "availabilityWindowDays",
+            data.config.availabilityWindowDays
+          );
+        }
+
+        if (data.config.bufferTimeBetweenMeetings !== undefined) {
+          form.setValue(
+            "bufferTimeBetweenMeetings",
+            data.config.bufferTimeBetweenMeetings
+          );
+        }
+
+        if (
+          data.config.availableTimeSlots &&
+          Array.isArray(data.config.availableTimeSlots)
+        ) {
+          form.setValue("availableTimeSlots", data.config.availableTimeSlots);
+        }
+
+        if (data.config.defaultCalendarId) {
+          setSelectedCalendar(data.config.defaultCalendarId);
+          form.setValue("defaultCalendarId", data.config.defaultCalendarId);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching tool config:", error);
+      // We don't show an error toast here to avoid confusion
+      // Just use the default values from the form
+    } finally {
+      setIsConfigLoading(false);
+    }
+  }, [botId, tool.id, form, setSelectedCalendar]);
+
   // Check if user already has Google Calendar connected
   useEffect(() => {
     const checkConnection = async () => {
@@ -196,61 +250,7 @@ export default function GoogleCalendarTool({
     };
 
     checkConnection();
-  }, [tool.id, searchParams, router, form]);
-
-  // Fetch bot tool config
-  const fetchToolConfig = async () => {
-    try {
-      setIsConfigLoading(true);
-      const response = await fetch(
-        `/api/bots/${botId}/tools/${tool.id}/config`
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch tool config: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.config) {
-        // Update the form with existing config values
-        if (data.config.appointmentDuration) {
-          form.setValue("appointmentDuration", data.config.appointmentDuration);
-        }
-
-        if (data.config.availabilityWindowDays) {
-          form.setValue(
-            "availabilityWindowDays",
-            data.config.availabilityWindowDays
-          );
-        }
-
-        if (data.config.bufferTimeBetweenMeetings !== undefined) {
-          form.setValue(
-            "bufferTimeBetweenMeetings",
-            data.config.bufferTimeBetweenMeetings
-          );
-        }
-
-        if (
-          data.config.availableTimeSlots &&
-          Array.isArray(data.config.availableTimeSlots)
-        ) {
-          form.setValue("availableTimeSlots", data.config.availableTimeSlots);
-        }
-
-        if (data.config.defaultCalendarId) {
-          setSelectedCalendar(data.config.defaultCalendarId);
-          form.setValue("defaultCalendarId", data.config.defaultCalendarId);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching tool config:", error);
-      // We don't show an error toast here to avoid confusion
-      // Just use the default values from the form
-    } finally {
-      setIsConfigLoading(false);
-    }
-  };
+  }, [tool.id, searchParams, router, form, fetchToolConfig]);
 
   async function onSubmit(values: z.infer<typeof configSchema>) {
     try {

@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
 
+interface Params {
+  params: Promise<{ botId: string }>;
+}
+
 /**
  * Handler for exporting leads to CSV or JSON format
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { botId: string } }
-) {
+export async function GET(request: NextRequest, { params }: Params) {
   try {
     // Get botId from params
-    const { botId } = params;
+    const { botId } = await params;
 
     // Get format from search params
     const searchParams = request.nextUrl.searchParams;

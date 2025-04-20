@@ -49,7 +49,7 @@ export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
     };
 
     fetchOrganizations();
-  }, []);
+  }, [userOrganizations]);
 
   // Bot level
   const getBotItems = () => [
