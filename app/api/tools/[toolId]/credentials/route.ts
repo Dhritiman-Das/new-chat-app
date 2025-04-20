@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
+import { getCalendarsForCredential } from "@/lib/tools/google-calendar/services/credentials-service";
 
 type Params = {
   params: Promise<{
@@ -45,9 +46,50 @@ export async function GET(request: Request, { params }: Params) {
       return NextResponse.json({ exists: false }, { status: 200 });
     }
 
+    // For Google Calendar, fetch available calendars
+    if (provider === "google") {
+      try {
+        // Get bot tool to fetch any existing config
+        const botTool = await prisma.botTool.findFirst({
+          where: {
+            toolId,
+            toolCredentialId: credentials.id,
+          },
+        });
+
+        // Get defaultCalendarId from config if it exists
+        const config = botTool?.config as
+          | Record<string, string | number | boolean | null | undefined>
+          | undefined;
+        const defaultCalendarId = config?.defaultCalendarId as
+          | string
+          | undefined;
+
+        // Fetch the user's Google calendars
+        const calendars = await getCalendarsForCredential(credentials);
+
+        return NextResponse.json({
+          success: true,
+          exists: true,
+          data: {
+            calendars,
+            defaultCalendarId,
+          },
+        });
+      } catch (error) {
+        console.error("Error fetching Google calendars:", error);
+        // Still return credential exists but with error
+        return NextResponse.json({
+          success: true,
+          exists: true,
+          error: "Failed to fetch calendars",
+        });
+      }
+    }
+
     // Don't return the actual credentials for security reasons
     // Just let the client know that credentials exist
-    return NextResponse.json({ exists: true }, { status: 200 });
+    return NextResponse.json({ exists: true, success: true }, { status: 200 });
   } catch (error) {
     console.error("Error fetching credentials:", error);
     return NextResponse.json(

@@ -8,6 +8,7 @@ import {
   rescheduleAppointment,
   cancelAppointment,
   listAppointments,
+  listAvailableSlots,
 } from "./functions";
 
 export const googleCalendarTool: ToolDefinition = {
@@ -24,6 +25,7 @@ export const googleCalendarTool: ToolDefinition = {
     rescheduleAppointment,
     cancelAppointment,
     listAppointments,
+    listAvailableSlots,
   },
   getCredentialSchema: () => googleCalendarCredentialSchema,
   defaultConfig: {

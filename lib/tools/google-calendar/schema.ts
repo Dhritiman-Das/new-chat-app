@@ -51,7 +51,6 @@ export const googleCalendarCredentialSchema = z.object({
 export const bookAppointmentSchema = z.object({
   title: z.string().describe("Title of the appointment"),
   description: z.string().optional().describe("Description of the appointment"),
-  duration: z.number().optional().describe("Duration in minutes"),
   startTime: z.string().optional().describe("Start time (ISO string format)"),
 });
 
@@ -61,7 +60,6 @@ export const rescheduleAppointmentSchema = z.object({
     .string()
     .optional()
     .describe("New start time (ISO string format)"),
-  duration: z.number().optional().describe("New duration in minutes"),
 });
 
 export const cancelAppointmentSchema = z.object({
@@ -83,4 +81,21 @@ export const listAppointmentsSchema = z.object({
     .optional()
     .default(10)
     .describe("Maximum number of results to return"),
+});
+
+// Schema for listing available slots
+export const listAvailableSlotsSchema = z.object({
+  startDate: z
+    .string()
+    .optional()
+    .describe("Start date for the range (YYYY-MM-DD)"),
+  endDate: z
+    .string()
+    .optional()
+    .describe("End date for the range (YYYY-MM-DD)"),
+  interval: z
+    .number()
+    .optional()
+    .default(30)
+    .describe("Interval between slots in minutes (e.g., 30 min slots)"),
 });

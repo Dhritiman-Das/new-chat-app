@@ -4,16 +4,45 @@ import {
   rescheduleAppointmentSchema,
   cancelAppointmentSchema,
   listAppointmentsSchema,
+  listAvailableSlotsSchema,
 } from "./schema";
 import { getGoogleCalendarClient } from "./services/credentials-service";
 import { getDateRange } from "./utils/date-utils";
-import { parseISO, format, isValid, formatISO } from "date-fns";
+import {
+  validateAppointmentTime,
+  AppointmentValidationError,
+} from "./utils/validation-utils";
+import {
+  parseISO,
+  format,
+  formatISO,
+  addMinutes,
+  eachDayOfInterval,
+  getDay,
+  setHours,
+  setMinutes,
+  isBefore,
+  areIntervalsOverlapping,
+} from "date-fns";
 
 // Type for Google API errors
 interface GoogleApiError {
   code: number;
   errors?: Array<{ message: string }>;
   message?: string;
+}
+
+// Type for config
+interface CalendarConfig {
+  appointmentDuration?: number;
+  defaultCalendarId?: string;
+  bufferTimeBetweenMeetings?: number;
+  availabilityWindowDays?: number;
+  availableTimeSlots?: Array<{
+    day: string;
+    startTime: string;
+    endTime: string;
+  }>;
 }
 
 export const bookAppointment: ToolFunction = {
@@ -24,21 +53,21 @@ export const bookAppointment: ToolFunction = {
       // Get the calendar API client
       const calendarClient = await getGoogleCalendarClient(context);
 
-      // Get config from context
-      const config = context.config || {};
-      const { appointmentDuration = 30 } = config;
+      // Get config from context and type it correctly
+      const config = (context.config || {}) as CalendarConfig;
+      const appointmentDuration = config.appointmentDuration || 30;
+      const defaultCalendarId = config.defaultCalendarId || "primary";
+      const bufferTimeBetweenMeetings = config.bufferTimeBetweenMeetings || 0;
 
       // Extract parameters with defaults
       const {
         title,
         description = "",
         startTime,
-        duration = appointmentDuration,
       } = params as {
         title: string;
         description?: string;
         startTime?: string;
-        duration?: number;
       };
 
       if (!startTime) {
@@ -51,49 +80,61 @@ export const bookAppointment: ToolFunction = {
         };
       }
 
-      // Validate start time
-      const parsedStartTime = parseISO(startTime);
-      if (!isValid(parsedStartTime)) {
-        return {
-          success: false,
-          error: {
-            code: "INVALID_START_TIME",
-            message:
-              "Invalid start time format. Please use ISO 8601 format (e.g., 2023-11-15T10:00:00Z).",
-          },
-        };
+      // Validate that the appointment time adheres to calendar configuration
+      try {
+        validateAppointmentTime(startTime, appointmentDuration, config);
+      } catch (validationError) {
+        if (validationError instanceof AppointmentValidationError) {
+          return {
+            success: false,
+            error: {
+              code: validationError.code,
+              message: validationError.message,
+            },
+          };
+        }
+        throw validationError; // Re-throw if it's not our expected error type
       }
 
-      // Ensure the time is not in the past
-      if (parsedStartTime < new Date()) {
-        return {
-          success: false,
-          error: {
-            code: "START_TIME_IN_PAST",
-            message: "Start time cannot be in the past.",
-          },
-        };
-      }
+      // Parse the start time
+      const parsedStartTime = parseISO(startTime);
 
       // Format dates in RFC3339 format (required by Google Calendar API)
       const formattedStartTime = formatISO(parsedStartTime);
 
-      // Calculate end time from start time and duration
-      const endTimeDate = new Date(
-        parsedStartTime.getTime() + Number(duration) * 60 * 1000
+      // Calculate end time from start time and duration (including buffer)
+      const totalDuration =
+        appointmentDuration + Number(bufferTimeBetweenMeetings);
+      const actualMeetingEndTime = addMinutes(
+        parsedStartTime,
+        appointmentDuration
       );
-      const formattedEndTime = formatISO(endTimeDate);
+      const bufferEndTime = addMinutes(parsedStartTime, totalDuration);
 
-      // Create the event
+      // Format end times
+      const formattedActualEndTime = formatISO(actualMeetingEndTime);
+      const formattedBufferEndTime = formatISO(bufferEndTime);
+
+      // Create the event - if there's a buffer, include it in the event's end time
+      // but note the actual meeting end time in the description
+      const meetingEndTimeFormatted = format(actualMeetingEndTime, "h:mm a");
+      const enhancedDescription =
+        bufferTimeBetweenMeetings > 0
+          ? `${description}\n\nActual meeting end time: ${meetingEndTimeFormatted}\nBuffer time: ${bufferTimeBetweenMeetings} minutes after meeting`
+          : description;
+
       const event = {
         summary: title,
-        description,
+        description: enhancedDescription,
         start: {
           dateTime: formattedStartTime,
           timeZone: "Etc/UTC", // Using UTC for consistency
         },
         end: {
-          dateTime: formattedEndTime,
+          dateTime:
+            Number(bufferTimeBetweenMeetings) > 0
+              ? formattedBufferEndTime
+              : formattedActualEndTime,
           timeZone: "Etc/UTC", // Using UTC for consistency
         },
         reminders: {
@@ -104,15 +145,16 @@ export const bookAppointment: ToolFunction = {
       console.log("Creating event with:", {
         start: event.start,
         end: event.end,
+        calendar: defaultCalendarId,
       });
 
       // Insert the event into the calendar
       const response = await calendarClient.events.insert({
-        calendarId: "primary", // Using primary calendar
+        calendarId: defaultCalendarId,
         requestBody: event,
       });
 
-      if (!response.data || !response.data.id) {
+      if (!response || !response.data || !response.data.id) {
         throw new Error("Failed to create calendar event");
       }
 
@@ -125,11 +167,13 @@ export const bookAppointment: ToolFunction = {
         appointmentId: response.data.id,
         appointmentDetails: {
           id: response.data.id,
-          title: response.data.summary,
+          title: response.data.summary || title,
           date: format(parsedStartTime, "yyyy-MM-dd"),
           time: format(parsedStartTime, "HH:mm"),
-          duration: Number(duration),
-          link: response.data.htmlLink,
+          duration: appointmentDuration,
+          bufferTime: Number(bufferTimeBetweenMeetings),
+          link: response.data.htmlLink || "",
+          calendarId: defaultCalendarId,
         },
         message: `Successfully booked appointment: ${title} on ${formalDate} at ${formalTime}`,
       };
@@ -160,11 +204,16 @@ export const rescheduleAppointment: ToolFunction = {
       // Get the calendar API client
       const calendarClient = await getGoogleCalendarClient(context);
 
+      // Get config from context
+      const config = (context.config || {}) as CalendarConfig;
+      const appointmentDuration = config.appointmentDuration || 30;
+      const defaultCalendarId = config.defaultCalendarId || "primary";
+      const bufferTimeBetweenMeetings = config.bufferTimeBetweenMeetings || 0;
+
       // Extract parameters
-      const { appointmentId, startTime, duration } = params as {
+      const { appointmentId, startTime } = params as {
         appointmentId: string;
         startTime?: string;
-        duration?: number;
       };
 
       if (!startTime) {
@@ -177,69 +226,80 @@ export const rescheduleAppointment: ToolFunction = {
         };
       }
 
-      // Validate start time
-      const parsedStartTime = parseISO(startTime);
-      if (!isValid(parsedStartTime)) {
-        return {
-          success: false,
-          error: {
-            code: "INVALID_START_TIME",
-            message:
-              "Invalid start time format. Please use ISO 8601 format (e.g., 2023-11-15T10:00:00Z).",
-          },
-        };
-      }
-
-      // Ensure the time is not in the past
-      if (parsedStartTime < new Date()) {
-        return {
-          success: false,
-          error: {
-            code: "START_TIME_IN_PAST",
-            message: "Start time cannot be in the past.",
-          },
-        };
-      }
-
-      // First, get the existing event
+      // First, get the existing event to determine current parameters
       const existingEvent = await calendarClient.events.get({
-        calendarId: "primary",
+        calendarId: defaultCalendarId,
         eventId: appointmentId,
       });
 
-      if (!existingEvent.data) {
-        throw new Error(`Appointment with ID ${appointmentId} not found`);
+      if (!existingEvent || !existingEvent.data) {
+        throw new Error(
+          `Appointment with ID ${appointmentId} not found in calendar ${defaultCalendarId}`
+        );
       }
+
+      // Validate that the new appointment time adheres to calendar configuration
+      try {
+        validateAppointmentTime(startTime, appointmentDuration, config);
+      } catch (validationError) {
+        if (validationError instanceof AppointmentValidationError) {
+          return {
+            success: false,
+            error: {
+              code: validationError.code,
+              message: validationError.message,
+            },
+          };
+        }
+        throw validationError; // Re-throw if it's not our expected error type
+      }
+
+      // Parse the start time
+      const parsedStartTime = parseISO(startTime);
 
       // Format dates in RFC3339 format (required by Google Calendar API)
       const formattedStartTime = formatISO(parsedStartTime);
 
-      // Calculate duration from existing event description or use provided duration
-      const durationToUse =
-        duration ||
-        (existingEvent.data.description?.match(/Duration: (\d+)/)
-          ? parseInt(
-              existingEvent.data.description.match(/Duration: (\d+)/)?.[1] ||
-                "30",
-              10
-            )
-          : 30);
-
-      // Calculate end time based on new start time and duration
-      const endTimeDate = new Date(
-        parsedStartTime.getTime() + Number(durationToUse) * 60 * 1000
+      // Calculate end time based on new start time and duration (including buffer)
+      const totalDuration =
+        appointmentDuration + Number(bufferTimeBetweenMeetings);
+      const actualMeetingEndTime = addMinutes(
+        parsedStartTime,
+        appointmentDuration
       );
-      const formattedEndTime = formatISO(endTimeDate);
+      const bufferEndTime = addMinutes(parsedStartTime, totalDuration);
+
+      // Format end times
+      const formattedActualEndTime = formatISO(actualMeetingEndTime);
+      const formattedBufferEndTime = formatISO(bufferEndTime);
+
+      // Update the description with buffer time information if needed
+      const existingDescription = existingEvent.data.description || "";
+      // Remove any previous buffer time information if it exists
+      const cleanDescription = existingDescription.replace(
+        /\n\nActual meeting end time:[\s\S]*?Buffer time:[\s\S]*?(?=\n|$)/,
+        ""
+      );
+
+      const meetingEndTimeFormatted = format(actualMeetingEndTime, "h:mm a");
+      const updatedDescription =
+        bufferTimeBetweenMeetings > 0
+          ? `${cleanDescription}\n\nActual meeting end time: ${meetingEndTimeFormatted}\nBuffer time: ${bufferTimeBetweenMeetings} minutes after meeting`
+          : cleanDescription;
 
       // Prepare the updated event
       const updatedEvent = {
         ...existingEvent.data,
+        description: updatedDescription,
         start: {
           dateTime: formattedStartTime,
           timeZone: "Etc/UTC",
         },
         end: {
-          dateTime: formattedEndTime,
+          dateTime:
+            Number(bufferTimeBetweenMeetings) > 0
+              ? formattedBufferEndTime
+              : formattedActualEndTime,
           timeZone: "Etc/UTC",
         },
       };
@@ -248,16 +308,17 @@ export const rescheduleAppointment: ToolFunction = {
         id: appointmentId,
         start: updatedEvent.start,
         end: updatedEvent.end,
+        calendar: defaultCalendarId,
       });
 
       // Update the event
       const response = await calendarClient.events.update({
-        calendarId: "primary",
+        calendarId: defaultCalendarId,
         eventId: appointmentId,
         requestBody: updatedEvent,
       });
 
-      if (!response.data) {
+      if (!response || !response.data) {
         throw new Error("Failed to update calendar event");
       }
 
@@ -267,16 +328,20 @@ export const rescheduleAppointment: ToolFunction = {
 
       return {
         success: true,
-        appointmentId: response.data.id,
+        appointmentId: response.data.id || appointmentId,
         appointmentDetails: {
-          id: response.data.id,
-          title: response.data.summary,
+          id: response.data.id || appointmentId,
+          title: response.data.summary || "Rescheduled Appointment",
           date: format(parsedStartTime, "yyyy-MM-dd"),
           time: format(parsedStartTime, "HH:mm"),
-          duration: durationToUse,
-          link: response.data.htmlLink,
+          duration: appointmentDuration,
+          bufferTime: Number(bufferTimeBetweenMeetings),
+          link: response.data.htmlLink || "",
+          calendarId: defaultCalendarId,
         },
-        message: `Successfully rescheduled appointment: ${response.data.summary} to ${formalDate} at ${formalTime}`,
+        message: `Successfully rescheduled appointment: ${
+          response.data.summary || "Appointment"
+        } to ${formalDate} at ${formalTime}`,
       };
     } catch (error) {
       console.error("Error rescheduling appointment:", error);
@@ -305,6 +370,10 @@ export const cancelAppointment: ToolFunction = {
       // Get the calendar API client
       const calendarClient = await getGoogleCalendarClient(context);
 
+      // Get config from context
+      const config = (context.config || {}) as CalendarConfig;
+      const defaultCalendarId = config.defaultCalendarId || "primary";
+
       // Extract parameters
       const { appointmentId, reason } = params as {
         appointmentId: string;
@@ -312,26 +381,34 @@ export const cancelAppointment: ToolFunction = {
       };
 
       // First, get the event to store information for the response
-      const existingEvent = await calendarClient.events
-        .get({
-          calendarId: "primary",
+      let existingEvent;
+      try {
+        existingEvent = await calendarClient.events.get({
+          calendarId: defaultCalendarId,
           eventId: appointmentId,
-        })
-        .catch((err) => {
-          // Handle case when event doesn't exist
-          if (err.response?.status === 404) {
-            return { data: null };
-          }
-          throw err;
         });
+      } catch (err: unknown) {
+        // Handle case when event doesn't exist
+        const error = err as { response?: { status?: number } };
+        if (error.response?.status === 404) {
+          return {
+            success: false,
+            error: {
+              code: "EVENT_NOT_FOUND",
+              message: `Appointment with ID ${appointmentId} not found in calendar ${defaultCalendarId}`,
+            },
+          };
+        }
+        throw err;
+      }
 
-      // If event doesn't exist, return appropriate message
-      if (!existingEvent.data) {
+      // If event doesn't exist or response is invalid, return error
+      if (!existingEvent || !existingEvent.data) {
         return {
           success: false,
           error: {
             code: "EVENT_NOT_FOUND",
-            message: `Appointment with ID ${appointmentId} not found`,
+            message: `Appointment with ID ${appointmentId} not found in calendar ${defaultCalendarId}`,
           },
         };
       }
@@ -342,11 +419,12 @@ export const cancelAppointment: ToolFunction = {
       console.log("Cancelling event:", {
         id: appointmentId,
         title: eventTitle,
+        calendar: defaultCalendarId,
       });
 
       // Cancel the event
       await calendarClient.events.delete({
-        calendarId: "primary",
+        calendarId: defaultCalendarId,
         eventId: appointmentId,
         sendUpdates: "all", // Send cancellation emails to attendees
       });
@@ -387,6 +465,11 @@ export const listAppointments: ToolFunction = {
       // Get the calendar API client
       const calendarClient = await getGoogleCalendarClient(context);
 
+      // Get config from context
+      const config = (context.config || {}) as CalendarConfig;
+      const defaultCalendarId = config.defaultCalendarId || "primary";
+      const availabilityWindowDays = config.availabilityWindowDays || 14;
+
       // Extract and validate parameters
       const {
         startDate,
@@ -398,18 +481,23 @@ export const listAppointments: ToolFunction = {
         maxResults?: number;
       };
 
-      // Calculate date range
-      const dateRange = getDateRange(startDate, endDate);
+      // Calculate date range (use configured availability window if not specified)
+      const dateRange = getDateRange(
+        startDate,
+        endDate,
+        availabilityWindowDays
+      );
 
       console.log("Listing events:", {
         timeMin: dateRange.start,
         timeMax: dateRange.end,
         maxResults,
+        calendar: defaultCalendarId,
       });
 
       // Get events
       const response = await calendarClient.events.list({
-        calendarId: "primary",
+        calendarId: defaultCalendarId,
         timeMin: dateRange.start,
         timeMax: dateRange.end,
         maxResults,
@@ -417,7 +505,7 @@ export const listAppointments: ToolFunction = {
         orderBy: "startTime",
       });
 
-      if (!response.data.items) {
+      if (!response || !response.data || !response.data.items) {
         return {
           success: true,
           appointments: [],
@@ -449,20 +537,45 @@ export const listAppointments: ToolFunction = {
           // Parse the start date
           const startDate = parseISO(startTime);
 
+          // Extract buffer time information if present in description
+          let bufferTime = 0;
+          const bufferMatch = event.description?.match(
+            /Buffer time: (\d+) minutes/
+          );
+          if (bufferMatch && bufferMatch[1]) {
+            bufferTime = parseInt(bufferMatch[1], 10);
+          }
+
+          // Adjust duration if buffer time is found
+          if (bufferTime > 0 && duration > bufferTime) {
+            duration -= bufferTime;
+          }
+
           return {
-            id: event.id,
+            id: event.id || "",
             title: event.summary || "Untitled Event",
             date: format(startDate, "yyyy-MM-dd"),
             time: event.start?.dateTime
               ? format(startDate, "HH:mm")
               : "All day",
             duration,
-            link: event.htmlLink,
-            description: event.description,
-            location: event.location,
+            bufferTime,
+            link: event.htmlLink || "",
+            description: event.description || "",
+            location: event.location || "",
           };
         })
-        .filter(Boolean); // Remove null entries
+        .filter(Boolean) as Array<{
+        id: string;
+        title: string;
+        date: string;
+        time: string;
+        duration: number;
+        bufferTime: number;
+        link: string;
+        description: string;
+        location: string;
+      }>; // Remove null entries and specify return type
 
       return {
         success: true,
@@ -490,3 +603,243 @@ export const listAppointments: ToolFunction = {
     }
   },
 };
+
+export const listAvailableSlots: ToolFunction = {
+  description:
+    "List available time slots for scheduling appointments based on calendar availability and configured time slots",
+  parameters: listAvailableSlotsSchema,
+  execute: async (params, context) => {
+    try {
+      // Get the calendar API client
+      const calendarClient = await getGoogleCalendarClient(context);
+
+      // Get config from context
+      const config = (context.config || {}) as CalendarConfig;
+      const defaultCalendarId = config.defaultCalendarId || "primary";
+      const appointmentDuration = config.appointmentDuration || 30;
+      const bufferTimeBetweenMeetings = config.bufferTimeBetweenMeetings || 0;
+      const availabilityWindowDays = config.availabilityWindowDays || 14;
+
+      // Use configured availableTimeSlots to determine which days and times are available
+      // Only days with a configuration in availableTimeSlots will be considered
+      const availableTimeSlots = config.availableTimeSlots || [
+        { day: "monday", startTime: "09:00", endTime: "17:00" },
+        { day: "tuesday", startTime: "09:00", endTime: "17:00" },
+        { day: "wednesday", startTime: "09:00", endTime: "17:00" },
+        { day: "thursday", startTime: "09:00", endTime: "17:00" },
+        { day: "friday", startTime: "09:00", endTime: "17:00" },
+      ];
+
+      // Extract parameters for listAvailableSlots
+      const {
+        startDate,
+        endDate,
+        interval = 30,
+      } = params as {
+        startDate?: string;
+        endDate?: string;
+        interval?: number;
+      };
+
+      console.log("Listing available slots params:", {
+        startDate,
+        endDate,
+        interval,
+        appointmentDuration, // Log configured duration
+      });
+
+      // Calculate date range
+      const dateRange = getDateRange(
+        startDate,
+        endDate,
+        availabilityWindowDays
+      );
+      const startDateTime = parseISO(dateRange.start);
+      const endDateTime = parseISO(dateRange.end);
+
+      // Get all days in the range
+      const daysInRange = eachDayOfInterval({
+        start: startDateTime,
+        end: endDateTime,
+      });
+
+      // Map day number to day name
+      const dayNames = [
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ];
+
+      // Fetch existing events for the date range
+      const response = await calendarClient.events.list({
+        calendarId: defaultCalendarId,
+        timeMin: dateRange.start,
+        timeMax: dateRange.end,
+        singleEvents: true,
+        orderBy: "startTime",
+      });
+
+      // Convert existing events to time ranges
+      const existingEvents =
+        response.data.items
+          ?.map((event) => {
+            if (!event) return null;
+
+            const start = event.start?.dateTime
+              ? parseISO(event.start.dateTime)
+              : null;
+            const end = event.end?.dateTime
+              ? parseISO(event.end.dateTime)
+              : null;
+
+            // Skip events without proper start/end times
+            if (!start || !end) {
+              return null;
+            }
+
+            return { start, end };
+          })
+          .filter(
+            (event): event is { start: Date; end: Date } => event !== null
+          ) || [];
+
+      // Helper function to check if a time slot overlaps with existing events
+      const isTimeSlotFree = (slotStart: Date, slotEnd: Date) => {
+        // Account for buffer time before and after
+        const slotWithBuffer = {
+          start: addMinutes(slotStart, -bufferTimeBetweenMeetings),
+          end: addMinutes(slotEnd, bufferTimeBetweenMeetings),
+        };
+
+        // Check against all existing events
+        return !existingEvents.some((event) =>
+          areIntervalsOverlapping(
+            { start: event.start, end: event.end },
+            slotWithBuffer
+          )
+        );
+      };
+
+      // Generate available time slots
+      const availableSlots: {
+        date: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        iso8601: string;
+        durationMinutes: number;
+      }[] = [];
+
+      // Calculate the current time plus 1 hour to avoid suggesting slots in the very near future
+      const minimumStartTime = addMinutes(new Date(), 60);
+
+      // Process each day in the range
+      for (const day of daysInRange) {
+        const dayName = dayNames[getDay(day)];
+
+        // Find the available slot for this day based on configured availableTimeSlots
+        const daySlot = availableTimeSlots.find(
+          (slot) => slot.day.toLowerCase() === dayName
+        );
+
+        // If no configuration for this day, skip
+        if (!daySlot) {
+          continue;
+        }
+
+        // Parse the start and end time for this day
+        const [startHour, startMinute] = daySlot.startTime
+          .split(":")
+          .map(Number);
+        const [endHour, endMinute] = daySlot.endTime.split(":").map(Number);
+
+        // Create start and end times for the day
+        let dayStart = new Date(day);
+        dayStart.setHours(startHour, startMinute, 0, 0);
+
+        const dayEnd = new Date(day);
+        dayEnd.setHours(endHour, endMinute, 0, 0);
+
+        // Don't suggest slots in the past or too near future
+        if (dayStart < minimumStartTime) {
+          dayStart = new Date(minimumStartTime);
+          // Round to the nearest interval
+          const minutes = getMinutesIntoDay(dayStart);
+          const roundedMinutes = Math.ceil(minutes / interval) * interval;
+          dayStart = setMinutesIntoDay(dayStart, roundedMinutes);
+        }
+
+        // Generate slots at regular intervals
+        let currentSlotStart = dayStart;
+
+        while (isBefore(currentSlotStart, dayEnd)) {
+          const currentSlotEnd = addMinutes(
+            currentSlotStart,
+            appointmentDuration
+          );
+
+          // Make sure there's enough time left in the day for the appointment (including buffer)
+          if (
+            isBefore(
+              addMinutes(currentSlotEnd, bufferTimeBetweenMeetings),
+              dayEnd
+            ) &&
+            isTimeSlotFree(currentSlotStart, currentSlotEnd)
+          ) {
+            availableSlots.push({
+              date: format(currentSlotStart, "yyyy-MM-dd"),
+              day: format(currentSlotStart, "EEEE"),
+              startTime: format(currentSlotStart, "HH:mm"),
+              endTime: format(currentSlotEnd, "HH:mm"),
+              iso8601: formatISO(currentSlotStart),
+              durationMinutes: appointmentDuration,
+            });
+          }
+
+          // Move to next slot
+          currentSlotStart = addMinutes(currentSlotStart, interval);
+        }
+      }
+
+      return {
+        success: true,
+        availableSlots,
+        message:
+          availableSlots.length > 0
+            ? `Found ${availableSlots.length} available time slots`
+            : "No available time slots found for the specified criteria",
+      };
+    } catch (error) {
+      console.error("Error listing available slots:", error);
+      // Extract the Google API error details if available
+      const apiError = error as GoogleApiError;
+      const errorMessage =
+        apiError.errors?.map((e) => e.message).join(", ") ||
+        (error instanceof Error ? error.message : String(error));
+
+      return {
+        success: false,
+        error: {
+          code: "LIST_SLOTS_FAILED",
+          message: `Failed to list available time slots: ${errorMessage}`,
+        },
+      };
+    }
+  },
+};
+
+// Helper function to get minutes into the day
+function getMinutesIntoDay(date: Date): number {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+// Helper function to set minutes into the day
+function setMinutesIntoDay(date: Date, minutes: number): Date {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return setHours(setMinutes(new Date(date), mins), hours);
+}

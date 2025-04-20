@@ -179,17 +179,40 @@ export async function GET(request: Request) {
 
     // Update the BotTool record with the credential ID
     try {
-      await prisma.botTool.update({
+      // First find if botTool exists
+      const existingBotTool = await prisma.botTool.findUnique({
         where: {
           botId_toolId: {
             botId,
             toolId,
           },
         },
-        data: {
-          toolCredentialId: credentialId,
-        },
       });
+
+      if (existingBotTool) {
+        // Update existing record
+        await prisma.botTool.update({
+          where: {
+            botId_toolId: {
+              botId,
+              toolId,
+            },
+          },
+          data: {
+            toolCredentialId: credentialId,
+          },
+        });
+      } else {
+        // Create new record
+        await prisma.botTool.create({
+          data: {
+            botId,
+            toolId,
+            toolCredentialId: credentialId,
+            isEnabled: true,
+          },
+        });
+      }
     } catch (updateError) {
       console.error("Error updating BotTool with credential ID:", updateError);
       // We continue even if this fails - the credentials are still stored
@@ -209,7 +232,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(
       `${
         process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      }/dashboard/${orgId}/bots/${botId}/tools/google-calendar?connected=true`
+      }/dashboard/${orgId}/bots/${botId}/tools/google-calendar?connected=true&toolId=${toolId}`
     );
   } catch (error) {
     console.error("Error processing OAuth callback:", error);

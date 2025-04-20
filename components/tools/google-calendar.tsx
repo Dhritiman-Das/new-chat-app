@@ -89,6 +89,16 @@ const configSchema = z.object({
   bufferTimeBetweenMeetings: z.number().min(0).max(60).optional(),
 });
 
+const DAYS_OF_WEEK = [
+  { id: "monday", label: "Monday" },
+  { id: "tuesday", label: "Tuesday" },
+  { id: "wednesday", label: "Wednesday" },
+  { id: "thursday", label: "Thursday" },
+  { id: "friday", label: "Friday" },
+  { id: "saturday", label: "Saturday" },
+  { id: "sunday", label: "Sunday" },
+];
+
 export default function GoogleCalendarTool({
   tool,
   botId,
@@ -98,6 +108,8 @@ export default function GoogleCalendarTool({
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isConfigLoading, setIsConfigLoading] = useState(false);
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [selectedCalendar, setSelectedCalendar] = useState<string | null>(null);
   const router = useRouter();
@@ -163,7 +175,7 @@ export default function GoogleCalendarTool({
         if (data.success && data.data) {
           setIsConnected(true);
           // If we have calendars, set them
-          if (data.data.calendars && data.data.calendars.length > 0) {
+          if (data.data?.calendars && data.data.calendars.length > 0) {
             setCalendars(data.data.calendars);
             // If there's a default calendar, select it
             if (data.data.defaultCalendarId) {
@@ -171,9 +183,9 @@ export default function GoogleCalendarTool({
               form.setValue("defaultCalendarId", data.data.defaultCalendarId);
             }
           }
-        } else if (data.exists) {
-          // Handle the case where credential exists but no calendars
-          setIsConnected(true);
+
+          // Also fetch the current bot tool config for this tool
+          fetchToolConfig();
         }
       } catch (error) {
         console.error("Error checking Google connection:", error);
@@ -186,8 +198,63 @@ export default function GoogleCalendarTool({
     checkConnection();
   }, [tool.id, searchParams, router, form]);
 
+  // Fetch bot tool config
+  const fetchToolConfig = async () => {
+    try {
+      setIsConfigLoading(true);
+      const response = await fetch(
+        `/api/bots/${botId}/tools/${tool.id}/config`
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tool config: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.config) {
+        // Update the form with existing config values
+        if (data.config.appointmentDuration) {
+          form.setValue("appointmentDuration", data.config.appointmentDuration);
+        }
+
+        if (data.config.availabilityWindowDays) {
+          form.setValue(
+            "availabilityWindowDays",
+            data.config.availabilityWindowDays
+          );
+        }
+
+        if (data.config.bufferTimeBetweenMeetings !== undefined) {
+          form.setValue(
+            "bufferTimeBetweenMeetings",
+            data.config.bufferTimeBetweenMeetings
+          );
+        }
+
+        if (
+          data.config.availableTimeSlots &&
+          Array.isArray(data.config.availableTimeSlots)
+        ) {
+          form.setValue("availableTimeSlots", data.config.availableTimeSlots);
+        }
+
+        if (data.config.defaultCalendarId) {
+          setSelectedCalendar(data.config.defaultCalendarId);
+          form.setValue("defaultCalendarId", data.config.defaultCalendarId);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching tool config:", error);
+      // We don't show an error toast here to avoid confusion
+      // Just use the default values from the form
+    } finally {
+      setIsConfigLoading(false);
+    }
+  };
+
   async function onSubmit(values: z.infer<typeof configSchema>) {
     try {
+      setIsSaving(true);
       // Save the configuration
       const response = await fetch(
         `/api/bots/${botId}/tools/${tool.id}/config`,
@@ -208,6 +275,8 @@ export default function GoogleCalendarTool({
     } catch (error) {
       console.error("Error saving configuration:", error);
       toast.error("Failed to save configuration");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -284,11 +353,19 @@ export default function GoogleCalendarTool({
   // Handle calendar selection
   const handleCalendarSelection = async (calendarId: string) => {
     setSelectedCalendar(calendarId);
+
+    // Update the form value
     form.setValue("defaultCalendarId", calendarId);
 
     try {
-      // Save the selection immediately
-      await onSubmit(form.getValues());
+      // Get the current form values
+      const values = form.getValues();
+
+      // Submit the form with the updated calendar ID
+      await onSubmit({
+        ...values,
+        defaultCalendarId: calendarId,
+      });
     } catch (error) {
       console.error("Error saving calendar selection:", error);
     }
@@ -316,169 +393,257 @@ export default function GoogleCalendarTool({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-6"
-                >
-                  <FormField
-                    control={form.control}
-                    name="appointmentDuration"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Default Appointment Duration (minutes)
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(parseInt(e.target.value))
-                            }
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Default meeting duration when booking appointments
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              {isConfigLoading || isLoading ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Icons.Spinner className="h-8 w-8 animate-spin text-primary mb-4" />
+                  <p className="text-sm text-muted-foreground">
+                    Loading configuration...
+                  </p>
+                </div>
+              ) : (
+                <Form {...form}>
+                  <form
+                    onSubmit={form.handleSubmit(onSubmit)}
+                    className="space-y-6"
+                  >
+                    <FormField
+                      control={form.control}
+                      name="appointmentDuration"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Default Appointment Duration (minutes)
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(parseInt(e.target.value))
+                              }
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Default meeting duration when booking appointments
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="availabilityWindowDays"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Availability Window (days)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(parseInt(e.target.value))
-                            }
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          How many days in advance can appointments be booked
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="availabilityWindowDays"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Availability Window (days)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(parseInt(e.target.value))
+                              }
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            How many days in advance can appointments be booked
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="bufferTimeBetweenMeetings"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Buffer Time Between Meetings (minutes)
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(parseInt(e.target.value))
-                            }
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Add buffer time between scheduled meetings
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="bufferTimeBetweenMeetings"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Buffer Time Between Meetings (minutes)
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(parseInt(e.target.value))
+                              }
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Add buffer time between scheduled meetings
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <div>
-                    <h3 className="text-md font-medium mb-2">
-                      Available Time Slots
-                    </h3>
-                    <div className="space-y-4">
-                      {form.watch("availableTimeSlots")?.map((slot, index) => (
-                        <div key={index} className="flex items-center gap-4">
-                          <FormField
-                            control={form.control}
-                            name={`availableTimeSlots.${index}.day`}
-                            render={({ field }) => (
-                              <FormItem className="flex-1">
-                                <Select
-                                  onValueChange={field.onChange}
-                                  defaultValue={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select day" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="monday">
-                                      Monday
-                                    </SelectItem>
-                                    <SelectItem value="tuesday">
-                                      Tuesday
-                                    </SelectItem>
-                                    <SelectItem value="wednesday">
-                                      Wednesday
-                                    </SelectItem>
-                                    <SelectItem value="thursday">
-                                      Thursday
-                                    </SelectItem>
-                                    <SelectItem value="friday">
-                                      Friday
-                                    </SelectItem>
-                                    <SelectItem value="saturday">
-                                      Saturday
-                                    </SelectItem>
-                                    <SelectItem value="sunday">
-                                      Sunday
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                    <div>
+                      <h3 className="text-md font-medium mb-2">
+                        Available Time Slots
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Select which days you are available for appointments and
+                        set your available hours
+                      </p>
 
-                          <FormField
-                            control={form.control}
-                            name={`availableTimeSlots.${index}.startTime`}
-                            render={({ field }) => (
-                              <FormItem className="flex-1">
-                                <FormControl>
-                                  <Input type="time" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                      <div className="space-y-6 mb-4">
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {DAYS_OF_WEEK.map((day) => {
+                            const isSelected = form
+                              .watch("availableTimeSlots")
+                              ?.some((slot) => slot.day === day.id);
 
-                          <FormField
-                            control={form.control}
-                            name={`availableTimeSlots.${index}.endTime`}
-                            render={({ field }) => (
-                              <FormItem className="flex-1">
-                                <FormControl>
-                                  <Input type="time" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                            return (
+                              <Button
+                                key={day.id}
+                                type="button"
+                                variant={isSelected ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => {
+                                  const currentSlots =
+                                    form.watch("availableTimeSlots") || [];
+
+                                  if (isSelected) {
+                                    // Remove this day
+                                    form.setValue(
+                                      "availableTimeSlots",
+                                      currentSlots.filter(
+                                        (slot) => slot.day !== day.id
+                                      )
+                                    );
+                                  } else {
+                                    // Add this day with default 9-5 hours
+                                    form.setValue("availableTimeSlots", [
+                                      ...currentSlots,
+                                      {
+                                        day: day.id as z.infer<
+                                          typeof timeSlotSchema
+                                        >["day"],
+                                        startTime: "09:00",
+                                        endTime: "17:00",
+                                      },
+                                    ]);
+                                  }
+                                }}
+                                className="flex items-center gap-2"
+                              >
+                                {isSelected ? (
+                                  <Icons.Check className="h-4 w-4" />
+                                ) : (
+                                  <Icons.Add className="h-4 w-4" />
+                                )}
+                                <span>{day.label}</span>
+                              </Button>
+                            );
+                          })}
                         </div>
-                      ))}
-                    </div>
-                  </div>
 
-                  <Button type="submit" className="mt-6">
-                    Save Configuration
-                  </Button>
-                </form>
-              </Form>
+                        {form.watch("availableTimeSlots")?.length === 0 && (
+                          <div className="p-4 border border-dashed rounded-md flex items-center justify-center">
+                            <p className="text-sm text-muted-foreground">
+                              Select at least one day to set your availability
+                            </p>
+                          </div>
+                        )}
+
+                        {form
+                          .watch("availableTimeSlots")
+                          ?.sort((a, b) => {
+                            const dayOrder =
+                              DAYS_OF_WEEK.findIndex((d) => d.id === a.day) -
+                              DAYS_OF_WEEK.findIndex((d) => d.id === b.day);
+                            return dayOrder;
+                          })
+                          .map((slot, index) => {
+                            const dayObj = DAYS_OF_WEEK.find(
+                              (d) => d.id === slot.day
+                            );
+
+                            return (
+                              <div
+                                key={`${slot.day}-${index}`}
+                                className="p-4 border rounded-md"
+                              >
+                                <div className="flex items-center justify-between mb-4">
+                                  <h4 className="font-medium">
+                                    {dayObj?.label}
+                                  </h4>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const currentSlots =
+                                        form.watch("availableTimeSlots");
+                                      form.setValue(
+                                        "availableTimeSlots",
+                                        currentSlots.filter((_, i) => {
+                                          const slotToRemove =
+                                            currentSlots[index];
+                                          return !(
+                                            slotToRemove.day === slot.day &&
+                                            i === index
+                                          );
+                                        })
+                                      );
+                                    }}
+                                    className="h-8 w-8 p-0 text-destructive"
+                                  >
+                                    <Icons.Trash className="h-4 w-4" />
+                                    <span className="sr-only">Remove</span>
+                                  </Button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                  <FormField
+                                    control={form.control}
+                                    name={`availableTimeSlots.${index}.startTime`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Start Time</FormLabel>
+                                        <FormControl>
+                                          <Input type="time" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  <FormField
+                                    control={form.control}
+                                    name={`availableTimeSlots.${index}.endTime`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>End Time</FormLabel>
+                                        <FormControl>
+                                          <Input type="time" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+
+                    <Button type="submit" disabled={isSaving} className="mt-6">
+                      {isSaving ? (
+                        <>
+                          <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Configuration"
+                      )}
+                    </Button>
+                  </form>
+                </Form>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
