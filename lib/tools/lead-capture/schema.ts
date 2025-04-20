@@ -3,18 +3,7 @@ import { z } from "zod";
 // Configuration schema for Lead Capture tool
 export const leadCaptureConfigSchema = z.object({
   requiredFields: z
-    .array(
-      z.enum([
-        "name",
-        "email",
-        "phone",
-        "company",
-        "message",
-        "website",
-        "budget",
-        "timeline",
-      ])
-    )
+    .array(z.enum(["name", "email", "phone", "company"]))
     .default(["name", "phone"])
     .describe("Fields that must be collected"),
   leadNotifications: z
@@ -50,10 +39,6 @@ export const saveLeadSchema = z.object({
     .optional()
     .describe("Email address of the lead (optional)"),
   company: z.string().optional().describe("Company name of the lead"),
-  notes: z.string().optional().describe("Additional notes about the lead"),
-  website: z.string().optional().describe("Website of the lead"),
-  budget: z.string().optional().describe("Budget information"),
-  timeline: z.string().optional().describe("Timeline information"),
   source: z
     .string()
     .optional()

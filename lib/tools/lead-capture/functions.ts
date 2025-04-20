@@ -193,10 +193,6 @@ export const requestLeadInfo: ToolFunction = {
         email: "your email address",
         phone: "your phone number",
         company: "your company name",
-        message: "any additional information or questions",
-        website: "your website",
-        budget: "your budget",
-        timeline: "your timeline",
       };
 
       const fieldRequests =

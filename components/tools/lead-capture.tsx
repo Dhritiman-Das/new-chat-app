@@ -98,10 +98,6 @@ const fieldOptions = [
   { id: "email", label: "Email" },
   { id: "phone", label: "Phone" },
   { id: "company", label: "Company" },
-  { id: "website", label: "Website" },
-  { id: "message", label: "Message" },
-  { id: "budget", label: "Budget" },
-  { id: "timeline", label: "Timeline" },
 ] as const;
 
 const configSchema = z.object({

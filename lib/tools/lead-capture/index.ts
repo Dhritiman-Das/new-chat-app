@@ -17,7 +17,7 @@ export const leadCaptureTool: ToolDefinition = {
   },
   getCredentialSchema: () => leadCaptureCredentialSchema,
   defaultConfig: {
-    requiredFields: ["name", "phone"],
+    requiredFields: ["name", "email"],
     leadNotifications: true,
     leadCaptureTriggers: ["pricing", "demo", "contact", "quote", "trial"],
   },
