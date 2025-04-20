@@ -334,6 +334,7 @@ model Conversation {
   messages        Message[]
   toolExecutions  ToolExecution[]
   bot             Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  leads           Lead[]
 
   @@index([botId])
   @@index([externalUserId])
@@ -475,24 +476,27 @@ model Survey {
 
 // Lead model - stores lead information with flexible structure
 model Lead {
-  id            String    @id @default(uuid())
-  botId         String    @map("bot_id")
-  name          String?
-  email         String?
-  phone         String?
-  company       String?
-  source        String?   @default("chat")
-  status        String?   @default("New")
-  triggerKeyword String?  @map("trigger_keyword")
-  properties    Json?     // JSONB column for storing arbitrary properties
-  metadata      Json?     // Additional metadata about the lead capture process
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id             String    @id @default(uuid())
+  botId          String    @map("bot_id")
+  conversationId String?   @map("conversation_id")
+  name           String?
+  email          String?
+  phone          String?
+  company        String?
+  source         String?   @default("chat")
+  status         String?   @default("New")
+  triggerKeyword String?   @map("trigger_keyword")
+  properties     Json?     // JSONB column for storing arbitrary properties
+  metadata       Json?     // Additional metadata about the lead capture process
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
   
   // Relations
-  bot           Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  bot            Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
   @@index([botId])
+  @@index([conversationId])
   @@index([email])
   @@index([phone])
   @@index([status])

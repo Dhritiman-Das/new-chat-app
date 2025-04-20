@@ -7,6 +7,7 @@ export interface ToolContext {
   toolCredentialId?: string;
   credentials?: Record<string, unknown>;
   config?: Record<string, unknown>;
+  conversationId?: string;
 }
 
 export interface ToolFunction {

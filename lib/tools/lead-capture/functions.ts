@@ -46,6 +46,7 @@ export const saveLead: ToolFunction = {
 
       // Get the required fields from config
       const requiredFields = config.requiredFields || ["name", "phone"];
+      const conversationId = toolContext.conversationId || undefined;
 
       console.log("Saving lead info:", {
         name,
@@ -104,12 +105,13 @@ export const saveLead: ToolFunction = {
           company: company ? String(company) : undefined,
           source: source ? String(source) : "chat",
           triggerKeyword: triggerKeyword ? String(triggerKeyword) : undefined,
+          conversationId: conversationId,
           properties:
             Object.keys(properties).length > 0 ? properties : undefined,
           metadata: {
             capturedAt: new Date().toISOString(),
             toolId: toolContext.toolId || "lead-capture",
-            conversationId: toolContext.conversationId || null,
+            conversationId: conversationId || null,
           },
         });
 
@@ -139,6 +141,7 @@ export const saveLead: ToolFunction = {
             email: email ? String(email) : null,
             phone: String(phone),
             company: company ? String(company) : null,
+            conversationId: conversationId || null,
             notificationSent: shouldNotify,
           },
         };

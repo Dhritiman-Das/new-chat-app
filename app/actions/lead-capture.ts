@@ -395,6 +395,7 @@ const saveLeadSchema = z.object({
   company: z.string().optional(),
   source: z.string().optional(),
   triggerKeyword: z.string().optional(),
+  conversationId: z.string().optional(),
   // Use record for dynamic properties
   properties: z.record(z.unknown()).optional(),
   metadata: z.record(z.unknown()).optional(),
@@ -416,6 +417,7 @@ export const saveLead = actionClient
         company,
         source,
         triggerKeyword,
+        conversationId,
         properties,
         metadata,
       } = parsedInput;
@@ -456,6 +458,7 @@ export const saveLead = actionClient
       const lead = await prisma.lead.create({
         data: {
           botId,
+          conversationId: conversationId || null,
           name: name || null,
           email: email || null,
           phone: phone || null,

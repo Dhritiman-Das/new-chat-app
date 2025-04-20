@@ -164,6 +164,7 @@ export async function POST(req: NextRequest) {
                 userId,
                 botId,
                 organizationId,
+                conversationId: currentConversationId,
               }
             );
           },
