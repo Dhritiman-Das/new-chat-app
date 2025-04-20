@@ -15,10 +15,11 @@ const toolExecutionService = new ToolExecutionService();
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages } = await req.json();
+    const { messages, conversationId } = await req.json();
     const url = new URL(req.url);
     const modelId = url.searchParams.get("model");
     const botId = url.searchParams.get("botId");
+    let currentConversationId = conversationId;
 
     if (!modelId) {
       return NextResponse.json(
@@ -60,6 +61,39 @@ export async function POST(req: NextRequest) {
     const userId = bot.userId;
     const organizationId = bot.organizationId;
 
+    // Create or get conversation
+    if (!currentConversationId) {
+      try {
+        // Create a new conversation
+        const conversation = await prisma.conversation.create({
+          data: {
+            botId,
+            metadata: {
+              source: url.searchParams.get("source") || "playground",
+              userAgent: req.headers.get("user-agent") || "unknown",
+            },
+          },
+        });
+
+        currentConversationId = conversation.id;
+
+        // Add initial user message to the conversation
+        const userMessage = messages[messages.length - 1];
+        if (userMessage && userMessage.role === "user") {
+          await prisma.message.create({
+            data: {
+              conversationId: currentConversationId,
+              role: "USER",
+              content: userMessage.content,
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Error creating conversation:", error);
+        // Continue even if conversation tracking fails
+      }
+    }
+
     // Retrieve context from knowledge base if there are any
     let contextualInfo = "";
     if (bot.knowledgeBases && bot.knowledgeBases.length > 0) {
@@ -80,7 +114,7 @@ export async function POST(req: NextRequest) {
             lastUserMessage.content,
             5 // Get top 5 most relevant chunks
           );
-          console.log("contextResults", contextResults);
+
           if (contextResults.length > 0) {
             contextualInfo =
               "### Relevant information from knowledge base:\n\n" +
@@ -130,7 +164,6 @@ export async function POST(req: NextRequest) {
         };
       }
     }
-    console.log("enabledTools", enabledTools);
 
     // Generate system message
     let systemMessage = bot.systemPrompt || "You are a helpful AI assistant.";
@@ -177,15 +210,41 @@ export async function POST(req: NextRequest) {
     }
 
     // Stream the AI response with tools
-    const result = streamText({
+    const response = streamText({
       model: aiModel,
       system: systemMessage,
       messages,
       tools: hasTools ? (enabledTools as ToolSet) : undefined,
-      maxSteps: 5, // Allow multiple tool calls if needed
+      maxSteps: 5, // Allow multiple tool calls if needed,
     });
 
-    return result.toDataStreamResponse();
+    // Record the completion in a background process
+    if (currentConversationId) {
+      setTimeout(async () => {
+        try {
+          // Mark conversation as completed
+          await prisma.conversation.update({
+            where: {
+              id: currentConversationId!,
+            },
+            data: {
+              endedAt: new Date(),
+            },
+          });
+        } catch (error) {
+          console.error("Error updating conversation completion:", error);
+        }
+      }, 5000); // Wait 5 seconds to complete
+    }
+
+    // Return streaming response with conversation ID
+    const streamResponse = response.toDataStreamResponse();
+
+    if (currentConversationId) {
+      streamResponse.headers.set("X-Conversation-ID", currentConversationId);
+    }
+
+    return streamResponse;
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json(

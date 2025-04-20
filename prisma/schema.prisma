@@ -95,6 +95,7 @@ model Bot {
   botIntegrations BotIntegration[]
   toolUsageMetrics ToolUsageMetric[]
   leads           Lead[]
+  conversations   Conversation[]
 
   @@index([userId])
   @@index([organizationId])
@@ -317,17 +318,28 @@ model Deployment {
 
 // Conversation history
 model Conversation {
-  id            String    @id @default(uuid())
-  botId         String    @map("bot_id")
-  externalUserId String?  @map("external_user_id") // User ID from external system if available
-  startedAt     DateTime  @default(now()) @map("started_at")
-  endedAt       DateTime? @map("ended_at")
-  metadata      Json?
+  id              String    @id @default(uuid())
+  botId           String    @map("bot_id")
+  externalUserId  String?   @map("external_user_id") // User ID from external system if available
+  source          String?   @default("playground") // Where the conversation originated from (playground, iframe, sdk, etc.)
+  startedAt       DateTime  @default(now()) @map("started_at")
+  endedAt         DateTime? @map("ended_at")
+  status          ConversationStatus @default(ACTIVE) // Status of the conversation
+  metadata        Json?     // General metadata about the conversation
+  clientInfo      Json?     @map("client_info") // Info about client (browser, device, etc.)
+  sentiment       Float?    // Optional sentiment score (-1 to 1)
+  errorLog        Json?     @map("error_log") // Any errors that occurred during the conversation
   
   // Relations
-  messages      Message[]
+  messages        Message[]
+  toolExecutions  ToolExecution[]
+  bot             Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
 
   @@index([botId])
+  @@index([externalUserId])
+  @@index([source])
+  @@index([startedAt])
+  @@index([status])
   @@map("conversations")
 }
 
@@ -337,14 +349,45 @@ model Message {
   conversationId  String      @map("conversation_id")
   role            MessageRole
   content         String
-  toolCalls       Json?       @map("tool_calls") // If message includes tool calls
+  toolCalls       Json?       @map("tool_calls") // JSON containing tool call requests (params, etc.)
+  contextUsed     Json?       @map("context_used") // Context from knowledge base that was used
+  processingTime  Int?        @map("processing_time") // Processing time in milliseconds
+  tokenCount      Int?        @map("token_count") // Number of tokens in the message
   timestamp       DateTime    @default(now())
   
   // Relations
   conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolExecutions  ToolExecution[]
 
   @@index([conversationId])
+  @@index([timestamp])
   @@map("messages")
+}
+
+// Tool execution details
+model ToolExecution {
+  id              String       @id @default(uuid())
+  messageId       String       @map("message_id")
+  conversationId  String       @map("conversation_id")
+  toolId          String       @map("tool_id")
+  functionName    String       @map("function_name")
+  params          Json         // Parameters passed to the tool
+  result          Json?        // Result returned by the tool (may be null if execution failed)
+  status          ExecutionStatus @default(PENDING)
+  startTime       DateTime     @default(now()) @map("start_time")
+  endTime         DateTime?    @map("end_time")
+  executionTime   Int?         @map("execution_time") // Execution time in milliseconds
+  error           Json?        // Error information if the execution failed
+  
+  // Relations
+  message         Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([conversationId])
+  @@index([toolId])
+  @@index([status])
+  @@map("tool_executions")
 }
 
 // Enums
@@ -455,4 +498,20 @@ model Lead {
   @@index([status])
   @@index([createdAt])
   @@map("leads")
+}
+
+// Add new enums
+enum ConversationStatus {
+  ACTIVE
+  COMPLETED
+  FAILED
+  ABANDONED // User left without completing
+}
+
+enum ExecutionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  TIMEOUT
 }

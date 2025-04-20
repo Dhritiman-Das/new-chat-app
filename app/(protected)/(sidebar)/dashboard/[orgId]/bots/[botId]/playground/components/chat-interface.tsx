@@ -17,7 +17,7 @@ import {
   ArrowUpRight as ExternalLink,
   PlusCircle,
 } from "@/components/icons";
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
 import { type Model } from "@/lib/models";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
