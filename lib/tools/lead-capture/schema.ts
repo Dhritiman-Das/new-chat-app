@@ -3,7 +3,18 @@ import { z } from "zod";
 // Configuration schema for Lead Capture tool
 export const leadCaptureConfigSchema = z.object({
   requiredFields: z
-    .array(z.enum(["name", "email", "phone", "company", "message"]))
+    .array(
+      z.enum([
+        "name",
+        "email",
+        "phone",
+        "company",
+        "message",
+        "website",
+        "budget",
+        "timeline",
+      ])
+    )
     .default(["name", "phone"])
     .describe("Fields that must be collected"),
   leadNotifications: z
@@ -19,6 +30,11 @@ export const leadCaptureConfigSchema = z.object({
     .array(z.string())
     .default(["pricing", "demo", "contact", "quote", "trial"])
     .describe("Keywords that trigger lead capture"),
+  customTriggerPhrases: z
+    .array(z.string())
+    .optional()
+    .default([])
+    .describe("Additional custom phrases that trigger lead capture"),
 });
 
 // No credentials needed for this tool
@@ -35,6 +51,9 @@ export const saveLeadSchema = z.object({
     .describe("Email address of the lead (optional)"),
   company: z.string().optional().describe("Company name of the lead"),
   notes: z.string().optional().describe("Additional notes about the lead"),
+  website: z.string().optional().describe("Website of the lead"),
+  budget: z.string().optional().describe("Budget information"),
+  timeline: z.string().optional().describe("Timeline information"),
   source: z
     .string()
     .optional()
@@ -47,7 +66,18 @@ export const saveLeadSchema = z.object({
 
 export const requestLeadInfoSchema = z.object({
   fields: z
-    .array(z.enum(["name", "email", "phone", "company", "message"]))
+    .array(
+      z.enum([
+        "name",
+        "email",
+        "phone",
+        "company",
+        "message",
+        "website",
+        "budget",
+        "timeline",
+      ])
+    )
     .describe("Fields to request from the lead"),
   message: z
     .string()

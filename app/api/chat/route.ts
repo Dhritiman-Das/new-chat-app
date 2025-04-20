@@ -134,7 +134,16 @@ export async function POST(req: NextRequest) {
 
     // Generate system message
     let systemMessage = bot.systemPrompt || "You are a helpful AI assistant.";
+    // Must run tool in every message according to the `enabledTools`
+    const toolsWithExecutionConditions: string[] = [];
+    if (enabledTools["lead-capture_detectTriggerKeyword"]) {
+      toolsWithExecutionConditions.push(
+        "Run the `lead-capture_detectTriggerKeyword` tool in every message. And if it returns `{detected: true}`, then run the `lead-capture_requestLeadInfo` tool."
+      );
+    }
 
+    const toolsWithExecutionConditionsPretty =
+      toolsWithExecutionConditions.join("\n\n");
     // Add contextual information if available
     if (contextualInfo) {
       systemMessage = `${systemMessage}\n\n${contextualInfo}`;
@@ -145,7 +154,11 @@ export async function POST(req: NextRequest) {
       "dd/MM/yyyy"
     )}.`;
     const behaviorContext = `The responses should be concise and to the point. Refrain from sending links. Should the responses be in a rich text format (like **example**)? => False.`;
-    systemMessage += [timeContext, behaviorContext].join("\n\n");
+    systemMessage += [
+      toolsWithExecutionConditionsPretty,
+      timeContext,
+      behaviorContext,
+    ].join("\n\n");
 
     // Check if we have any tools to use
     const hasTools = Object.keys(enabledTools).length > 0;

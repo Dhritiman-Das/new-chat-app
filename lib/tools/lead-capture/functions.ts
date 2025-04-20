@@ -5,12 +5,27 @@ import {
   detectTriggerKeywordSchema,
 } from "./schema";
 
+// Type for config
+interface LeadCaptureConfig {
+  requiredFields?: string[];
+  leadNotifications?: boolean;
+  leadCaptureTriggers?: string[];
+  customTriggerPhrases?: string[];
+}
+
 export const saveLead: ToolFunction = {
-  description: "Save lead contact information",
+  description: "Save lead contact information.",
   parameters: saveLeadSchema,
   execute: async (params, context) => {
     try {
       const { name, phone, email, company, source, triggerKeyword } = params;
+
+      // Get config from context and type it correctly
+      const config = (context.config || {}) as LeadCaptureConfig;
+
+      // Get the required fields from config
+      const requiredFields = config.requiredFields || ["name", "phone"];
+
       console.log("Saving lead info:", {
         name,
         phone,
@@ -20,21 +35,34 @@ export const saveLead: ToolFunction = {
         triggerKeyword,
       });
       console.log("Context:", context);
-      // Validate required fields
-      if (!name || !phone) {
+
+      // Validate required fields from config
+      const missingFields = requiredFields.filter((field) => {
+        // Check if any required field is missing
+        if (field === "name" && !name) return true;
+        if (field === "email" && !email) return true;
+        if (field === "phone" && !phone) return true;
+        if (field === "company" && !company) return true;
+        return false;
+      });
+
+      if (missingFields.length > 0) {
         return {
           success: false,
           error: {
             code: "MISSING_REQUIRED_FIELDS",
-            message: "Name and phone number are required",
+            message: `Missing required fields: ${missingFields.join(", ")}`,
           },
         };
       }
 
       // In a real implementation, you would:
       // 1. Save the lead to a database
-      // 2. Maybe trigger a notification to the team
+      // 2. Maybe trigger a notification to the team if leadNotifications is true
       // 3. Maybe add the lead to a CRM
+
+      // Check if we should send notifications based on config
+      const shouldNotify = config.leadNotifications !== false;
 
       // For now, return a successful response
       return {
@@ -49,6 +77,7 @@ export const saveLead: ToolFunction = {
           source: source || "chat",
           triggerKeyword,
           timestamp: new Date().toISOString(),
+          notificationSent: shouldNotify,
         },
       };
     } catch (error) {
@@ -73,8 +102,21 @@ export const requestLeadInfo: ToolFunction = {
       console.log("Requesting lead info:", params);
       console.log("Context:", context);
 
+      // Get config from context and type it correctly
+      const config = (context.config || {}) as LeadCaptureConfig;
+
+      // Get the required fields from config, or use default fields
+      const configRequiredFields = config.requiredFields || [
+        "name",
+        "email",
+        "phone",
+      ];
+
       // Get the fields to request and trigger keyword if available
       const { fields, message, triggerKeyword } = params;
+
+      // Use the fields from params, or fall back to required fields from config
+      const fieldsToRequest = fields || configRequiredFields;
 
       // In a real implementation, this might show a form to the user
       // For now, return instructions for the assistant
@@ -86,15 +128,19 @@ export const requestLeadInfo: ToolFunction = {
         phone: "your phone number",
         company: "your company name",
         message: "any additional information or questions",
+        website: "your website",
+        budget: "your budget",
+        timeline: "your timeline",
       };
 
       const fieldRequests =
-        fields && Array.isArray(fields)
-          ? fields
+        fieldsToRequest && Array.isArray(fieldsToRequest)
+          ? fieldsToRequest
               .map(
                 (field: string) =>
-                  fieldLabels[field as keyof typeof fieldLabels]
+                  fieldLabels[field as keyof typeof fieldLabels] || field
               )
+              .filter((label) => label) // Filter out any undefined labels
               .join(", ")
           : "";
 
@@ -116,7 +162,7 @@ export const requestLeadInfo: ToolFunction = {
       return {
         success: true,
         formMessage: customMessage,
-        fieldsToRequest: fields,
+        fieldsToRequest: fieldsToRequest,
         assistantInstructions: `Please ask for ${
           fieldRequests || "required information"
         } from the user.`,
@@ -138,18 +184,27 @@ export const requestLeadInfo: ToolFunction = {
 
 export const detectTriggerKeyword: ToolFunction = {
   description:
-    "Detect if a user message contains lead capture trigger keywords",
+    "Detect if a user message contains lead capture trigger keywords.",
   parameters: detectTriggerKeywordSchema,
   execute: async (params, context) => {
     try {
       const { message } = params as { message: string };
 
-      // Get the trigger keywords from config
-      const config = context.config || {};
+      // Get config from context and type it correctly
+      const config = (context.config || {}) as LeadCaptureConfig;
+      console.log("Detect keyword config:", config);
+      // Get the trigger keywords from config, merge both standard and custom triggers
       const defaultTriggers = ["pricing", "demo", "contact", "quote", "trial"];
-      const triggerKeywords = Array.isArray(config.leadCaptureTriggers)
+      const configTriggers = Array.isArray(config.leadCaptureTriggers)
         ? config.leadCaptureTriggers
         : defaultTriggers;
+
+      const customTriggers = Array.isArray(config.customTriggerPhrases)
+        ? config.customTriggerPhrases
+        : [];
+
+      // Combine configured triggers with custom triggers
+      const triggerKeywords = [...configTriggers, ...customTriggers];
 
       // Check if message contains any trigger keywords
       const messageLower = message.toLowerCase();
@@ -167,6 +222,7 @@ export const detectTriggerKeyword: ToolFunction = {
         message: detected
           ? `Detected lead capture trigger keyword: "${triggerKeyword}"`
           : "No lead capture trigger keywords detected",
+        allTriggerKeywords: triggerKeywords,
       };
     } catch (error) {
       console.error("Error detecting trigger keywords:", error);
