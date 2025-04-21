@@ -118,10 +118,10 @@ function MessageCard({
     <Card
       className={cn(
         "border shadow-sm transition-all overflow-hidden",
-        isUser ? "bg-secondary/10" : "bg-card"
+        isUser ? "bg-secondary" : "bg-card"
       )}
     >
-      <CardHeader className="px-4 py-3 flex flex-row gap-x-2 items-center space-y-0">
+      <CardHeader className="px-4 py-0 flex flex-row gap-x-2 items-center space-y-0">
         <div className="flex flex-col flex-1">
           <CardTitle className="text-sm font-medium">
             {isUser ? (

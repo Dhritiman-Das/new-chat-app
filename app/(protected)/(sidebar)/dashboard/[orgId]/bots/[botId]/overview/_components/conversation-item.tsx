@@ -4,6 +4,7 @@ import { Icons } from "@/components/icons";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import type { Conversation } from "@/lib/generated/prisma";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ConversationItemProps {
   conversation: Conversation & {
@@ -20,6 +21,7 @@ export function ConversationItem({
 }: ConversationItemProps) {
   // Get message content safely with optional chaining
   const messageContent = conversation.messages?.[0]?.content || "";
+  const isMobile = useIsMobile();
 
   return (
     <div className="flex items-start space-x-4 group">
@@ -29,7 +31,9 @@ export function ConversationItem({
           <div>Conversation {conversation.id.substring(0, 8)}</div>
           <Link
             href={`/dashboard/${orgId}/bots/${botId}/conversations/${conversation.id}`}
-            className="text-sm text-primary flex items-center opacity-0 group-hover:opacity-100 transition-opacity"
+            className={`text-sm text-primary flex items-center transition-opacity ${
+              isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
           >
             View conversation <Icons.ChevronRight className="ml-1 h-4 w-4" />
           </Link>
