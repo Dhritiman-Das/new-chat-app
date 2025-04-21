@@ -31,7 +31,7 @@ import {
   updateOrganization,
 } from "@/app/actions/organizations";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Icons } from "@/components/icons";
 
 const slugRegex = /^[a-z0-9-]+$/;
 
@@ -289,7 +289,7 @@ export default function OrganizationForm({
                       <Input placeholder="acme-corp" {...field} />
                     </FormControl>
                     {isCheckingSlug && (
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <Icons.Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
                     )}
                     {!isCheckingSlug && slugStatus === "available" && (
                       <Badge

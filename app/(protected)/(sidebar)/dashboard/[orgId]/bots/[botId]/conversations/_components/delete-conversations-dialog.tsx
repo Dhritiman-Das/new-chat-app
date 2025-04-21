@@ -2,7 +2,7 @@
 
 import type { Conversation } from "@/lib/generated/prisma";
 import type { Row } from "@tanstack/react-table";
-import { Loader, Trash } from "lucide-react";
+import { Icons } from "@/components/icons";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -75,7 +75,7 @@ export function DeleteConversationsDialog({
         {showTrigger ? (
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              <Trash className="mr-2 size-4" aria-hidden="true" />
+              <Icons.Trash className="mr-2 size-4" aria-hidden="true" />
               Delete ({conversations.length})
             </Button>
           </DialogTrigger>
@@ -103,7 +103,7 @@ export function DeleteConversationsDialog({
               disabled={isDeletePending}
             >
               {isDeletePending && (
-                <Loader
+                <Icons.Loader
                   className="mr-2 size-4 animate-spin"
                   aria-hidden="true"
                 />
@@ -121,7 +121,7 @@ export function DeleteConversationsDialog({
       {showTrigger ? (
         <DrawerTrigger asChild>
           <Button variant="outline" size="sm">
-            <Trash className="mr-2 size-4" aria-hidden="true" />
+            <Icons.Trash className="mr-2 size-4" aria-hidden="true" />
             Delete ({conversations.length})
           </Button>
         </DrawerTrigger>
@@ -149,7 +149,10 @@ export function DeleteConversationsDialog({
             disabled={isDeletePending}
           >
             {isDeletePending && (
-              <Loader className="mr-2 size-4 animate-spin" aria-hidden="true" />
+              <Icons.Loader
+                className="mr-2 size-4 animate-spin"
+                aria-hidden="true"
+              />
             )}
             Delete
           </Button>

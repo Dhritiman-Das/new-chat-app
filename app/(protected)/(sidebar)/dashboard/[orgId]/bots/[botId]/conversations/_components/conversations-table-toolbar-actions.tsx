@@ -2,7 +2,7 @@
 
 import type { Conversation } from "@/lib/generated/prisma";
 import type { Table } from "@tanstack/react-table";
-import { Download } from "lucide-react";
+import { Icons } from "@/components/icons";
 
 import { Button } from "@/components/ui/button";
 import { exportTableToCSV } from "../_lib/utils";
@@ -36,7 +36,7 @@ export function ConversationsTableToolbarActions({
           })
         }
       >
-        <Download className="mr-2 h-4 w-4" />
+        <Icons.Download className="mr-2 h-4 w-4" />
         Export
       </Button>
     </div>

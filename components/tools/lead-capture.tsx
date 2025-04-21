@@ -58,7 +58,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CopyIcon, InfoIcon, MailIcon } from "lucide-react";
 
 // Interface for serialized tool object
 interface SerializableTool {
@@ -775,11 +774,7 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                              >
+                              <Button variant="ghost" size="icon">
                                 <Icons.MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -788,13 +783,13 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
                               <DropdownMenuItem
                                 onClick={() => openLeadDetails(lead)}
                               >
-                                <InfoIcon className="mr-2 h-4 w-4" />
+                                <Icons.Info className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => copyLeadToClipboard(lead)}
                               >
-                                <CopyIcon className="mr-2 h-4 w-4" />
+                                <Icons.Copy className="mr-2 h-4 w-4" />
                                 Copy Data
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
@@ -804,7 +799,7 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
                                 }
                                 disabled={!lead.email}
                               >
-                                <MailIcon className="mr-2 h-4 w-4" />
+                                <Icons.Mail className="mr-2 h-4 w-4" />
                                 Email Lead
                               </DropdownMenuItem>
                             </DropdownMenuContent>

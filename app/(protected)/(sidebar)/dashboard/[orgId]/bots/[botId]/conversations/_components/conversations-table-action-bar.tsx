@@ -2,7 +2,7 @@
 
 import type { Conversation } from "@/lib/generated/prisma";
 import type { Table } from "@tanstack/react-table";
-import { CheckCircle2, Download, Trash2 } from "lucide-react";
+import { Icons } from "@/components/icons";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -125,7 +125,7 @@ export function ConversationsTableActionBar({
               </span>
             ) : (
               <>
-                <CheckCircle2 className="size-4" />
+                <Icons.CheckCircle2 className="size-4" />
                 <span>Update status</span>
               </>
             )}
@@ -161,7 +161,7 @@ export function ConversationsTableActionBar({
           isPending={getIsActionPending("export")}
           onClick={onConversationExport}
         >
-          <Download />
+          <Icons.Download />
         </DataTableActionBarAction>
         <DataTableActionBarAction
           size="icon"
@@ -169,7 +169,7 @@ export function ConversationsTableActionBar({
           isPending={getIsActionPending("delete")}
           onClick={onConversationDelete}
         >
-          <Trash2 />
+          <Icons.Trash2 />
         </DataTableActionBarAction>
       </div>
     </DataTableActionBar>

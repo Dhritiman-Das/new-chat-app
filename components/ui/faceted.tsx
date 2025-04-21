@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, ChevronsUpDown } from "lucide-react";
 import * as React from "react";
+import { Icons } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -164,7 +164,7 @@ function FacetedBadgeList(props: FacetedBadgeListProps) {
         className="flex w-full items-center gap-1 text-muted-foreground"
       >
         {placeholder}
-        <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
+        <Icons.ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
       </div>
     );
   }
@@ -264,7 +264,7 @@ function FacetedItem(props: FacetedItemProps) {
             : "opacity-50 [&_svg]:invisible"
         )}
       >
-        <Check className="size-4" />
+        <Icons.Check className="size-4" />
       </span>
       {children}
     </CommandItem>

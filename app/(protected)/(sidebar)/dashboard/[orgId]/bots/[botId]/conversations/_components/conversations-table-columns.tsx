@@ -3,15 +3,7 @@
 import type { Conversation } from "@/lib/generated/prisma";
 import type { DataTableRowAction } from "@/lib/types/data-table";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  CalendarIcon,
-  CircleDashed,
-  Clock,
-  Ellipsis,
-  MessageSquare,
-  Hammer as Tool,
-  User,
-} from "lucide-react";
+import { Icons } from "@/components/icons";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -126,7 +118,7 @@ export function getConversationsTableColumns({
           value: source,
           count: 0, // This would need to be updated with actual counts
         })),
-        icon: User,
+        icon: Icons.User,
       },
       enableColumnFilter: true,
     },
@@ -158,7 +150,7 @@ export function getConversationsTableColumns({
           count: statusCounts[status as Conversation["status"]],
           icon: getStatusIcon(status as Conversation["status"]),
         })),
-        icon: CircleDashed,
+        icon: Icons.CircleDashed,
       },
       enableColumnFilter: true,
     },
@@ -172,14 +164,14 @@ export function getConversationsTableColumns({
         const count = row.original._count?.messages || 0;
         return (
           <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <Icons.MessageSquare className="h-4 w-4 text-muted-foreground" />
             <span>{count}</span>
           </div>
         );
       },
       meta: {
         label: "Messages",
-        icon: MessageSquare,
+        icon: Icons.MessageSquare,
       },
     },
     {
@@ -192,14 +184,14 @@ export function getConversationsTableColumns({
         const count = row.original._count?.toolExecutions || 0;
         return (
           <div className="flex items-center gap-2">
-            <Tool className="h-4 w-4 text-muted-foreground" />
+            <Icons.Hammer className="h-4 w-4 text-muted-foreground" />
             <span>{count}</span>
           </div>
         );
       },
       meta: {
         label: "Tool Uses",
-        icon: Tool,
+        icon: Icons.Hammer,
       },
     },
     {
@@ -218,14 +210,14 @@ export function getConversationsTableColumns({
         const endDate = row.original.endedAt;
         return (
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Icons.Clock className="h-4 w-4 text-muted-foreground" />
             <span>{formatDuration(startDate, endDate)}</span>
           </div>
         );
       },
       meta: {
         label: "Duration",
-        icon: Clock,
+        icon: Icons.Clock,
       },
     },
     {
@@ -238,7 +230,7 @@ export function getConversationsTableColumns({
       meta: {
         label: "Started",
         variant: "dateRange",
-        icon: CalendarIcon,
+        icon: Icons.CalendarIcon,
       },
       enableColumnFilter: true,
     },
@@ -262,7 +254,7 @@ export function getConversationsTableColumns({
                 variant="ghost"
                 className="flex size-8 p-0 data-[state=open]:bg-muted"
               >
-                <Ellipsis className="size-4" aria-hidden="true" />
+                <Icons.Ellipsis className="size-4" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[180px]">

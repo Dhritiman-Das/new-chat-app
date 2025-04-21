@@ -8,7 +8,6 @@ import { Icons } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { uploadFile } from "@/app/actions/storage";
 import { updateAvatar } from "@/app/actions/user";
-import { FileUp } from "lucide-react";
 import { FileMetadata, STORAGE_BUCKETS } from "@/lib/storage/types";
 
 interface AvatarUploadProps {
@@ -122,7 +121,7 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
             asChild
           >
             <span>
-              <FileUp className="mr-2 h-4 w-4" />
+              <Icons.FileUp className="mr-2 h-4 w-4" />
               {avatarUrl ? "Change avatar" : "Upload avatar"}
             </span>
           </Button>

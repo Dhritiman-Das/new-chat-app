@@ -2,7 +2,7 @@
 
 import { useQueryState } from "nuqs";
 import * as React from "react";
-import { Filter, Search, Sliders } from "lucide-react";
+import { Icons } from "@/components/icons";
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -16,7 +16,7 @@ const flagConfig = {
     {
       value: "advancedFilters",
       label: "Advanced Filters",
-      icon: Filter,
+      icon: Icons.Filter,
       tooltipTitle: "Advanced Filters",
       tooltipDescription:
         "Enable advanced filtering options with a sidebar layout.",
@@ -24,14 +24,14 @@ const flagConfig = {
     {
       value: "commandFilters",
       label: "Command Filters",
-      icon: Sliders,
+      icon: Icons.Sliders,
       tooltipTitle: "Command Filters",
       tooltipDescription: "Enable command-style filtering with dropdown menus.",
     },
     {
       value: "searchFilters",
       label: "Search Filters",
-      icon: Search,
+      icon: Icons.Search,
       tooltipTitle: "Search Filters",
       tooltipDescription: "Enable simple search-based filtering.",
     },

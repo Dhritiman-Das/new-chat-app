@@ -1,13 +1,7 @@
 "use client";
 
 import type { Column } from "@tanstack/react-table";
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  EyeOff,
-  X,
-} from "lucide-react";
+import { Icons } from "@/components/icons";
 
 import {
   DropdownMenu,
@@ -46,11 +40,11 @@ export function DataTableColumnHeader<TData, TValue>({
         {title}
         {column.getCanSort() &&
           (column.getIsSorted() === "desc" ? (
-            <ChevronDown />
+            <Icons.ChevronDown />
           ) : column.getIsSorted() === "asc" ? (
-            <ChevronUp />
+            <Icons.ChevronUp />
           ) : (
-            <ChevronsUpDown />
+            <Icons.ChevronsUpDown />
           ))}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-28">
@@ -61,7 +55,7 @@ export function DataTableColumnHeader<TData, TValue>({
               checked={column.getIsSorted() === "asc"}
               onClick={() => column.toggleSorting(false)}
             >
-              <ChevronUp />
+              <Icons.ChevronUp />
               Asc
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
@@ -69,7 +63,7 @@ export function DataTableColumnHeader<TData, TValue>({
               checked={column.getIsSorted() === "desc"}
               onClick={() => column.toggleSorting(true)}
             >
-              <ChevronDown />
+              <Icons.ChevronDown />
               Desc
             </DropdownMenuCheckboxItem>
             {column.getIsSorted() && (
@@ -77,7 +71,7 @@ export function DataTableColumnHeader<TData, TValue>({
                 className="pl-2 [&_svg]:text-muted-foreground"
                 onClick={() => column.clearSorting()}
               >
-                <X />
+                <Icons.X />
                 Reset
               </DropdownMenuItem>
             )}
@@ -89,7 +83,7 @@ export function DataTableColumnHeader<TData, TValue>({
             checked={!column.getIsVisible()}
             onClick={() => column.toggleVisibility(false)}
           >
-            <EyeOff />
+            <Icons.EyeOff />
             Hide
           </DropdownMenuCheckboxItem>
         )}

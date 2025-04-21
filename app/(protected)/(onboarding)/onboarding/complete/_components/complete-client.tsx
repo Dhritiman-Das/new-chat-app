@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CheckCircle } from "lucide-react";
+import { Icons } from "@/components/icons";
 
 interface Organization {
   id: string;
@@ -65,7 +65,7 @@ export default function CompleteClient({ organization }: CompleteClientProps) {
               }}
               className="w-20 h-20 mx-auto mb-6 text-primary"
             >
-              <CheckCircle className="w-full h-full" />
+              <Icons.CheckCircle className="w-full h-full" />
             </motion.div>
 
             <CardTitle className="text-2xl font-bold">

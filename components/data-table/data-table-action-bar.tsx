@@ -11,9 +11,9 @@ import { cn } from "@/lib/utils";
 import type { Table } from "@tanstack/react-table";
 import { motion } from "framer-motion";
 import { AnimatePresence } from "framer-motion";
-import { Loader, X } from "lucide-react";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
+import { Icons } from "@/components/icons";
 
 interface DataTableActionBarProps<TData>
   extends React.ComponentProps<typeof motion.div> {
@@ -106,7 +106,7 @@ function DataTableActionBarAction({
       disabled={disabled || isPending}
       {...props}
     >
-      {isPending ? <Loader className="animate-spin" /> : children}
+      {isPending ? <Icons.Spinner className="animate-spin" /> : children}
     </Button>
   );
 
@@ -153,7 +153,7 @@ function DataTableActionBarSelection<TData>({
             className="size-5"
             onClick={onClearSelection}
           >
-            <X className="size-3.5" />
+            <Icons.X className="size-3.5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent

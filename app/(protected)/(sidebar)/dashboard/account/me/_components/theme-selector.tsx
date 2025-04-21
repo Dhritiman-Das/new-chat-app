@@ -5,7 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
-import { RefreshCcw } from "lucide-react";
+import { Icons } from "@/components/icons";
 
 export function ThemeSelector() {
   const { theme, setTheme, systemTheme } = useTheme();
@@ -134,7 +134,7 @@ export function ThemeSelector() {
           onClick={() => setTheme("system")}
           className="text-xs"
         >
-          <RefreshCcw className="h-3.5 w-3.5 mr-1" />
+          <Icons.RefreshCcw className="h-3.5 w-3.5 mr-1" />
           Reset to system
         </Button>
         <span className="text-xs text-muted-foreground">

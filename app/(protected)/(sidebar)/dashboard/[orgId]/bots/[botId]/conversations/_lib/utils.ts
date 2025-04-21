@@ -1,11 +1,4 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  Circle,
-  CircleOff,
-  Clock,
-  MessageCircle,
-} from "lucide-react";
+import { Icons } from "@/components/icons";
 import { type ConversationStatus } from "@/lib/generated/prisma";
 import type { Table } from "@tanstack/react-table";
 import type { ExportTableToCSVOptions } from "./types";
@@ -15,10 +8,10 @@ import type { ExportTableToCSVOptions } from "./types";
  */
 export function getStatusIcon(status: ConversationStatus) {
   return {
-    ACTIVE: MessageCircle,
-    COMPLETED: Circle,
-    FAILED: CircleOff,
-    ABANDONED: Clock,
+    ACTIVE: Icons.MessageCircle,
+    COMPLETED: Icons.Circle,
+    FAILED: Icons.CircleOff,
+    ABANDONED: Icons.Clock,
   }[status];
 }
 
@@ -89,8 +82,8 @@ export function formatDuration(
 export function getSentimentIcon(sentiment: number | null) {
   if (sentiment === null) return null;
 
-  if (sentiment > 0.2) return ArrowUp;
-  if (sentiment < -0.2) return ArrowDown;
+  if (sentiment > 0.2) return Icons.ArrowUp;
+  if (sentiment < -0.2) return Icons.ArrowDown;
   return null;
 }
 

@@ -14,7 +14,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { PlusCircle, XCircle } from "lucide-react";
+import { Icons } from "@/components/icons";
 
 interface Range {
   min: number;
@@ -140,10 +140,10 @@ export function DataTableSliderFilter<TData>({
               className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               onClick={onReset}
             >
-              <XCircle />
+              <Icons.XCircle />
             </div>
           ) : (
-            <PlusCircle />
+            <Icons.PlusCircle />
           )}
           <span>{title}</span>
           {columnFilterValue ? (

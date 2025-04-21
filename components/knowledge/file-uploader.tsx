@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
-import { Upload } from "lucide-react";
+import { Icons } from "@/components/icons";
 
 interface UploadResponse {
   success: boolean;
@@ -159,7 +159,7 @@ export function FileUploader({
       >
         <input {...getInputProps()} />
         <div className="flex flex-col items-center justify-center space-y-3">
-          <Upload className="h-10 w-10 text-muted-foreground" />
+          <Icons.Upload className="h-10 w-10 text-muted-foreground" />
           <div className="space-y-1">
             <p className="text-sm font-medium">
               {isDragActive

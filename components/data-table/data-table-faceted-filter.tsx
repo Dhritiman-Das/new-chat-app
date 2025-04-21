@@ -2,7 +2,7 @@
 
 import type { Option } from "@/lib/types/data-table";
 import type { Column } from "@tanstack/react-table";
-import { Check, PlusCircle, XCircle } from "lucide-react";
+import { Icons } from "@/components/icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,10 +86,10 @@ export function DataTableFacetedFilter<TData, TValue>({
               onClick={onReset}
               className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
-              <XCircle />
+              <Icons.XCircle />
             </div>
           ) : (
-            <PlusCircle />
+            <Icons.PlusCircle />
           )}
           {title}
           {selectedValues?.size > 0 && (
@@ -152,7 +152,7 @@ export function DataTableFacetedFilter<TData, TValue>({
                           : "opacity-50 [&_svg]:invisible"
                       )}
                     >
-                      <Check />
+                      <Icons.Check />
                     </div>
                     {option.icon && <option.icon />}
                     <span className="truncate">{option.label}</span>

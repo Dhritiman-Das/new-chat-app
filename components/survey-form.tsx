@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Icons } from "@/components/icons";
 
 // Make all fields optional since questions can be skipped
 const formSchema = z.object({
@@ -384,7 +384,7 @@ export default function SurveyForm({
                   onClick={prevStep}
                   disabled={isLoading}
                 >
-                  <ChevronLeft className="mr-1 h-4 w-4" />
+                  <Icons.ChevronLeft className="mr-1 h-4 w-4" />
                   Back
                 </Button>
               )}
@@ -406,7 +406,7 @@ export default function SurveyForm({
                 {currentStepIndex < surveySteps.length - 1 ? (
                   <>
                     Next
-                    <ChevronRight className="ml-1 h-4 w-4" />
+                    <Icons.ChevronRight className="ml-1 h-4 w-4" />
                   </>
                 ) : isLoading ? (
                   "Finishing..."
