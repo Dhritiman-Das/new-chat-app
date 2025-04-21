@@ -6,69 +6,20 @@ import { toast } from "sonner";
 import { User } from "@/lib/generated/prisma";
 import { Icons } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { uploadFile } from "@/app/actions/storage";
 import { updateAvatar } from "@/app/actions/user";
-import { FileMetadata, STORAGE_BUCKETS } from "@/lib/storage/types";
+import { useImageUpload } from "@/hooks/use-image-upload";
 
 interface AvatarUploadProps {
   user: User;
 }
 
 export function AvatarUpload({ user }: AvatarUploadProps) {
-  const [isUploading, setIsUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     user.avatarUrl || null
   );
 
-  const handleFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Check if file is an image
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
-      return;
-    }
-
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be less than 5MB");
-      return;
-    }
-
+  const handleAvatarSuccess = async (fileUrl: string) => {
     try {
-      setIsUploading(true);
-
-      // Upload file to storage
-      const uploadResult = await uploadFile({
-        file,
-        fileName: `avatar-${Date.now()}.${file.name.split(".").pop()}`,
-        contentType: file.type,
-        bucket: STORAGE_BUCKETS.PUBLIC, // Using public bucket for avatars
-        path: "avatars",
-      });
-
-      // Check if upload was successful
-      if (uploadResult?.data?.error) {
-        toast.error(
-          uploadResult.data?.error?.message || "Failed to upload avatar"
-        );
-        return;
-      }
-
-      // Extract the URL from the response data
-      // We're using a more defensive approach with optional chaining and type checking
-      const responseData = uploadResult?.data?.data as FileMetadata;
-      const fileUrl = responseData?.url;
-
-      if (!fileUrl) {
-        toast.error("No URL returned from upload");
-        return;
-      }
-
-      // Update user profile with new avatar URL
       const updateResult = await updateAvatar({
         avatarUrl: fileUrl,
       });
@@ -79,13 +30,17 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
       } else {
         toast.error("Failed to update profile");
       }
-    } catch (error: unknown) {
-      console.error("Error uploading avatar:", error);
-      toast.error("An unexpected error occurred");
-    } finally {
-      setIsUploading(false);
+    } catch (error) {
+      console.error("Error updating avatar:", error);
+      toast.error("Failed to update profile");
     }
   };
+
+  const { isUploading, handleFileChange } = useImageUpload({
+    path: "avatars",
+    fileNamePrefix: "avatar",
+    onSuccess: handleAvatarSuccess,
+  });
 
   return (
     <div className="flex flex-col items-center space-y-4">
@@ -141,7 +96,6 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
             className="text-xs text-muted-foreground"
             onClick={async () => {
               try {
-                setIsUploading(true);
                 const result = await updateAvatar({ avatarUrl: "" });
                 if (result?.data?.success) {
                   setAvatarUrl(null);
@@ -152,8 +106,6 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
               } catch (error: unknown) {
                 console.error("Error removing avatar:", error);
                 toast.error("Failed to remove avatar");
-              } finally {
-                setIsUploading(false);
               }
             }}
             disabled={isUploading}

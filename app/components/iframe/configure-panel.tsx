@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { IframeConfig } from "./types";
 import { defaultIframeConfig } from "./config";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { saveIframeConfiguration } from "@/app/actions/bots";
 import { Icons } from "@/components/icons";
+import { useImageUpload } from "@/hooks/use-image-upload";
 import {
   Select,
   SelectContent,
@@ -167,6 +169,34 @@ export function ConfigurePanel({
       ...defaultIframeConfig,
     });
   };
+
+  const handleAvatarSuccess = (fileUrl: string) => {
+    handleAvatarChange("avatarUrl", fileUrl);
+    toast.success("Avatar uploaded successfully");
+  };
+
+  const handleBrandingLogoSuccess = (fileUrl: string) => {
+    handleBrandingChange("brandingLogo", fileUrl);
+    toast.success("Branding logo uploaded successfully");
+  };
+
+  const {
+    isUploading: isUploadingAvatar,
+    handleFileChange: handleAvatarFileChange,
+  } = useImageUpload({
+    path: "iframe-avatars",
+    fileNamePrefix: "avatar",
+    onSuccess: handleAvatarSuccess,
+  });
+
+  const {
+    isUploading: isUploadingBrandingLogo,
+    handleFileChange: handleBrandingLogoFileChange,
+  } = useImageUpload({
+    path: "iframe-branding",
+    fileNamePrefix: "branding-logo",
+    onSuccess: handleBrandingLogoSuccess,
+  });
 
   // Font family options
   const fontOptions = [
@@ -408,20 +438,84 @@ export function ConfigurePanel({
               </div>
 
               {config.avatar.showAvatar && (
-                <div className="space-y-2">
-                  <Label htmlFor="avatarUrl">Avatar URL (Optional)</Label>
-                  <Input
-                    id="avatarUrl"
-                    value={config.avatar.avatarUrl || ""}
-                    onChange={(e) =>
-                      handleAvatarChange("avatarUrl", e.target.value)
-                    }
-                    placeholder="https://example.com/avatar.png"
-                  />
-                  <p className="text-sm text-gray-500">
-                    Leave empty to use default avatar
-                  </p>
-                </div>
+                <>
+                  {/* Avatar Preview */}
+                  <div className="flex flex-col items-center space-y-4">
+                    <div className="relative h-16 w-16">
+                      {config.avatar.avatarUrl ? (
+                        <Image
+                          src={config.avatar.avatarUrl}
+                          alt="Avatar"
+                          className="rounded-full object-cover"
+                          fill
+                          sizes="64px"
+                        />
+                      ) : (
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                          <Icons.User className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                      )}
+                      {isUploadingAvatar && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
+                          <Icons.Spinner className="h-6 w-6 animate-spin text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Avatar URL Input */}
+                  <div className="space-y-2">
+                    <Label htmlFor="avatarUrl">Avatar URL</Label>
+                    <div className="flex space-x-2">
+                      <Input
+                        id="avatarUrl"
+                        value={config.avatar.avatarUrl || ""}
+                        onChange={(e) =>
+                          handleAvatarChange("avatarUrl", e.target.value)
+                        }
+                        placeholder="https://example.com/avatar.png"
+                        className="flex-1"
+                      />
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-10 w-10"
+                          disabled={isUploadingAvatar}
+                          asChild
+                        >
+                          <label htmlFor="avatar-upload">
+                            <Icons.FileUp className="h-4 w-4" />
+                          </label>
+                        </Button>
+                        <input
+                          id="avatar-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarFileChange}
+                          disabled={isUploadingAvatar}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Enter URL or upload a new image (Max: 5MB)
+                    </p>
+                  </div>
+
+                  {/* Clear Avatar Button */}
+                  {config.avatar.avatarUrl && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs text-muted-foreground"
+                      onClick={() => handleAvatarChange("avatarUrl", "")}
+                    >
+                      <Icons.Trash className="h-4 w-4 mr-2" />
+                      Remove Avatar
+                    </Button>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -525,19 +619,77 @@ export function ConfigurePanel({
                     />
                   </div>
 
+                  {/* Branding Logo Preview */}
+                  {config.branding.brandingLogo && (
+                    <div className="flex justify-center py-2">
+                      <div className="relative h-12 w-48">
+                        <Image
+                          src={config.branding.brandingLogo}
+                          alt="Branding Logo"
+                          className="object-contain"
+                          fill
+                          sizes="192px"
+                        />
+                        {isUploadingBrandingLogo && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                            <Icons.Spinner className="h-6 w-6 animate-spin text-white" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <Label htmlFor="brandingLogo">
-                      Branding Logo URL (Optional)
-                    </Label>
-                    <Input
-                      id="brandingLogo"
-                      value={config.branding.brandingLogo || ""}
-                      onChange={(e) =>
-                        handleBrandingChange("brandingLogo", e.target.value)
-                      }
-                      placeholder="https://example.com/logo.png"
-                    />
+                    <Label htmlFor="brandingLogo">Branding Logo URL</Label>
+                    <div className="flex space-x-2">
+                      <Input
+                        id="brandingLogo"
+                        value={config.branding.brandingLogo || ""}
+                        onChange={(e) =>
+                          handleBrandingChange("brandingLogo", e.target.value)
+                        }
+                        placeholder="https://example.com/logo.png"
+                        className="flex-1"
+                      />
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-10 w-10"
+                          disabled={isUploadingBrandingLogo}
+                          asChild
+                        >
+                          <label htmlFor="branding-logo-upload">
+                            <Icons.FileUp className="h-4 w-4" />
+                          </label>
+                        </Button>
+                        <input
+                          id="branding-logo-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleBrandingLogoFileChange}
+                          disabled={isUploadingBrandingLogo}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Enter URL or upload a new image (Max: 5MB)
+                    </p>
                   </div>
+
+                  {/* Clear Branding Logo Button */}
+                  {config.branding.brandingLogo && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs text-muted-foreground"
+                      onClick={() => handleBrandingChange("brandingLogo", "")}
+                    >
+                      <Icons.Trash className="h-4 w-4 mr-2" />
+                      Remove Logo
+                    </Button>
+                  )}
                 </>
               )}
             </CardContent>
