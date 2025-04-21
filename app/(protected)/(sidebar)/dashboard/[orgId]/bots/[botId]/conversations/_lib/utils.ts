@@ -178,11 +178,17 @@ export function exportTableToCSV<T>(
  * Parse filters to a valid object format
  */
 export function getValidFilters<T>(
-  filtersStr: string | undefined
+  filtersStr: string | object | undefined
 ): T | undefined {
   if (!filtersStr) return undefined;
 
   try {
+    // If filtersStr is already an object, return it
+    if (typeof filtersStr === "object") {
+      return filtersStr as T;
+    }
+
+    // Otherwise parse it as a string
     return JSON.parse(filtersStr) as T;
   } catch (error) {
     console.error("Error parsing filters:", error);

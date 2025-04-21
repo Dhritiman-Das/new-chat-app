@@ -21,7 +21,10 @@ import { ConversationsTable } from "./_components/conversations-table";
 
 import { getValidFilters } from "./_lib/utils";
 import type { SearchParams } from "./_lib/types";
-import { searchParamsCache } from "./_lib/validations";
+import {
+  searchParamsCache,
+  type ConversationFilterSchema,
+} from "./_lib/validations";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -40,7 +43,10 @@ export default async function ConversationsPage({
   const botResponse = await getBotById(botId);
   const bot = botResponse?.data;
 
-  const validFilters = getValidFilters(search.filters);
+  // Get valid filters - could be an object or string
+  const validFilters = getValidFilters<ConversationFilterSchema>(
+    search.filters
+  );
 
   // Fetch conversations data
   const promises = Promise.all([
@@ -49,7 +55,7 @@ export default async function ConversationsPage({
       search.page,
       search.per_page,
       search.sort,
-      validFilters as string | undefined
+      validFilters // Pass the filters directly
     ),
     getCachedConversationStatusCounts(botId),
   ]);

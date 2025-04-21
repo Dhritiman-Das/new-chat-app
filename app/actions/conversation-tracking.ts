@@ -450,3 +450,83 @@ export async function completeConversation(conversationId: string) {
     };
   }
 }
+
+/**
+ * Mark conversation as abandoned
+ */
+export async function abandonConversation(conversationId: string) {
+  try {
+    await prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        endedAt: new Date(),
+        status: "ABANDONED",
+      },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error abandoning conversation:", error);
+    return {
+      success: false,
+      error: appErrors.CONVERSATION_ERROR,
+    };
+  }
+}
+
+/**
+ * Mark conversation as failed
+ */
+export async function failConversation(conversationId: string) {
+  try {
+    await prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        endedAt: new Date(),
+        status: "FAILED",
+      },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error failing conversation:", error);
+    return {
+      success: false,
+      error: appErrors.CONVERSATION_ERROR,
+    };
+  }
+}
+
+/**
+ * Mark conversation as active
+ */
+export async function activateConversation(conversationId: string) {
+  try {
+    await prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        status: "ACTIVE",
+      },
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error activating conversation:", error);
+    return {
+      success: false,
+      error: appErrors.CONVERSATION_ERROR,
+    };
+  }
+}

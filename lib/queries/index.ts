@@ -522,30 +522,35 @@ export async function getConversationsQuery(
   page = 1,
   per_page = 10,
   sort?: string,
-  filters?: string
+  filters?: string | object
 ) {
-  const skip = (page - 1) * per_page;
-  let orderBy = {};
+  // Parse sort parameter
+  let orderBy: PrismaTypes.ConversationOrderByWithRelationInput = {
+    startedAt: "desc",
+  };
 
-  // Parse sort param (format: "field:direction")
   if (sort) {
     const [field, direction] = sort.split(":");
-    orderBy = {
-      [field]: direction === "desc" ? "desc" : "asc",
-    };
-  } else {
-    // Default sort by most recent
-    orderBy = {
-      startedAt: "desc",
-    };
+    const isValidDirection = direction === "asc" || direction === "desc";
+
+    if (field && isValidDirection) {
+      orderBy = {
+        [field]: direction,
+      };
+    }
   }
+
+  // Calculate pagination
+  const skip = (page - 1) * per_page;
 
   // Parse filters
   const where: PrismaTypes.ConversationWhereInput = { botId };
 
   if (filters) {
     try {
-      const parsedFilters = JSON.parse(filters);
+      // Handle the case where filters is already an object
+      const parsedFilters =
+        typeof filters === "string" ? JSON.parse(filters) : filters;
 
       if (parsedFilters.status?.length) {
         where.status = { in: parsedFilters.status };

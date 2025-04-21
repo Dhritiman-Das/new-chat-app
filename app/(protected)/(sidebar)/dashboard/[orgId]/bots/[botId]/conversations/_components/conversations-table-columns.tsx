@@ -30,7 +30,12 @@ import {
 import { formatDate } from "@/lib/format";
 
 import { formatDuration, formatSource, getStatusIcon } from "../_lib/utils";
-import { completeConversation } from "@/app/actions/conversation-tracking";
+import {
+  abandonConversation,
+  activateConversation,
+  completeConversation,
+  failConversation,
+} from "@/app/actions/conversation-tracking";
 
 // Add interface for Conversation with count property
 interface ConversationWithCount extends Conversation {
@@ -242,6 +247,10 @@ export function getConversationsTableColumns({
       cell: function Cell({ row }) {
         const [isCompletePending, startCompleteTransition] =
           React.useTransition();
+        const [isAbandonPending, startAbandonTransition] =
+          React.useTransition();
+        const [isFailedPending, startFailedTransition] = React.useTransition();
+        const [isActivePending, startActiveTransition] = React.useTransition();
         const conversation = row.original;
         const isActive = conversation.status === "ACTIVE";
 
@@ -263,23 +272,76 @@ export function getConversationsTableColumns({
                 View Conversation
               </DropdownMenuItem>
               {isActive && (
-                <DropdownMenuItem
-                  disabled={isCompletePending}
-                  onSelect={() => {
-                    startCompleteTransition(async () => {
-                      const result = await completeConversation(
-                        conversation.id
-                      );
-                      if (result.success) {
-                        toast.success("Conversation marked as completed");
-                      } else {
-                        toast.error("Failed to complete conversation");
-                      }
-                    });
-                  }}
-                >
-                  Mark as Completed
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem
+                    disabled={isActivePending}
+                    onSelect={() => {
+                      startActiveTransition(async () => {
+                        const result = await activateConversation(
+                          conversation.id
+                        );
+                        if (result.success) {
+                          toast.success("Conversation marked as active");
+                        } else {
+                          toast.error("Failed to mark conversation as active");
+                        }
+                      });
+                    }}
+                  >
+                    Mark as Active
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isCompletePending}
+                    onSelect={() => {
+                      startCompleteTransition(async () => {
+                        const result = await completeConversation(
+                          conversation.id
+                        );
+                        if (result.success) {
+                          toast.success("Conversation marked as completed");
+                        } else {
+                          toast.error("Failed to complete conversation");
+                        }
+                      });
+                    }}
+                  >
+                    Mark as Completed
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isFailedPending}
+                    onSelect={() => {
+                      startFailedTransition(async () => {
+                        const result = await failConversation(conversation.id);
+                        if (result.success) {
+                          toast.success("Conversation marked as failed");
+                        } else {
+                          toast.error("Failed to mark conversation as failed");
+                        }
+                      });
+                    }}
+                  >
+                    Mark as Failed
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isAbandonPending}
+                    onSelect={() => {
+                      startAbandonTransition(async () => {
+                        const result = await abandonConversation(
+                          conversation.id
+                        );
+                        if (result.success) {
+                          toast.success("Conversation marked as abandoned");
+                        } else {
+                          toast.error(
+                            "Failed to mark conversation as abandoned"
+                          );
+                        }
+                      });
+                    }}
+                  >
+                    Mark as Abandoned
+                  </DropdownMenuItem>
+                </>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem

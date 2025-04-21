@@ -18,7 +18,12 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { exportTableToCSV } from "../_lib/utils";
-import { completeConversation } from "@/app/actions/conversation-tracking";
+import {
+  completeConversation,
+  activateConversation,
+  failConversation,
+  abandonConversation,
+} from "@/app/actions/conversation-tracking";
 
 type Action = "update-status" | "export" | "delete";
 
@@ -40,24 +45,45 @@ export function ConversationsTableActionBar({
 
   const onStatusUpdate = React.useCallback(
     async (status: string) => {
-      if (status !== "COMPLETED") return; // We only support completing for now
-
       setCurrentAction("update-status");
       startTransition(async () => {
         let successCount = 0;
 
         for (const row of rows) {
           const conversation = row.original;
-          if (conversation.status === "ACTIVE") {
-            const result = await completeConversation(conversation.id);
-            if (result.success) {
-              successCount++;
-            }
+          // Skip if conversation is already in the desired status
+          if (conversation.status === status) continue;
+
+          let result;
+
+          switch (status) {
+            case "ACTIVE":
+              result = await activateConversation(conversation.id);
+              break;
+            case "COMPLETED":
+              result = await completeConversation(conversation.id);
+              break;
+            case "FAILED":
+              result = await failConversation(conversation.id);
+              break;
+            case "ABANDONED":
+              result = await abandonConversation(conversation.id);
+              break;
+            default:
+              continue;
+          }
+
+          if (result.success) {
+            successCount++;
           }
         }
 
         if (successCount > 0) {
-          toast.success(`${successCount} conversation(s) marked as completed`);
+          const statusLabel =
+            status.charAt(0).toLowerCase() + status.slice(1).toLowerCase();
+          toast.success(
+            `${successCount} conversation(s) marked as ${statusLabel}`
+          );
         } else {
           toast.info("No conversations were updated");
         }
@@ -91,23 +117,40 @@ export function ConversationsTableActionBar({
       />
       <div className="flex items-center gap-1.5">
         <Select onValueChange={(value) => onStatusUpdate(value)}>
-          <SelectTrigger asChild>
-            <DataTableActionBarAction
-              size="icon"
-              tooltip="Update status"
-              isPending={getIsActionPending("update-status")}
-            >
-              <CheckCircle2 />
-            </DataTableActionBarAction>
+          <SelectTrigger disabled={getIsActionPending("update-status")}>
+            {getIsActionPending("update-status") ? (
+              <span className="flex items-center gap-2">
+                <span className="size-4 animate-spin rounded-full border-2 border-t-transparent border-current" />
+                <span>Updating...</span>
+              </span>
+            ) : (
+              <>
+                <CheckCircle2 className="size-4" />
+                <span>Update status</span>
+              </>
+            )}
           </SelectTrigger>
           <SelectContent align="center">
             <SelectGroup>
+              <SelectItem key="ACTIVE" value="ACTIVE" className="capitalize">
+                Mark as active
+              </SelectItem>
               <SelectItem
                 key="COMPLETED"
                 value="COMPLETED"
                 className="capitalize"
               >
                 Mark as completed
+              </SelectItem>
+              <SelectItem key="FAILED" value="FAILED" className="capitalize">
+                Mark as failed
+              </SelectItem>
+              <SelectItem
+                key="ABANDONED"
+                value="ABANDONED"
+                className="capitalize"
+              >
+                Mark as abandoned
               </SelectItem>
             </SelectGroup>
           </SelectContent>

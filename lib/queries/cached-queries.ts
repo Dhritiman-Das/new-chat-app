@@ -601,9 +601,13 @@ export const getCachedConversations = async (
   page = 1,
   per_page = 10,
   sort?: string,
-  filters?: string
+  filters?: string | object
 ) => {
   await requireAuth();
+
+  // Ensure filters is a string by JSON.stringify if it's an object
+  const filtersStr =
+    typeof filters === "object" ? JSON.stringify(filters) : filters;
 
   return unstable_cache(
     async () => {
@@ -613,7 +617,7 @@ export const getCachedConversations = async (
         page,
         per_page,
         sort,
-        filters
+        filtersStr
       );
     },
     [
@@ -622,7 +626,7 @@ export const getCachedConversations = async (
       page.toString(),
       per_page.toString(),
       sort || "default",
-      filters || "none",
+      filtersStr || "none",
     ],
     {
       tags: [`bot-conversations-${botId}`],
