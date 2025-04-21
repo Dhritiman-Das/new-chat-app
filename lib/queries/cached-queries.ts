@@ -13,6 +13,9 @@ import {
   getMeQuery,
   checkOrganizationSlugAvailabilityQuery,
   getBotDetailsQuery,
+  getConversationStatusCountsQuery,
+  getConversationsQuery,
+  getConversationSourcesQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -569,5 +572,76 @@ export const getBotDetails = async (botId: string) => {
       ],
       revalidate: 60, // Cache for 1 minute
     }
+  )();
+};
+
+/**
+ * Cache wrapper for conversation status counts
+ */
+export const getCachedConversationStatusCounts = async (botId: string) => {
+  // Authentication not checked here as it's common to get status counts for public bots
+  return unstable_cache(
+    async () => {
+      const statusCounts = await getConversationStatusCountsQuery(
+        prisma,
+        botId
+      );
+      return statusCounts; // Return directly without wrapping in {data: ...}
+    },
+    ["conversation-status-counts", botId],
+    { tags: [`conversation-status-counts-${botId}`], revalidate: 60 }
+  )();
+};
+
+/**
+ * Cache wrapper for filtered conversations
+ */
+export const getCachedConversations = async (
+  botId: string,
+  page = 1,
+  per_page = 10,
+  sort?: string,
+  filters?: string
+) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return getConversationsQuery(
+        prisma,
+        botId,
+        page,
+        per_page,
+        sort,
+        filters
+      );
+    },
+    [
+      "conversations",
+      botId,
+      page.toString(),
+      per_page.toString(),
+      sort || "default",
+      filters || "none",
+    ],
+    {
+      tags: [`bot-conversations-${botId}`],
+      revalidate: 60,
+    }
+  )();
+};
+
+/**
+ * Cache wrapper for conversation sources
+ */
+export const getCachedConversationSources = async (botId: string) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return { data: await getConversationSourcesQuery(prisma, botId) };
+    },
+    ["conversation-sources", botId],
+    { tags: [`conversation-sources-${botId}`], revalidate: 60 }
   )();
 };

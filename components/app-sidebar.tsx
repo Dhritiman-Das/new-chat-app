@@ -50,11 +50,6 @@ export function AppSidebar({ orgId, botId, user }: AppSidebarProps) {
       icon: Icons.Database,
     },
     {
-      title: "Integrations",
-      url: `/dashboard/${orgId}/bots/${botId}/integrations`,
-      icon: Icons.Cable,
-    },
-    {
       title: "Deployments",
       url: `/dashboard/${orgId}/bots/${botId}/deployments`,
       icon: Icons.ArrowRight,

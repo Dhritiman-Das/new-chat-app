@@ -1,4 +1,5 @@
 import { PrismaClient } from "@/lib/generated/prisma";
+import { Prisma as PrismaTypes } from "@/lib/generated/prisma";
 
 export async function getMeQuery(prisma: PrismaClient, userId: string) {
   const user = await prisma.user.findUnique({
@@ -478,4 +479,145 @@ export async function getBotDetailsQuery(prisma: PrismaClient, botId: string) {
   return {
     data: bot,
   };
+}
+
+/**
+ * Get conversation status counts for a bot
+ */
+export async function getConversationStatusCountsQuery(
+  prisma: PrismaClient,
+  botId: string
+) {
+  const statusCounts = await prisma.conversation.groupBy({
+    by: ["status"],
+    where: {
+      botId,
+    },
+    _count: {
+      status: true,
+    },
+  });
+
+  // Convert to record with default values for all statuses
+  const counts = {
+    ACTIVE: 0,
+    COMPLETED: 0,
+    FAILED: 0,
+    ABANDONED: 0,
+  };
+
+  statusCounts.forEach((item) => {
+    counts[item.status] = item._count.status;
+  });
+
+  return counts;
+}
+
+/**
+ * Get conversations with filtering and pagination
+ */
+export async function getConversationsQuery(
+  prisma: PrismaClient,
+  botId: string,
+  page = 1,
+  per_page = 10,
+  sort?: string,
+  filters?: string
+) {
+  const skip = (page - 1) * per_page;
+  let orderBy = {};
+
+  // Parse sort param (format: "field:direction")
+  if (sort) {
+    const [field, direction] = sort.split(":");
+    orderBy = {
+      [field]: direction === "desc" ? "desc" : "asc",
+    };
+  } else {
+    // Default sort by most recent
+    orderBy = {
+      startedAt: "desc",
+    };
+  }
+
+  // Parse filters
+  const where: PrismaTypes.ConversationWhereInput = { botId };
+
+  if (filters) {
+    try {
+      const parsedFilters = JSON.parse(filters);
+
+      if (parsedFilters.status?.length) {
+        where.status = { in: parsedFilters.status };
+      }
+
+      if (parsedFilters.source?.length) {
+        where.source = { in: parsedFilters.source };
+      }
+
+      if (parsedFilters.date?.from || parsedFilters.date?.to) {
+        where.startedAt = {};
+
+        if (parsedFilters.date.from) {
+          where.startedAt.gte = new Date(parsedFilters.date.from);
+        }
+
+        if (parsedFilters.date.to) {
+          where.startedAt.lte = new Date(parsedFilters.date.to);
+        }
+      }
+    } catch (error) {
+      console.error("Error parsing filters:", error);
+    }
+  }
+
+  // Get conversations with pagination
+  const [conversations, totalCount] = await Promise.all([
+    prisma.conversation.findMany({
+      where,
+      include: {
+        messages: {
+          take: 1,
+          orderBy: {
+            timestamp: "desc",
+          },
+        },
+        _count: {
+          select: {
+            messages: true,
+            toolExecutions: true,
+          },
+        },
+      },
+      orderBy,
+      skip,
+      take: per_page,
+    }),
+    prisma.conversation.count({ where }),
+  ]);
+
+  return {
+    data: conversations,
+    pageCount: Math.ceil(totalCount / per_page),
+  };
+}
+
+/**
+ * Get sources available for a specific bot
+ */
+export async function getConversationSourcesQuery(
+  prisma: PrismaClient,
+  botId: string
+) {
+  const sources = await prisma.conversation.groupBy({
+    by: ["source"],
+    where: {
+      botId,
+      source: {
+        not: null,
+      },
+    },
+  });
+
+  return sources.map((s) => s.source).filter(Boolean) as string[];
 }
