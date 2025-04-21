@@ -265,6 +265,15 @@ export const getConversationById = async (conversationId: string) => {
               timestamp: "asc",
             },
           },
+          bot: {
+            include: {
+              knowledgeBases: {
+                include: {
+                  files: true,
+                },
+              },
+            },
+          },
         },
       });
 

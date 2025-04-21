@@ -12,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Icons } from "@/components/icons";
-import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
   Breadcrumb,
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { ConversationItem } from "./_components/conversation-item";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -149,30 +149,14 @@ export default async function Dashboard({ params }: PageProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {recentConversations.map((conversation) => (
-                  <div
+                  <ConversationItem
                     key={conversation.id}
-                    className="flex items-start space-x-4"
-                  >
-                    <Icons.Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div>
-                      <div className="font-medium">
-                        Conversation {conversation.id.substring(0, 8)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {conversation.messages[0]?.content.substring(0, 50)}
-                        {conversation.messages[0]?.content.length > 50
-                          ? "..."
-                          : ""}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(conversation.startedAt), {
-                          addSuffix: true,
-                        })}
-                      </div>
-                    </div>
-                  </div>
+                    conversation={conversation}
+                    orgId={orgId}
+                    botId={botId}
+                  />
                 ))}
               </div>
             </CardContent>

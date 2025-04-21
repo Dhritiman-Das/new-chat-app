@@ -2,10 +2,12 @@
 
 import type { Conversation } from "@/lib/generated/prisma";
 import type { DataTableRowAction } from "@/lib/types/data-table";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, Row } from "@tanstack/react-table";
 import { Icons } from "@/components/icons";
 import * as React from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
@@ -47,12 +49,129 @@ interface GetConversationsTableColumnsProps {
 }
 
 export function getConversationsTableColumns({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   botId,
   statusCounts,
   sources,
   setRowAction,
 }: GetConversationsTableColumnsProps): ColumnDef<ConversationWithCount>[] {
+  // Create a hook for navigation inside components
+  const ConversationActionCell = ({
+    row,
+  }: {
+    row: Row<ConversationWithCount>;
+  }) => {
+    const router = useRouter();
+    const pathname = usePathname();
+    const conversation = row.original;
+    const [isCompletePending, startCompleteTransition] = React.useTransition();
+    const [isAbandonPending, startAbandonTransition] = React.useTransition();
+    const [isFailedPending, startFailedTransition] = React.useTransition();
+    const [isActivePending, startActiveTransition] = React.useTransition();
+    const isActive = conversation.status === "ACTIVE";
+
+    // Extract orgId and botId from the current path
+    const pathSegments = pathname.split("/");
+    const orgIdIndex = pathSegments.indexOf("dashboard") + 1;
+    const orgId = pathSegments[orgIdIndex];
+
+    const handleViewConversation = () => {
+      router.push(
+        `/dashboard/${orgId}/bots/${botId}/conversations/${conversation.id}`
+      );
+    };
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label="Open menu"
+            variant="ghost"
+            className="flex size-8 p-0 data-[state=open]:bg-muted"
+          >
+            <Icons.Ellipsis className="size-4" aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[180px]">
+          <DropdownMenuItem onSelect={handleViewConversation}>
+            View Conversation
+          </DropdownMenuItem>
+          {isActive && (
+            <>
+              <DropdownMenuItem
+                disabled={isActivePending}
+                onSelect={() => {
+                  startActiveTransition(async () => {
+                    const result = await activateConversation(conversation.id);
+                    if (result.success) {
+                      toast.success("Conversation marked as active");
+                    } else {
+                      toast.error("Failed to mark conversation as active");
+                    }
+                  });
+                }}
+              >
+                Mark as Active
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isCompletePending}
+                onSelect={() => {
+                  startCompleteTransition(async () => {
+                    const result = await completeConversation(conversation.id);
+                    if (result.success) {
+                      toast.success("Conversation marked as completed");
+                    } else {
+                      toast.error("Failed to complete conversation");
+                    }
+                  });
+                }}
+              >
+                Mark as Completed
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isFailedPending}
+                onSelect={() => {
+                  startFailedTransition(async () => {
+                    const result = await failConversation(conversation.id);
+                    if (result.success) {
+                      toast.success("Conversation marked as failed");
+                    } else {
+                      toast.error("Failed to mark conversation as failed");
+                    }
+                  });
+                }}
+              >
+                Mark as Failed
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={isAbandonPending}
+                onSelect={() => {
+                  startAbandonTransition(async () => {
+                    const result = await abandonConversation(conversation.id);
+                    if (result.success) {
+                      toast.success("Conversation marked as abandoned");
+                    } else {
+                      toast.error("Failed to mark conversation as abandoned");
+                    }
+                  });
+                }}
+              >
+                Mark as Abandoned
+              </DropdownMenuItem>
+            </>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => setRowAction({ row, variant: "delete" })}
+            className="text-destructive focus:text-destructive"
+          >
+            Delete
+            <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
   return [
     {
       id: "select",
@@ -236,117 +355,7 @@ export function getConversationsTableColumns({
     },
     {
       id: "actions",
-      cell: function Cell({ row }) {
-        const [isCompletePending, startCompleteTransition] =
-          React.useTransition();
-        const [isAbandonPending, startAbandonTransition] =
-          React.useTransition();
-        const [isFailedPending, startFailedTransition] = React.useTransition();
-        const [isActivePending, startActiveTransition] = React.useTransition();
-        const conversation = row.original;
-        const isActive = conversation.status === "ACTIVE";
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                aria-label="Open menu"
-                variant="ghost"
-                className="flex size-8 p-0 data-[state=open]:bg-muted"
-              >
-                <Icons.Ellipsis className="size-4" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px]">
-              <DropdownMenuItem
-                onSelect={() => setRowAction({ row, variant: "view" })}
-              >
-                View Conversation
-              </DropdownMenuItem>
-              {isActive && (
-                <>
-                  <DropdownMenuItem
-                    disabled={isActivePending}
-                    onSelect={() => {
-                      startActiveTransition(async () => {
-                        const result = await activateConversation(
-                          conversation.id
-                        );
-                        if (result.success) {
-                          toast.success("Conversation marked as active");
-                        } else {
-                          toast.error("Failed to mark conversation as active");
-                        }
-                      });
-                    }}
-                  >
-                    Mark as Active
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={isCompletePending}
-                    onSelect={() => {
-                      startCompleteTransition(async () => {
-                        const result = await completeConversation(
-                          conversation.id
-                        );
-                        if (result.success) {
-                          toast.success("Conversation marked as completed");
-                        } else {
-                          toast.error("Failed to complete conversation");
-                        }
-                      });
-                    }}
-                  >
-                    Mark as Completed
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={isFailedPending}
-                    onSelect={() => {
-                      startFailedTransition(async () => {
-                        const result = await failConversation(conversation.id);
-                        if (result.success) {
-                          toast.success("Conversation marked as failed");
-                        } else {
-                          toast.error("Failed to mark conversation as failed");
-                        }
-                      });
-                    }}
-                  >
-                    Mark as Failed
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={isAbandonPending}
-                    onSelect={() => {
-                      startAbandonTransition(async () => {
-                        const result = await abandonConversation(
-                          conversation.id
-                        );
-                        if (result.success) {
-                          toast.success("Conversation marked as abandoned");
-                        } else {
-                          toast.error(
-                            "Failed to mark conversation as abandoned"
-                          );
-                        }
-                      });
-                    }}
-                  >
-                    Mark as Abandoned
-                  </DropdownMenuItem>
-                </>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => setRowAction({ row, variant: "delete" })}
-                className="text-destructive focus:text-destructive"
-              >
-                Delete
-                <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
+      cell: ({ row }) => <ConversationActionCell row={row} />,
       size: 40,
     },
   ];
