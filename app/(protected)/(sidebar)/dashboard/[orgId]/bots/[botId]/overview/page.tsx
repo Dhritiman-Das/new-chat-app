@@ -1,8 +1,8 @@
 import { requireAuth } from "@/utils/auth";
 import {
-  getUserKnowledgeBaseCount,
-  getRecentConversations,
   getBotById,
+  getBotDetails,
+  getBotConversations,
 } from "@/lib/queries/cached-queries";
 import {
   Card,
@@ -34,15 +34,16 @@ export default async function Dashboard({ params }: PageProps) {
   const { botId, orgId } = await params;
 
   // Fetch data in parallel
-  const [botResponse, knowledgeBaseCountResponse, recentConversationsResponse] =
+  const [botResponse, botDetailsResponse, recentConversationsResponse] =
     await Promise.all([
       getBotById(botId),
-      getUserKnowledgeBaseCount(),
-      getRecentConversations(5),
+      getBotDetails(botId),
+      getBotConversations(botId, 1, 5),
     ]);
 
   const bot = botResponse?.data;
-  const knowledgeBaseCount = knowledgeBaseCountResponse?.data || 0;
+  const botDetails = botDetailsResponse?.data;
+  const knowledgeBaseCount = botDetails?.knowledgeBases?.length || 0;
   const recentConversations = recentConversationsResponse?.data || [];
 
   const stats = [
@@ -57,13 +58,13 @@ export default async function Dashboard({ params }: PageProps) {
     {
       name: "Knowledge Bases",
       value: String(knowledgeBaseCount),
-      change: "Across all bots",
+      change: "Connected to this bot",
       icon: <Icons.Database className="h-4 w-4 text-muted-foreground" />,
     },
     {
       name: "Recent Conversations",
       value: String(recentConversations.length),
-      change: "In the last 7 days",
+      change: "With this bot",
       icon: <Icons.MessageSquare className="h-4 w-4 text-muted-foreground" />,
     },
   ];
@@ -144,7 +145,7 @@ export default async function Dashboard({ params }: PageProps) {
             <CardHeader>
               <CardTitle>Recent Conversations</CardTitle>
               <CardDescription>
-                Your bots&apos; most recent interactions
+                This bot&apos;s most recent interactions
               </CardDescription>
             </CardHeader>
             <CardContent>
