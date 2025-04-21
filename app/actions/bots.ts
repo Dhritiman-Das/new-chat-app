@@ -46,6 +46,27 @@ type UninstallToolInput = {
   toolId: string;
 };
 
+// Iframe configuration type
+type IframeConfigInput = {
+  botId: string;
+  config: Record<string, unknown>;
+};
+
+// Integration types
+type CreateIntegrationInput = {
+  userId: string;
+  name: string;
+  provider: string;
+  type: "CRM" | "CALENDAR" | "MESSENGER" | "EMAIL" | "DOCUMENT" | "OTHER";
+  authCredentials: Record<string, unknown>;
+};
+
+type LinkIntegrationToBotInput = {
+  botId: string;
+  integrationId: string;
+  config?: Record<string, unknown>;
+};
+
 // Action to create a new bot
 export async function createBot(data: CreateBotInput): Promise<ActionResponse> {
   try {
@@ -501,6 +522,228 @@ export async function uninstallTool(
     };
   } catch (error) {
     console.error("Error uninstalling tool:", error);
+    return {
+      success: false,
+      error: appErrors.UNEXPECTED_ERROR,
+    };
+  }
+}
+
+// Action to save iframe configuration
+export async function saveIframeConfiguration(
+  data: IframeConfigInput
+): Promise<ActionResponse> {
+  try {
+    if (!data.botId) {
+      return {
+        success: false,
+        error: { ...appErrors.INVALID_INPUT, message: "Bot ID is required" },
+      };
+    }
+
+    // Get the authenticated user
+    const user = await requireAuth();
+
+    // Check if the bot exists and belongs to the user's organization
+    const existingBot = await prisma.bot.findFirst({
+      where: {
+        id: data.botId,
+        organization: {
+          users: {
+            some: {
+              userId: user.id,
+            },
+          },
+        },
+      },
+    });
+
+    if (!existingBot) {
+      return {
+        success: false,
+        error: appErrors.NOT_FOUND,
+      };
+    }
+
+    // Check if there's an existing deployment
+    let deployment = await prisma.deployment.findFirst({
+      where: {
+        botId: data.botId,
+        type: "WEBSITE",
+      },
+    });
+
+    // If no deployment exists, create one
+    if (!deployment) {
+      deployment = await prisma.deployment.create({
+        data: {
+          botId: data.botId,
+          type: "WEBSITE",
+          status: "ACTIVE",
+          config: data.config as InputJsonValue,
+        },
+      });
+    } else {
+      // Otherwise update the existing deployment
+      deployment = await prisma.deployment.update({
+        where: {
+          id: deployment.id,
+        },
+        data: {
+          config: data.config as InputJsonValue,
+          status: "ACTIVE",
+        },
+      });
+    }
+
+    // Revalidate the bot cache
+    revalidateTag(`bot_${data.botId}`);
+    revalidateTag(`bot_deployments_${data.botId}`);
+
+    return {
+      success: true,
+      data: deployment,
+    };
+  } catch (error) {
+    console.error("Error saving iframe configuration:", error);
+    return {
+      success: false,
+      error: appErrors.UNEXPECTED_ERROR,
+    };
+  }
+}
+
+// Action to create a new integration
+export async function createIntegration(
+  data: CreateIntegrationInput
+): Promise<ActionResponse> {
+  try {
+    // Validate input
+    if (!data.userId || !data.name || !data.provider || !data.type) {
+      return {
+        success: false,
+        error: {
+          ...appErrors.INVALID_INPUT,
+          message: "All integration fields are required",
+        },
+      };
+    }
+
+    // Get the authenticated user
+    const user = await requireAuth();
+
+    // Check if the user is the same as the authenticated user
+    if (user.id !== data.userId) {
+      return {
+        success: false,
+        error: appErrors.UNAUTHORIZED,
+      };
+    }
+
+    // Create the integration
+    const integration = await prisma.integration.create({
+      data: {
+        userId: data.userId,
+        name: data.name,
+        provider: data.provider,
+        type: data.type,
+        authCredentials: data.authCredentials as InputJsonValue,
+      },
+    });
+
+    // Revalidate the user integrations cache
+    revalidateTag(`user_integrations_${user.id}`);
+
+    return {
+      success: true,
+      data: integration,
+    };
+  } catch (error) {
+    console.error("Error creating integration:", error);
+    return {
+      success: false,
+      error: appErrors.UNEXPECTED_ERROR,
+    };
+  }
+}
+
+// Action to link an integration to a bot
+export async function linkIntegrationToBot(
+  data: LinkIntegrationToBotInput
+): Promise<ActionResponse> {
+  try {
+    // Validate input
+    if (!data.botId || !data.integrationId) {
+      return {
+        success: false,
+        error: {
+          ...appErrors.INVALID_INPUT,
+          message: "Bot ID and Integration ID are required",
+        },
+      };
+    }
+
+    // Get the authenticated user
+    const user = await requireAuth();
+
+    // Check if the bot belongs to the user
+    const bot = await prisma.bot.findFirst({
+      where: {
+        id: data.botId,
+        userId: user.id,
+      },
+    });
+
+    if (!bot) {
+      return {
+        success: false,
+        error: appErrors.UNAUTHORIZED,
+      };
+    }
+
+    // Check if the integration belongs to the user
+    const integration = await prisma.integration.findFirst({
+      where: {
+        id: data.integrationId,
+        userId: user.id,
+      },
+    });
+
+    if (!integration) {
+      return {
+        success: false,
+        error: appErrors.UNAUTHORIZED,
+      };
+    }
+
+    // Create or update the bot integration
+    const botIntegration = await prisma.botIntegration.upsert({
+      where: {
+        botId_integrationId: {
+          botId: data.botId,
+          integrationId: data.integrationId,
+        },
+      },
+      update: {
+        config: (data.config as InputJsonValue) || {},
+      },
+      create: {
+        botId: data.botId,
+        integrationId: data.integrationId,
+        config: (data.config as InputJsonValue) || {},
+      },
+    });
+
+    // Revalidate the bot cache
+    revalidateTag(`bot_${data.botId}`);
+    revalidateTag(`bot_integrations_${data.botId}`);
+
+    return {
+      success: true,
+      data: botIntegration,
+    };
+  } catch (error) {
+    console.error("Error linking integration to bot:", error);
     return {
       success: false,
       error: appErrors.UNEXPECTED_ERROR,

@@ -10,12 +10,12 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import ConversationMessages from "../../../../../../../../../components/conversation-messages";
 import { Icons } from "@/components/icons";
 import { format } from "date-fns";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ConversationWithMessages } from "./types";
+import ConversationMessages from "@/components/conversation-messages";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string; conversationId: string }>;

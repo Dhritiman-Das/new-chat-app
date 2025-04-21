@@ -658,3 +658,26 @@ export const getCachedConversationSources = async (botId: string) => {
     { tags: [`conversation-sources-${botId}`], revalidate: 60 }
   )();
 };
+
+// Get iframe configuration for a bot
+export async function getIframeConfigForBot(botId: string) {
+  try {
+    const deployment = await prisma.deployment.findFirst({
+      where: {
+        botId: botId,
+        type: "WEBSITE",
+      },
+    });
+
+    return {
+      success: true,
+      data: deployment ? deployment.config : null,
+    };
+  } catch (error) {
+    console.error(`Error fetching iframe config for bot ${botId}:`, error);
+    return {
+      success: false,
+      data: null,
+    };
+  }
+}

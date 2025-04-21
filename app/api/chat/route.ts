@@ -13,18 +13,68 @@ import {
   retrieveKnowledgeContext,
 } from "@/app/actions/conversation-tracking";
 import { DocumentReference, KnowledgeContext } from "@/app/actions/types";
-import { getBotDetails } from "@/lib/queries/cached-queries";
+import {
+  getBotDetails,
+  getIframeConfigForBot,
+} from "@/lib/queries/cached-queries";
 
 // Initialize the tools and get tool services
 initializeTools();
 const toolExecutionService = new ToolExecutionService();
 
+// Function to add CORS headers for iframe
+function addCorsHeaders(
+  headers: Headers,
+  source?: string,
+  botId?: string
+): Headers {
+  if (source === "iframe" && botId) {
+    // Get deployment settings to check allowed domains
+    getIframeConfigForBot(botId)
+      .then((response) => {
+        if (response.success && response.data) {
+          const config = response.data as Record<string, unknown>;
+          if (config?.allowedDomains) {
+            // In a real scenario, you would set the header based on the referrer and allowed domains
+            // For simplicity, we're allowing all domains for now
+            headers.set("Access-Control-Allow-Origin", "*");
+          }
+        }
+      })
+      .catch(() => {
+        // If any error, default to restrictive CORS
+        headers.set("Access-Control-Allow-Origin", "*"); // Change this in production
+      });
+  } else {
+    // For internal usage, set to the same origin
+    headers.set("Access-Control-Allow-Origin", "*"); // Change this in production
+  }
+
+  headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  return headers;
+}
+
+export async function OPTIONS(req: NextRequest) {
+  const headers = new Headers();
+  const url = new URL(req.url);
+  const source = url.searchParams.get("source");
+  const botId = url.searchParams.get("botId");
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: addCorsHeaders(headers, source || undefined, botId || undefined),
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { messages, conversationId } = await req.json();
     const url = new URL(req.url);
-    const modelId = url.searchParams.get("model");
+    const modelId = url.searchParams.get("model") || "gpt-4o";
     const botId = url.searchParams.get("botId");
+    const source = url.searchParams.get("source") || "playground";
     let currentConversationId = conversationId;
 
     if (!modelId) {
@@ -67,9 +117,11 @@ export async function POST(req: NextRequest) {
           data: {
             botId,
             metadata: {
-              source: url.searchParams.get("source") || "playground",
+              source,
               userAgent: req.headers.get("user-agent") || "unknown",
+              referrer: req.headers.get("referer") || "unknown",
             },
+            source: source || "playground",
           },
         });
 
@@ -193,7 +245,14 @@ export async function POST(req: NextRequest) {
       new Date(),
       "dd/MM/yyyy"
     )}.`;
-    const behaviorContext = `The responses should be concise and to the point. Refrain from sending links. Should the responses be in a rich text format (like **example**)? => False.`;
+
+    // Add special instructions for iframe mode
+    let behaviorContext = `The responses should be concise and to the point. Refrain from sending links. Should the responses be in a rich text format (like **example**)? => False.`;
+
+    if (source === "iframe") {
+      behaviorContext += `\n\nYou are being displayed in an iframe on a website. Keep responses concise, professional, and focused on providing value to the website visitor.`;
+    }
+
     systemMessage += [
       toolsWithExecutionConditionsPretty,
       timeContext,
@@ -263,19 +322,38 @@ export async function POST(req: NextRequest) {
       }, 5000); // Wait 5 seconds to complete
     }
 
-    // Return streaming response with conversation ID
+    // Return streaming response with conversation ID and CORS headers
     const streamResponse = response.toDataStreamResponse();
 
-    if (currentConversationId) {
-      streamResponse.headers.set("X-Conversation-ID", currentConversationId);
-    }
+    const headers = new Headers(streamResponse.headers);
+    headers.set("X-Conversation-ID", currentConversationId || "");
 
-    return streamResponse;
+    // Add CORS headers if needed
+    addCorsHeaders(headers, source, botId);
+
+    return new NextResponse(streamResponse.body, {
+      status: 200,
+      statusText: streamResponse.statusText,
+      headers,
+    });
   } catch (error) {
     console.error("Chat API error:", error);
+    // Add CORS headers to error response too
+    const headers = new Headers();
+    const url = new URL(req.url);
+    const source = url.searchParams.get("source");
+    const botId = url.searchParams.get("botId");
+
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      {
+        status: 500,
+        headers: addCorsHeaders(
+          headers,
+          source || undefined,
+          botId || undefined
+        ),
+      }
     );
   }
 }
