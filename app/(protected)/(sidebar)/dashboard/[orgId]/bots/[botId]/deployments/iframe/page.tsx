@@ -14,11 +14,8 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import {
-  ConfigurePanel,
-  IframeConfig,
-  IframePreview,
-} from "@/app/components/iframe";
+import { IframeConfig } from "@/app/components/iframe/types";
+import { IframeConfigurator } from "@/app/components/iframe/iframe-configurator";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -78,23 +75,11 @@ export default async function DeploymentsIframePage({ params }: PageProps) {
         </div>
       </header>
 
-      <div className="p-6 flex flex-1 gap-6 overflow-hidden">
-        <div className="w-2/5 overflow-auto">
-          <h1 className="text-2xl font-bold mb-6">Iframe Configuration</h1>
-          <ConfigurePanel
-            botId={botId}
-            initialConfig={iframeConfig as Partial<IframeConfig>}
-          />
-        </div>
-        <div className="w-3/5 overflow-auto">
-          <h1 className="text-2xl font-bold mb-6">Preview</h1>
-          <div className="border rounded-lg h-[calc(100vh-12rem)]">
-            <IframePreview
-              botId={botId}
-              config={iframeConfig as Partial<IframeConfig>}
-            />
-          </div>
-        </div>
+      <div className="p-6">
+        <IframeConfigurator
+          botId={botId}
+          initialConfig={iframeConfig as Partial<IframeConfig>}
+        />
       </div>
     </div>
   );

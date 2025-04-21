@@ -32,6 +32,9 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
   };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initialMessageRef = useRef<string>(
+    mergedConfig.messages.initialMessage
+  );
 
   const {
     messages,
@@ -76,6 +79,23 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
     setMessages,
   ]);
 
+  // Effect to update initial message when config changes
+  useEffect(() => {
+    if (
+      messages.length > 0 &&
+      messages[0].role === "assistant" &&
+      initialMessageRef.current !== mergedConfig.messages.initialMessage
+    ) {
+      const updatedMessages = [...messages];
+      updatedMessages[0] = {
+        ...updatedMessages[0],
+        content: mergedConfig.messages.initialMessage,
+      };
+      setMessages(updatedMessages);
+      initialMessageRef.current = mergedConfig.messages.initialMessage;
+    }
+  }, [mergedConfig.messages.initialMessage, messages, setMessages]);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -107,6 +127,7 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
     "--background-color": theme.backgroundColor,
     "--text-color": theme.textColor,
     "--font-family": theme.fontFamily,
+    fontFamily: theme.fontFamily,
     maxHeight: layout.fullHeight ? "100vh" : layout.maxHeight,
     maxWidth: layout.fullWidth ? "100%" : layout.maxWidth,
   } as React.CSSProperties;
@@ -176,6 +197,7 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
                     ? "bg-[var(--primary-color)] text-white ml-2"
                     : "bg-gray-100 text-[var(--text-color)]"
                 )}
+                style={{ fontFamily: "inherit" }}
               >
                 {message.content}
               </div>

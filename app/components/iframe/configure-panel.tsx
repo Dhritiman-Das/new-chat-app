@@ -20,38 +20,30 @@ import {
 import { toast } from "sonner";
 import { saveIframeConfiguration } from "@/app/actions/bots";
 import { Icons } from "@/components/icons";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ConfigurePanelProps {
   botId: string;
-  initialConfig?: Partial<IframeConfig>;
-  onConfigChange?: (config: IframeConfig) => void;
+  config: IframeConfig;
+  setConfig: React.Dispatch<React.SetStateAction<IframeConfig>>;
 }
 
 export function ConfigurePanel({
   botId,
-  initialConfig = {},
-  onConfigChange,
+  config,
+  setConfig,
 }: ConfigurePanelProps) {
-  const [config, setConfig] = useState<IframeConfig>({
-    ...defaultIframeConfig,
-    ...initialConfig,
-    theme: { ...defaultIframeConfig.theme, ...initialConfig.theme },
-    messages: { ...defaultIframeConfig.messages, ...initialConfig.messages },
-    avatar: { ...defaultIframeConfig.avatar, ...initialConfig.avatar },
-    layout: { ...defaultIframeConfig.layout, ...initialConfig.layout },
-    branding: { ...defaultIframeConfig.branding, ...initialConfig.branding },
-    features: { ...defaultIframeConfig.features, ...initialConfig.features },
-  });
-
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [embedCode, setEmbedCode] = useState("");
-
-  useEffect(() => {
-    if (onConfigChange) {
-      onConfigChange(config);
-    }
-  }, [config, onConfigChange]);
 
   useEffect(() => {
     // Set embed code after component mounts (client-side only)
@@ -169,6 +161,25 @@ export function ConfigurePanel({
     toast.success("Embed code copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleReset = () => {
+    setConfig({
+      ...defaultIframeConfig,
+    });
+  };
+
+  // Font family options
+  const fontOptions = [
+    { value: "Inter, sans-serif", label: "Inter" },
+    { value: "Arial, sans-serif", label: "Arial" },
+    { value: "Helvetica, sans-serif", label: "Helvetica" },
+    { value: "Roboto, sans-serif", label: "Roboto" },
+    { value: "Open Sans, sans-serif", label: "Open Sans" },
+    { value: "Georgia, serif", label: "Georgia" },
+    { value: "Times New Roman, serif", label: "Times New Roman" },
+    { value: "Courier New, monospace", label: "Courier New" },
+    { value: "system-ui, sans-serif", label: "System UI" },
+  ];
 
   return (
     <motion.div
@@ -288,14 +299,26 @@ export function ConfigurePanel({
 
               <div className="space-y-2">
                 <Label htmlFor="fontFamily">Font Family</Label>
-                <Input
-                  id="fontFamily"
+                <Select
                   value={config.theme.fontFamily}
-                  onChange={(e) =>
-                    handleThemeChange("fontFamily", e.target.value)
+                  onValueChange={(value) =>
+                    handleThemeChange("fontFamily", value)
                   }
-                  placeholder="Inter, sans-serif"
-                />
+                >
+                  <SelectTrigger id="fontFamily">
+                    <SelectValue placeholder="Select a font family" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>System Fonts</SelectLabel>
+                      {fontOptions.map((font) => (
+                        <SelectItem key={font.value} value={font.value}>
+                          {font.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
@@ -582,7 +605,11 @@ export function ConfigurePanel({
       </Tabs>
 
       {/* Save Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={handleReset}>
+          <Icons.RefreshCcw className="h-4 w-4 mr-1" />
+          Reset to Defaults
+        </Button>
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? "Saving..." : "Save Configuration"}
         </Button>
