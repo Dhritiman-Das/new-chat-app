@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import {
   ResponseMessage,
   KnowledgeContext,
-} from "../../app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/conversations/[conversationId]/types";
+} from "../app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/conversations/[conversationId]/types";
 import {
   Tooltip,
   TooltipContent,

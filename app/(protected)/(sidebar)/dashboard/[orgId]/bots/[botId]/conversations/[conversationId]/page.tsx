@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import ConversationMessages from "../../../../../../../../../components/components/conversation-messages";
+import ConversationMessages from "../../../../../../../../../components/conversation-messages";
 import { Icons } from "@/components/icons";
 import { format } from "date-fns";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
