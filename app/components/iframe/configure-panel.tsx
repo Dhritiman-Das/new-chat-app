@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { saveIframeConfiguration } from "@/app/actions/bots";
 import { Icons } from "@/components/icons";
 import { useImageUpload } from "@/hooks/use-image-upload";
+import { useClipboard } from "@/hooks/use-clipboard";
 import {
   Select,
   SelectContent,
@@ -43,9 +44,17 @@ export function ConfigurePanel({
   config,
   setConfig,
 }: ConfigurePanelProps) {
-  const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [embedCode, setEmbedCode] = useState("");
+  const [iframeLink, setIframeLink] = useState("");
+
+  const { copied: embedCodeCopied, copy: copyEmbedCode } = useClipboard({
+    successMessage: "Embed code copied to clipboard",
+  });
+
+  const { copied: iframeLinkCopied, copy: copyIframeLink } = useClipboard({
+    successMessage: "Direct URL copied to clipboard",
+  });
 
   useEffect(() => {
     // Set embed code after component mounts (client-side only)
@@ -56,6 +65,7 @@ export function ConfigurePanel({
   frameborder="0"
   allow="microphone"
 ></iframe>`);
+    setIframeLink(`${window.location.origin}/iframe?botId=${botId}`);
   }, [botId]);
 
   const handleThemeChange = (
@@ -157,13 +167,6 @@ export function ConfigurePanel({
     }
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(embedCode);
-    setCopied(true);
-    toast.success("Embed code copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   const handleReset = () => {
     setConfig({
       ...defaultIframeConfig,
@@ -218,14 +221,28 @@ export function ConfigurePanel({
       className="space-y-6 w-full max-w-full overflow-hidden"
     >
       <Tabs defaultValue="theme" className="w-full">
-        <TabsList className="grid grid-cols-6 w-full">
-          <TabsTrigger value="theme">Theme</TabsTrigger>
-          <TabsTrigger value="messages">Messages</TabsTrigger>
-          <TabsTrigger value="avatar">Avatar</TabsTrigger>
-          <TabsTrigger value="layout">Layout</TabsTrigger>
-          <TabsTrigger value="branding">Branding</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2">
+          <TabsList className="flex w-full min-w-max">
+            <TabsTrigger value="theme" className="flex-1">
+              Theme
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="flex-1">
+              Messages
+            </TabsTrigger>
+            <TabsTrigger value="avatar" className="flex-1">
+              Avatar
+            </TabsTrigger>
+            <TabsTrigger value="layout" className="flex-1">
+              Layout
+            </TabsTrigger>
+            <TabsTrigger value="branding" className="flex-1">
+              Branding
+            </TabsTrigger>
+            <TabsTrigger value="features" className="flex-1">
+              Features
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Theme Tab */}
         <TabsContent value="theme" className="space-y-4">
@@ -237,10 +254,10 @@ export function ConfigurePanel({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="primaryColor">Primary Color</Label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <Input
                       id="primaryColor"
                       type="color"
@@ -248,7 +265,7 @@ export function ConfigurePanel({
                       onChange={(e) =>
                         handleThemeChange("primaryColor", e.target.value)
                       }
-                      className="w-12 h-10 p-1"
+                      className="w-12 h-10 p-1 flex-shrink-0"
                     />
                     <Input
                       value={config.theme.primaryColor}
@@ -262,7 +279,7 @@ export function ConfigurePanel({
 
                 <div className="space-y-2">
                   <Label htmlFor="secondaryColor">Secondary Color</Label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <Input
                       id="secondaryColor"
                       type="color"
@@ -270,7 +287,7 @@ export function ConfigurePanel({
                       onChange={(e) =>
                         handleThemeChange("secondaryColor", e.target.value)
                       }
-                      className="w-12 h-10 p-1"
+                      className="w-12 h-10 p-1 flex-shrink-0"
                     />
                     <Input
                       value={config.theme.secondaryColor}
@@ -284,7 +301,7 @@ export function ConfigurePanel({
 
                 <div className="space-y-2">
                   <Label htmlFor="backgroundColor">Background Color</Label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
                     <Input
                       id="backgroundColor"
                       type="color"
@@ -292,7 +309,7 @@ export function ConfigurePanel({
                       onChange={(e) =>
                         handleThemeChange("backgroundColor", e.target.value)
                       }
-                      className="w-12 h-10 p-1"
+                      className="w-12 h-10 p-1 flex-shrink-0"
                     />
                     <Input
                       value={config.theme.backgroundColor}
@@ -757,15 +774,59 @@ export function ConfigurePanel({
       </Tabs>
 
       {/* Save Button */}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={handleReset}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={handleReset}
+          className="w-full sm:w-auto"
+        >
           <Icons.RefreshCcw className="h-4 w-4 mr-1" />
           Reset to Defaults
         </Button>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save Configuration"}
+        <Button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="w-full sm:w-auto"
+        >
+          {isSaving ? (
+            <>
+              <Icons.Spinner className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            "Save Configuration"
+          )}
         </Button>
       </div>
+
+      {/* Direct URL */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Direct URL</CardTitle>
+          <CardDescription>
+            Copy this URL to access the chat directly
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative">
+            <pre className="bg-secondary p-3 sm:p-4 rounded-lg text-xs sm:text-sm overflow-x-auto">
+              {iframeLink}
+            </pre>
+            <Button
+              size="sm"
+              variant="default"
+              className="absolute top-2 right-2"
+              onClick={() => copyIframeLink(iframeLink)}
+            >
+              {iframeLinkCopied ? (
+                <Icons.Check className="h-4 w-4" />
+              ) : (
+                <Icons.Copy className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Embed Code */}
       <Card>
@@ -777,23 +838,19 @@ export function ConfigurePanel({
         </CardHeader>
         <CardContent>
           <div className="relative">
-            <pre className="bg-secondary p-4 rounded-lg text-sm overflow-x-auto">
+            <pre className="bg-secondary p-3 sm:p-4 rounded-lg text-xs sm:text-sm overflow-x-auto whitespace-pre-wrap break-all sm:break-normal">
               {embedCode}
             </pre>
             <Button
               size="sm"
-              variant="outline"
+              variant="default"
               className="absolute top-2 right-2"
-              onClick={copyToClipboard}
+              onClick={() => copyEmbedCode(embedCode)}
             >
-              {copied ? (
-                <>
-                  <Icons.Check className="h-4 w-4 mr-1" />
-                </>
+              {embedCodeCopied ? (
+                <Icons.Check className="h-4 w-4" />
               ) : (
-                <>
-                  <Icons.Copy className="h-4 w-4 mr-1" />
-                </>
+                <Icons.Copy className="h-4 w-4" />
               )}
             </Button>
           </div>

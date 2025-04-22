@@ -24,7 +24,7 @@ export function IframeWrapper({ botId, config }: IframeWrapperProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center">
+      <div className="flex h-screen w-screen items-center justify-center bg-white">
         <motion.div
           animate={{
             scale: [1, 1.2, 1],
@@ -35,11 +35,15 @@ export function IframeWrapper({ botId, config }: IframeWrapperProps) {
             repeatType: "loop",
           }}
         >
-          <div className="h-16 w-16 rounded-full border-4 border-gray-300 border-t-blue-500 animate-spin"></div>
+          <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full border-4 border-gray-300 border-t-blue-500 animate-spin"></div>
         </motion.div>
       </div>
     );
   }
 
-  return <IframeChat botId={botId} config={config} />;
+  return (
+    <div className="h-full w-full">
+      <IframeChat botId={botId} config={config} />
+    </div>
+  );
 }

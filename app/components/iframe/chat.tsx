@@ -144,18 +144,20 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-4 border-b flex items-center justify-between"
+        className="p-3 sm:p-4 border-b flex items-center justify-between"
         style={{
           backgroundColor: theme.primaryColor,
           color: "#fff",
         }}
       >
-        <h2 className="text-lg font-semibold">{messageConfig.headerText}</h2>
+        <h2 className="text-base sm:text-lg font-semibold truncate">
+          {messageConfig.headerText}
+        </h2>
       </motion.div>
 
       {/* Messages */}
       <motion.div
-        className="flex-1 overflow-y-auto p-4 space-y-4"
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -168,13 +170,13 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
               className={cn(
-                "flex items-start mb-4",
+                "flex items-start mb-3 sm:mb-4",
                 message.role === "user" ? "justify-end" : "justify-start"
               )}
             >
               {message.role === "assistant" && avatar.showAvatar && (
                 <div
-                  className="w-8 h-8 rounded-full mr-2 flex-shrink-0 flex items-center justify-center"
+                  className="w-6 h-6 sm:w-8 sm:h-8 rounded-full mr-2 flex-shrink-0 flex items-center justify-center"
                   style={{ backgroundColor: theme.primaryColor }}
                 >
                   {avatar.avatarUrl ? (
@@ -183,23 +185,25 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
                       alt="Bot"
                       width={32}
                       height={32}
-                      className="w-8 h-8 rounded-full"
+                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-full"
                     />
                   ) : (
-                    <span className="text-white text-sm">AI</span>
+                    <span className="text-white text-xs sm:text-sm">AI</span>
                   )}
                 </div>
               )}
               <div
                 className={cn(
-                  "py-2 px-4 rounded-lg max-w-[80%]",
+                  "py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg",
                   message.role === "user"
-                    ? "bg-[var(--primary-color)] text-white ml-2"
-                    : "bg-gray-100 text-[var(--text-color)]"
+                    ? "bg-[var(--primary-color)] text-white ml-2 max-w-[85%] sm:max-w-[80%]"
+                    : "bg-gray-100 text-[var(--text-color)] max-w-[85%] sm:max-w-[80%]"
                 )}
                 style={{ fontFamily: "inherit" }}
               >
-                {message.content}
+                <div className="text-sm sm:text-base break-words">
+                  {message.content}
+                </div>
               </div>
             </motion.div>
           ))}
@@ -213,7 +217,7 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
           >
             {avatar.showAvatar && (
               <div
-                className="w-8 h-8 rounded-full mr-2 flex-shrink-0 flex items-center justify-center"
+                className="w-6 h-6 sm:w-8 sm:h-8 rounded-full mr-2 flex-shrink-0 flex items-center justify-center"
                 style={{ backgroundColor: theme.primaryColor }}
               >
                 {avatar.avatarUrl ? (
@@ -222,24 +226,24 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
                     alt="Bot"
                     width={32}
                     height={32}
-                    className="w-8 h-8 rounded-full"
+                    className="w-6 h-6 sm:w-8 sm:h-8 rounded-full"
                   />
                 ) : (
-                  <span className="text-white text-sm">AI</span>
+                  <span className="text-white text-xs sm:text-sm">AI</span>
                 )}
               </div>
             )}
-            <div className="bg-gray-100 py-2 px-4 rounded-lg flex items-center space-x-1">
+            <div className="bg-gray-100 py-1.5 sm:py-2 px-3 sm:px-4 rounded-lg flex items-center space-x-1">
               <div
-                className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-400 animate-bounce"
                 style={{ animationDelay: "0ms" }}
               ></div>
               <div
-                className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-400 animate-bounce"
                 style={{ animationDelay: "150ms" }}
               ></div>
               <div
-                className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gray-400 animate-bounce"
                 style={{ animationDelay: "300ms" }}
               ></div>
             </div>
@@ -252,7 +256,7 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
       {/* Input */}
       <motion.form
         onSubmit={handleFormSubmit}
-        className="border-t p-4 flex gap-2"
+        className="border-t p-2 sm:p-4 flex gap-2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
@@ -260,12 +264,13 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
           value={input}
           onChange={handleInputChange}
           placeholder={messageConfig.placeholderText}
-          className="flex-1"
+          className="flex-1 text-sm sm:text-base h-10 sm:h-auto min-h-[40px]"
           disabled={isLoading}
         />
         <Button
           type="submit"
           disabled={isLoading || !input.trim()}
+          className="h-10 w-10 sm:h-auto sm:w-auto min-h-[40px] px-2 sm:px-4"
           style={{
             backgroundColor: theme.primaryColor,
             color: "#fff",
@@ -282,7 +287,7 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
       {/* Branding */}
       {branding.showBranding && (
         <motion.div
-          className="p-2 text-center text-xs text-gray-500"
+          className="p-1.5 sm:p-2 text-center text-[10px] sm:text-xs text-gray-500"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
         >
@@ -293,7 +298,7 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
               alt="Branding"
               width={16}
               height={16}
-              className="h-4 inline-block ml-1"
+              className="h-3 sm:h-4 inline-block ml-1"
             />
           )}
         </motion.div>
