@@ -1,5 +1,5 @@
 import { getIframeConfigForBot } from "@/lib/queries/cached-queries";
-import { IframeWrapper } from "@/app/components/iframe/wrapper";
+import { IframeWrapper } from "@/components/iframe/wrapper";
 import { Metadata } from "next";
 
 interface Params {

@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { IframeConfig } from "@/app/components/iframe/types";
-import { IframeConfigurator } from "@/app/components/iframe/iframe-configurator";
+import { IframeConfig } from "@/components/iframe/types";
+import { IframeConfigurator } from "@/components/iframe/iframe-configurator";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;

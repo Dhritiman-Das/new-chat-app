@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { IframeChat } from "../../components/iframe";
-import { IframeConfig } from "../../components/iframe/types";
+import { IframeChat } from ".";
+import { IframeConfig } from "./types";
 
 interface IframeWrapperProps {
   botId: string;
