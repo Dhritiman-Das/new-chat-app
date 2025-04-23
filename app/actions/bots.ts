@@ -55,6 +55,7 @@ type IframeConfigInput = {
 // Integration types
 type CreateIntegrationInput = {
   userId: string;
+  botId: string;
   name: string;
   provider: string;
   type: "CRM" | "CALENDAR" | "MESSENGER" | "EMAIL" | "DOCUMENT" | "OTHER";
@@ -619,7 +620,13 @@ export async function createIntegration(
 ): Promise<ActionResponse> {
   try {
     // Validate input
-    if (!data.userId || !data.name || !data.provider || !data.type) {
+    if (
+      !data.userId ||
+      !data.name ||
+      !data.provider ||
+      !data.type ||
+      !data.botId
+    ) {
       return {
         success: false,
         error: {
@@ -640,10 +647,26 @@ export async function createIntegration(
       };
     }
 
+    // Check if the bot belongs to the user
+    const bot = await prisma.bot.findFirst({
+      where: {
+        id: data.botId,
+        userId: user.id,
+      },
+    });
+
+    if (!bot) {
+      return {
+        success: false,
+        error: appErrors.UNAUTHORIZED,
+      };
+    }
+
     // Create the integration
     const integration = await prisma.integration.create({
       data: {
         userId: data.userId,
+        botId: data.botId,
         name: data.name,
         provider: data.provider,
         type: data.type,
@@ -653,6 +676,7 @@ export async function createIntegration(
 
     // Revalidate the user integrations cache
     revalidateTag(`user_integrations_${user.id}`);
+    revalidateTag(`bot_integrations_${data.botId}`);
 
     return {
       success: true,
@@ -716,20 +740,13 @@ export async function linkIntegrationToBot(
       };
     }
 
-    // Create or update the bot integration
-    const botIntegration = await prisma.botIntegration.upsert({
+    // Update the integration with botId and config
+    const updatedIntegration = await prisma.integration.update({
       where: {
-        botId_integrationId: {
-          botId: data.botId,
-          integrationId: data.integrationId,
-        },
+        id: data.integrationId,
       },
-      update: {
-        config: (data.config as InputJsonValue) || {},
-      },
-      create: {
+      data: {
         botId: data.botId,
-        integrationId: data.integrationId,
         config: (data.config as InputJsonValue) || {},
       },
     });
@@ -740,7 +757,7 @@ export async function linkIntegrationToBot(
 
     return {
       success: true,
-      data: botIntegration,
+      data: updatedIntegration,
     };
   } catch (error) {
     console.error("Error linking integration to bot:", error);

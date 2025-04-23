@@ -89,7 +89,6 @@ model Bot {
   organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   knowledgeBases   KnowledgeBase[]
   botTools         BotTool[]
-  botIntegrations  BotIntegration[]
   toolUsageMetrics ToolUsageMetric[]
   leads            Lead[]
   conversations    Conversation[]
@@ -262,22 +261,22 @@ model KnowledgeFile {
 model Integration {
   id               String           @id @default(uuid())
   userId           String           @map("user_id")
-  botId            String?          @map("bot_id")
+  botId            String           @map("bot_id")
   name             String
   provider         String // E.g., "hubspot", "gohighlevel", "google"
   type             IntegrationType
   authCredentials  Json             @map("auth_credentials") // Encrypted credentials
   credentialId     String?          @map("credential_id")
   metadata         Json?            @map("metadata") // Additional metadata about the integration
+  config           Json?            @map("config") // Configuration for the integration
   connectionStatus ConnectionStatus @default(CONNECTED) @map("connection_status")
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
 
   // Relations
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bot             Bot?             @relation(fields: [botId], references: [id], onDelete: Cascade)
+  bot             Bot              @relation(fields: [botId], references: [id], onDelete: Cascade)
   credential      Credential?      @relation(fields: [credentialId], references: [id])
-  botIntegrations BotIntegration[]
   deployments     Deployment[]
 
   @@index([userId])
@@ -286,31 +285,12 @@ model Integration {
   @@map("integrations")
 }
 
-// Junction table between Bots and Integrations with integration-specific config
-model BotIntegration {
-  id            String   @id @default(uuid())
-  botId         String   @map("bot_id")
-  integrationId String   @map("integration_id")
-  config        Json? // Integration-specific configuration
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  bot         Bot         @relation(fields: [botId], references: [id], onDelete: Cascade)
-  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-
-  @@unique([botId, integrationId])
-  @@index([botId])
-  @@index([integrationId])
-  @@map("bot_integrations")
-}
-
 // Deployment model - tracking where bots are deployed
 model Deployment {
   id            String           @id @default(uuid())
   botId         String           @map("bot_id")
   type          DeploymentType
-  config        Json // Configuration specific to deployment type
+  config        Json // Configuration specific to deployment type with channels array for channel-specific settings
   status        DeploymentStatus @default(ACTIVE)
   createdAt     DateTime         @default(now()) @map("created_at")
   updatedAt     DateTime         @updatedAt @map("updated_at")
@@ -399,6 +379,18 @@ model ToolExecution {
   @@map("tool_executions")
 }
 
+// OAuth state for temporary state storage
+model OAuthState {
+  state     String   @id
+  userId    String   @map("user_id")
+  metadata  String   // JSON string with state metadata
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("oauth_states")
+}
+
 // Enums
 enum ToolType {
   CALENDAR_BOOKING
@@ -436,6 +428,7 @@ enum DeploymentType {
   MESSENGER
   CUSTOM_API
   WEBHOOK
+  SLACK
 }
 
 enum DeploymentStatus {

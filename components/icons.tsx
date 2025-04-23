@@ -88,7 +88,7 @@ import {
   PiFilePpt,
 } from "react-icons/pi";
 import { FaXTwitter } from "react-icons/fa6";
-import { SiGooglecalendar } from "react-icons/si";
+import { SiGooglecalendar, SiSlack } from "react-icons/si";
 import { TiContacts } from "react-icons/ti";
 
 // Create an Icons object that contains all icons
@@ -128,6 +128,7 @@ export const Icons = {
   XAI: FaXTwitter,
   GoogleCalendar: SiGooglecalendar,
   Contacts: TiContacts,
+  Slack: SiSlack,
   Spinner: Loader2,
   Sun: SunMedium,
   Moon,
