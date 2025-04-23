@@ -16,6 +16,7 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider");
+    const useNewCredentials = searchParams.get("useNewCredentials") === "true";
     const { toolId } = await params;
 
     if (!provider || !toolId) {
@@ -33,17 +34,83 @@ export async function GET(request: Request, { params }: Params) {
 
     const userId = session.user.id;
 
-    // Get credentials from database
-    const credentials = await prisma.toolCredential.findFirst({
+    // If using new credentials, check BotTool to get credentialId
+    if (useNewCredentials) {
+      const botTool = await prisma.botTool.findFirst({
+        where: {
+          botId: toolId,
+          tool: {
+            integrationType: provider,
+          },
+        },
+        include: {
+          credential: true,
+        },
+      });
+
+      if (!botTool?.credential) {
+        // Check for direct credential
+        const credential = await prisma.credential.findFirst({
+          where: {
+            userId,
+            provider,
+          },
+        });
+
+        if (!credential) {
+          return NextResponse.json(
+            { exists: false, success: true },
+            { status: 200 }
+          );
+        }
+
+        // Get any existing bot tool config
+        const config = botTool?.config as
+          | Record<string, string | number | boolean | null | undefined>
+          | undefined;
+        const defaultCalendarId = config?.defaultCalendarId as
+          | string
+          | undefined;
+
+        return NextResponse.json({
+          success: true,
+          exists: true,
+          data: {
+            credentialId: credential.id,
+            defaultCalendarId,
+          },
+        });
+      }
+
+      // Get defaultCalendarId from config if it exists
+      const config = botTool?.config as
+        | Record<string, string | number | boolean | null | undefined>
+        | undefined;
+      const defaultCalendarId = config?.defaultCalendarId as string | undefined;
+
+      return NextResponse.json({
+        success: true,
+        exists: true,
+        data: {
+          credentialId: botTool.credential.id,
+          defaultCalendarId,
+        },
+      });
+    }
+
+    // Using old method (for backward compatibility)
+    const credentials = await prisma.credential.findFirst({
       where: {
         userId,
-        toolId,
         provider,
       },
     });
 
     if (!credentials) {
-      return NextResponse.json({ exists: false }, { status: 200 });
+      return NextResponse.json(
+        { exists: false, success: true },
+        { status: 200 }
+      );
     }
 
     // For Google Calendar, fetch available calendars
@@ -52,8 +119,7 @@ export async function GET(request: Request, { params }: Params) {
         // Get bot tool to fetch any existing config
         const botTool = await prisma.botTool.findFirst({
           where: {
-            toolId,
-            toolCredentialId: credentials.id,
+            credentialId: credentials.id,
           },
         });
 
@@ -66,7 +132,7 @@ export async function GET(request: Request, { params }: Params) {
           | undefined;
 
         // Fetch the user's Google calendars
-        const calendars = await getCalendarsForCredential(credentials);
+        const calendars = await getCalendarsForCredential(credentials.id);
 
         return NextResponse.json({
           success: true,
@@ -124,11 +190,10 @@ export async function POST(request: Request, { params }: Params) {
 
     // Create or update credentials in database
     try {
-      // First try to find an existing credential
-      const existingCredential = await prisma.toolCredential.findFirst({
+      // Try to find an existing credential using the new model
+      const existingCredential = await prisma.credential.findFirst({
         where: {
           userId,
-          toolId,
           provider,
         },
       });
@@ -137,7 +202,7 @@ export async function POST(request: Request, { params }: Params) {
 
       if (existingCredential) {
         // Update existing credential
-        result = await prisma.toolCredential.update({
+        result = await prisma.credential.update({
           where: {
             id: existingCredential.id,
           },
@@ -148,12 +213,32 @@ export async function POST(request: Request, { params }: Params) {
         });
       } else {
         // Create new credential
-        result = await prisma.toolCredential.create({
+        result = await prisma.credential.create({
           data: {
             userId,
-            toolId,
             provider,
             credentials: JSON.stringify(credentials),
+          },
+        });
+      }
+
+      // Update or create botTool relationship
+      const existingBotTool = await prisma.botTool.findFirst({
+        where: {
+          botId: toolId,
+          tool: {
+            integrationType: provider,
+          },
+        },
+      });
+
+      if (existingBotTool) {
+        await prisma.botTool.update({
+          where: {
+            id: existingBotTool.id,
+          },
+          data: {
+            credentialId: result.id,
           },
         });
       }

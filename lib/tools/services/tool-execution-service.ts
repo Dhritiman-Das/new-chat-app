@@ -9,7 +9,7 @@ export class ToolExecutionService {
     toolId: string,
     functionName: string,
     params: Record<string, unknown>,
-    context: Omit<ToolContext, "toolCredentialId" | "config" | "credentials">
+    context: Omit<ToolContext, "credentialId" | "config" | "credentials">
   ) {
     try {
       // Get the tool definition
@@ -52,21 +52,21 @@ export class ToolExecutionService {
       }
 
       // Get tool credential if needed
-      const toolCredentialId = botTool?.toolCredentialId;
+      const credentialId = botTool?.credentialId;
       let credentials = null;
 
-      if (tool.integrationType && !toolCredentialId) {
+      if (tool.integrationType && !credentialId) {
         // Tool requires authentication but no credentials provided
         throw new Error(`Tool requires authentication: ${toolId}`);
       }
 
-      if (toolCredentialId) {
+      if (credentialId) {
         const credential = await toolCredentialsService.getCredential(
-          toolCredentialId
+          credentialId
         );
 
         if (!credential) {
-          throw new Error(`Credentials not found: ${toolCredentialId}`);
+          throw new Error(`Credentials not found: ${credentialId}`);
         }
 
         credentials = credential.credentials;
@@ -78,7 +78,7 @@ export class ToolExecutionService {
       // Execute the function with the context
       const result = await func.execute(params, {
         ...context,
-        toolCredentialId: toolCredentialId || undefined,
+        credentialId: credentialId || undefined,
         config:
           (botTool?.config as Record<string, unknown>) ||
           tool.defaultConfig ||

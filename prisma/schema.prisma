@@ -47,7 +47,7 @@ model User {
   organizations   UserOrganization[]
   bots            Bot[]
   integrations    Integration[]
-  toolCredentials ToolCredential[]
+  credentials     Credential[]
   survey          Survey? // Added relation to Survey
 
   @@map("users")
@@ -136,7 +136,6 @@ model Tool {
   // Relations
   category         ToolCategory?        @relation(fields: [categoryId], references: [id])
   botTools         BotTool[]
-  toolCredentials  ToolCredential[]
   toolUsageMetrics ToolUsageMetric[]
   executionErrors  ToolExecutionError[]
 
@@ -144,27 +143,24 @@ model Tool {
   @@map("tools")
 }
 
-// Tool credentials - store authentication credentials for tools
-model ToolCredential {
-  id          String    @id @default(uuid())
-  toolId      String    @map("tool_id")
-  userId      String    @map("user_id")
-  provider    String // e.g., "google", "microsoft", "zoom" (not tool-specific like "google_calendar")
-  credentials Json // Encrypted credentials
-  expiresAt   DateTime? @map("expires_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+// New Credential model for unified auth storage
+model Credential {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  provider      String    // e.g., "slack", "google", "hubspot"
+  credentials   Json      // Contains { access_token, refresh_token, scopes[], expires_at, etc. }
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  tool     Tool      @relation(fields: [toolId], references: [id], onDelete: Cascade)
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  botTools BotTool[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botTools      BotTool[]
+  integrations  Integration[]
 
-  @@unique([userId, toolId, provider])
-  @@index([toolId])
+  @@unique([userId, provider])
   @@index([userId])
-  @@index([provider]) // Add index for efficient provider lookups
-  @@map("tool_credentials")
+  @@index([provider])
+  @@map("credentials")
 }
 
 // Junction table between Bots and Tools with tool-specific config
@@ -172,7 +168,7 @@ model BotTool {
   id               String   @id @default(uuid())
   botId            String   @map("bot_id")
   toolId           String   @map("tool_id")
-  toolCredentialId String?  @map("tool_credential_id")
+  credentialId     String?  @map("credential_id")
   isEnabled        Boolean  @default(true) @map("is_enabled")
   config           Json? // Tool-specific configuration as JSONB
   createdAt        DateTime @default(now()) @map("created_at")
@@ -181,12 +177,12 @@ model BotTool {
   // Relations
   bot            Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
   tool           Tool            @relation(fields: [toolId], references: [id], onDelete: Cascade)
-  toolCredential ToolCredential? @relation(fields: [toolCredentialId], references: [id])
+  credential     Credential?     @relation(fields: [credentialId], references: [id])
 
   @@unique([botId, toolId])
   @@index([botId])
   @@index([toolId])
-  @@index([toolCredentialId])
+  @@index([credentialId])
   @@map("bot_tools")
 }
 
@@ -271,6 +267,7 @@ model Integration {
   provider         String // E.g., "hubspot", "gohighlevel", "google"
   type             IntegrationType
   authCredentials  Json             @map("auth_credentials") // Encrypted credentials
+  credentialId     String?          @map("credential_id")
   metadata         Json?            @map("metadata") // Additional metadata about the integration
   connectionStatus ConnectionStatus @default(CONNECTED) @map("connection_status")
   createdAt        DateTime         @default(now()) @map("created_at")
@@ -279,11 +276,13 @@ model Integration {
   // Relations
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   bot             Bot?             @relation(fields: [botId], references: [id], onDelete: Cascade)
+  credential      Credential?      @relation(fields: [credentialId], references: [id])
   botIntegrations BotIntegration[]
   deployments     Deployment[]
 
   @@index([userId])
   @@index([botId])
+  @@index([credentialId])
   @@map("integrations")
 }
 

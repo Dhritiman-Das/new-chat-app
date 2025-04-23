@@ -77,15 +77,14 @@ async function refreshAccessToken(refreshToken: string) {
 }
 
 /**
- * Get a valid access token for a user/tool
+ * Get a valid access token for a user
  * This will refresh the token if necessary
  */
-async function getAccessToken(userId: string, toolId: string) {
+async function getAccessToken(userId: string) {
   // Get the Google API credentials
-  const credential = await prisma.toolCredential.findFirst({
+  const credential = await prisma.credential.findFirst({
     where: {
       userId,
-      toolId,
       provider: "google",
     },
   });
@@ -112,7 +111,7 @@ async function getAccessToken(userId: string, toolId: string) {
     ).toISOString();
 
     // Update the credential in the database
-    await prisma.toolCredential.update({
+    await prisma.credential.update({
       where: {
         id: credential.id,
       },
@@ -138,13 +137,12 @@ async function getAccessToken(userId: string, toolId: string) {
  */
 async function googleCalendarRequest<T>(
   userId: string,
-  toolId: string,
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   try {
     // Get a valid access token
-    const accessToken = await getAccessToken(userId, toolId);
+    const accessToken = await getAccessToken(userId);
 
     // Set up headers with authorization
     const headers = new Headers(options.headers);
@@ -184,11 +182,10 @@ async function googleCalendarRequest<T>(
 /**
  * Get a list of calendars for a user
  */
-export async function getCalendars(userId: string, toolId: string) {
+export async function getCalendars(userId: string) {
   try {
     const data = await googleCalendarRequest<GoogleCalendarListResponse>(
       userId,
-      toolId,
       "/users/me/calendarList"
     );
 
@@ -214,7 +211,6 @@ export async function getCalendars(userId: string, toolId: string) {
  */
 export async function createEvent(
   userId: string,
-  toolId: string,
   calendarId: string,
   event: {
     summary: string;
@@ -229,7 +225,6 @@ export async function createEvent(
   try {
     return await googleCalendarRequest(
       userId,
-      toolId,
       `/calendars/${encodeURIComponent(calendarId)}/events`,
       {
         method: "POST",
@@ -247,7 +242,6 @@ export async function createEvent(
  */
 export async function getAvailableSlots(
   userId: string,
-  toolId: string,
   calendarId: string,
   startDateTime: string,
   endDateTime: string,
@@ -257,7 +251,6 @@ export async function getAvailableSlots(
     // Get events in the time range - this would be used to calculate available slots
     await googleCalendarRequest(
       userId,
-      toolId,
       `/calendars/${encodeURIComponent(calendarId)}/events`,
       {
         method: "GET",

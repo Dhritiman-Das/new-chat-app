@@ -49,9 +49,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         installed: !!installedTool,
         enabled: installedTool ? installedTool.isEnabled : false,
         requiresAuth: !!dbTool.integrationType,
-        hasCredentials: installedTool
-          ? !!installedTool.toolCredentialId
-          : false,
+        hasCredentials: installedTool ? !!installedTool.credentialId : false,
       };
     });
 

@@ -3,8 +3,6 @@ import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
 
-// Initialize Prisma client
-
 // Google OAuth token response type
 interface GoogleOAuthTokenResponse {
   access_token: string;
@@ -112,10 +110,9 @@ export async function GET(request: Request) {
     ).toISOString();
 
     // Check if there's an existing credential
-    const existingCredential = await prisma.toolCredential.findFirst({
+    const existingCredential = await prisma.credential.findFirst({
       where: {
         userId,
-        toolId,
         provider: "google",
       },
     });
@@ -133,7 +130,7 @@ export async function GET(request: Request) {
         | string
         | undefined;
 
-      await prisma.toolCredential.update({
+      await prisma.credential.update({
         where: {
           id: existingCredential.id,
         },
@@ -151,9 +148,8 @@ export async function GET(request: Request) {
       credentialId = existingCredential.id;
     } else {
       try {
-        const newCredential = await prisma.toolCredential.create({
+        const newCredential = await prisma.credential.create({
           data: {
-            toolId,
             userId,
             provider: "google",
             credentials: {
@@ -168,7 +164,7 @@ export async function GET(request: Request) {
 
         credentialId = newCredential.id;
       } catch (createError) {
-        console.error("Error creating tool credential:", createError);
+        console.error("Error creating credential:", createError);
         throw new Error(
           `Failed to store Google credentials: ${
             createError instanceof Error ? createError.message : "Unknown error"
@@ -199,7 +195,7 @@ export async function GET(request: Request) {
             },
           },
           data: {
-            toolCredentialId: credentialId,
+            credentialId,
           },
         });
       } else {
@@ -208,7 +204,7 @@ export async function GET(request: Request) {
           data: {
             botId,
             toolId,
-            toolCredentialId: credentialId,
+            credentialId,
             isEnabled: true,
           },
         });

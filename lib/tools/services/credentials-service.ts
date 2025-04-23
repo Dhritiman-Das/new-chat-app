@@ -84,51 +84,43 @@ function decryptData(data: Record<string, unknown>): Record<string, unknown> {
 
 export class ToolCredentialsService {
   async createCredential({
-    toolId,
     userId,
     provider,
     credentials,
-    expiresAt,
   }: {
-    toolId: string;
     userId: string;
     provider: string;
     credentials: Record<string, unknown>;
-    expiresAt?: Date;
   }) {
     // Encrypt sensitive credential data
     const encryptedCredentials = encryptData(credentials);
 
-    return prisma.toolCredential.create({
+    return prisma.credential.create({
       data: {
-        toolId,
         userId,
         provider,
         credentials: encryptedCredentials as InputJsonValue,
-        expiresAt,
       },
     });
   }
 
   async updateCredential(
     credentialId: string,
-    credentials: Record<string, unknown>,
-    expiresAt?: Date
+    credentials: Record<string, unknown>
   ) {
     const encryptedCredentials = encryptData(credentials);
 
-    return prisma.toolCredential.update({
+    return prisma.credential.update({
       where: { id: credentialId },
       data: {
         credentials: encryptedCredentials as InputJsonValue,
-        expiresAt,
         updatedAt: new Date(),
       },
     });
   }
 
   async getCredential(credentialId: string) {
-    const credential = await prisma.toolCredential.findUnique({
+    const credential = await prisma.credential.findUnique({
       where: { id: credentialId },
     });
 
@@ -144,12 +136,10 @@ export class ToolCredentialsService {
   }
 
   async findCredentialsByProvider(userId: string, provider: string) {
-    const credentials = await prisma.toolCredential.findMany({
+    const credentials = await prisma.credential.findMany({
       where: {
         userId,
         provider,
-        // Optionally filter out expired credentials
-        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
       orderBy: {
         updatedAt: "desc", // Get the most recently updated first

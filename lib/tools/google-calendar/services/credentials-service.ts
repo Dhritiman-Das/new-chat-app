@@ -2,7 +2,6 @@ import { ToolContext } from "../../definitions/tool-interface";
 import prisma from "@/lib/db/prisma";
 import { google } from "googleapis";
 import { Prisma } from "@/lib/generated/prisma";
-import { ToolCredential } from "@/lib/generated/prisma";
 
 interface GoogleCredentials {
   access_token: string;
@@ -41,22 +40,22 @@ export async function getGoogleCredentials(
 ): Promise<GoogleCredentials> {
   try {
     // Use context to identify the user and tool
-    const { userId, toolCredentialId } = context;
+    const { userId, credentialId } = context;
 
     if (!userId) {
       throw new CredentialError("User ID is required", "USER_NOT_FOUND");
     }
 
-    let toolCredential;
+    let credential;
 
-    if (toolCredentialId) {
+    if (credentialId) {
       // If we have a credential ID, use that directly
-      toolCredential = await prisma.toolCredential.findUnique({
-        where: { id: toolCredentialId },
+      credential = await prisma.credential.findUnique({
+        where: { id: credentialId },
       });
     } else {
       // Otherwise look for Google credentials for this user
-      toolCredential = await prisma.toolCredential.findFirst({
+      credential = await prisma.credential.findFirst({
         where: {
           userId,
           provider: "google",
@@ -64,7 +63,7 @@ export async function getGoogleCredentials(
       });
     }
 
-    if (!toolCredential) {
+    if (!credential) {
       throw new CredentialError(
         "Google Calendar credentials not found. Please connect your Google Calendar account.",
         "CREDENTIALS_NOT_FOUND"
@@ -72,8 +71,7 @@ export async function getGoogleCredentials(
     }
 
     // Extract and return credentials
-    const credentials =
-      toolCredential.credentials as unknown as GoogleCredentials;
+    const credentials = credential.credentials as unknown as GoogleCredentials;
 
     return credentials;
   } catch (error) {
@@ -141,19 +139,19 @@ async function updateGoogleCredentials(
   context: ToolContext,
   newCredentials: GoogleCredentials
 ) {
-  const { userId, toolCredentialId } = context;
+  const { userId, credentialId } = context;
 
   try {
-    if (toolCredentialId) {
-      await prisma.toolCredential.update({
-        where: { id: toolCredentialId },
+    if (credentialId) {
+      await prisma.credential.update({
+        where: { id: credentialId },
         data: {
           credentials: newCredentials as unknown as Prisma.InputJsonValue,
           updatedAt: new Date(),
         },
       });
     } else {
-      await prisma.toolCredential.updateMany({
+      await prisma.credential.updateMany({
         where: {
           userId,
           provider: "google",
@@ -173,6 +171,7 @@ async function updateGoogleCredentials(
  * Initialize the Google Calendar API client
  */
 export async function getGoogleCalendarClient(context: ToolContext) {
+  console.log("Getting Google Calendar client", context);
   const auth = await getGoogleAuthClient(context);
   return google.calendar({ version: "v3", auth });
 }
@@ -181,9 +180,18 @@ export async function getGoogleCalendarClient(context: ToolContext) {
  * Fetch a user's Google calendars using stored credentials
  */
 export async function getCalendarsForCredential(
-  credential: ToolCredential
+  credentialId: string
 ): Promise<Calendar[]> {
   try {
+    // Get the credential
+    const credential = await prisma.credential.findUnique({
+      where: { id: credentialId },
+    });
+
+    if (!credential) {
+      throw new Error("Credential not found");
+    }
+
     // Extract credentials
     const credentials = credential.credentials as unknown as GoogleCredentials;
 

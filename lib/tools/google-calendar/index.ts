@@ -39,4 +39,15 @@ export const googleCalendarTool: ToolDefinition = {
       { day: "friday", startTime: "09:00", endTime: "17:00" },
     ],
   },
+  auth: {
+    required: true,
+    provider: "google",
+    scopes: [
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/calendar.readonly",
+    ],
+    authAction: "connectGoogleCalendar",
+    disconnectAction: "disconnectGoogleCalendar",
+  },
 };

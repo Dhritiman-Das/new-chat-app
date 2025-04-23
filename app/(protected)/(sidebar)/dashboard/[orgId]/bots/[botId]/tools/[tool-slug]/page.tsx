@@ -16,6 +16,8 @@ import { initializeTools } from "@/lib/tools";
 import { notFound } from "next/navigation";
 import ToolComponentWrapper from "@/components/tools/tool-component-wrapper";
 import InstallToolCard from "@/components/tools/install-tool-card";
+import { ToolAuthStatus } from "@/components/tools/tool-auth-status";
+import { AuthRequirement } from "@/lib/tools/definitions/tool-interface";
 
 // Define a serializable tool interface without function references
 interface SerializableTool {
@@ -27,6 +29,7 @@ interface SerializableTool {
   version: string;
   defaultConfig?: Record<string, unknown>;
   functionsMeta: Record<string, { description: string }>;
+  auth?: AuthRequirement;
 }
 
 interface PageProps {
@@ -78,6 +81,8 @@ export default async function ToolDetailPage({ params }: PageProps) {
         },
       ])
     ),
+    // Include auth requirements
+    auth: tool.auth,
   };
 
   // Map tool types to their corresponding icons
@@ -151,10 +156,23 @@ export default async function ToolDetailPage({ params }: PageProps) {
         <Alert className="mb-8">
           <Icons.Info className="h-4 w-4" />
           <AlertTitle>Integration Type</AlertTitle>
-          <AlertDescription>
-            {tool.integrationType
-              ? `This tool integrates with ${tool.integrationType} and requires authentication.`
-              : "This tool doesn't require any external integration."}
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              {tool.integrationType
+                ? `This tool integrates with ${tool.integrationType} and requires authentication.`
+                : "This tool doesn't require any external integration."}
+            </span>
+
+            {isToolInstalled && tool.auth?.required && (
+              <div className="ml-auto">
+                <ToolAuthStatus
+                  toolId={toolSlug}
+                  botId={botId}
+                  orgId={orgId}
+                  authRequirement={tool.auth}
+                />
+              </div>
+            )}
           </AlertDescription>
         </Alert>
 

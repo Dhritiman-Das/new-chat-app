@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
 
-interface Params {
-  params: Promise<{ toolId: string }>;
-}
-
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(request: Request) {
   try {
     // Get the authenticated user
     const session = await auth();
@@ -20,7 +16,6 @@ export async function DELETE(request: Request, { params }: Params) {
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider");
-    const { toolId } = await params;
 
     if (!provider) {
       return NextResponse.json(
@@ -30,10 +25,9 @@ export async function DELETE(request: Request, { params }: Params) {
     }
 
     // Find the credential
-    const credential = await prisma.toolCredential.findFirst({
+    const credential = await prisma.credential.findFirst({
       where: {
         userId,
-        toolId,
         provider,
       },
     });
@@ -46,7 +40,7 @@ export async function DELETE(request: Request, { params }: Params) {
     }
 
     // Delete the credential
-    await prisma.toolCredential.delete({
+    await prisma.credential.delete({
       where: {
         id: credential.id,
       },
@@ -55,10 +49,10 @@ export async function DELETE(request: Request, { params }: Params) {
     // Update any related bot tools to remove the credential ID
     await prisma.botTool.updateMany({
       where: {
-        toolCredentialId: credential.id,
+        credentialId: credential.id,
       },
       data: {
-        toolCredentialId: null,
+        credentialId: null,
       },
     });
 

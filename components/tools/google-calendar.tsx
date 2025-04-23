@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import {
   connectGoogleCalendar,
   disconnectGoogleCalendar,
+  getCalendarsForCredential,
 } from "@/app/actions/tool-credentials";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -210,7 +211,7 @@ export default function GoogleCalendarTool({
 
         // Check for existing connection
         const response = await fetch(
-          `/api/tools/${tool.id}/credentials?provider=google`
+          `/api/tools/${tool.id}/credentials?provider=google&useNewCredentials=true`
         );
         if (!response.ok) {
           if (response.status !== 404) {
@@ -228,13 +229,37 @@ export default function GoogleCalendarTool({
 
         if (data.success && data.data) {
           setIsConnected(true);
-          // If we have calendars, set them
-          if (data.data?.calendars && data.data.calendars.length > 0) {
-            setCalendars(data.data.calendars);
-            // If there's a default calendar, select it
-            if (data.data.defaultCalendarId) {
-              setSelectedCalendar(data.data.defaultCalendarId);
-              form.setValue("defaultCalendarId", data.data.defaultCalendarId);
+
+          // Fetch calendars if a credentialId is available
+          if (data.data?.credentialId) {
+            try {
+              // Use the server action instead of fetch
+              const calendarResult = await getCalendarsForCredential({
+                credentialId: data.data.credentialId,
+              });
+
+              if (calendarResult?.data?.success && calendarResult?.data?.data) {
+                // Type assertion to help TypeScript understand this is a Calendar array
+                const calendars = calendarResult.data.data as Calendar[];
+                setCalendars(calendars);
+
+                // If there's a default calendar in the bot tool config, select it
+                if (data.data.defaultCalendarId) {
+                  setSelectedCalendar(data.data.defaultCalendarId);
+                  form.setValue(
+                    "defaultCalendarId",
+                    data.data.defaultCalendarId
+                  );
+                }
+              } else if (calendarResult?.data?.error) {
+                console.error(
+                  "Error fetching calendars:",
+                  calendarResult.data.error
+                );
+                toast.error(calendarResult.data.error.message);
+              }
+            } catch (calError) {
+              console.error("Error fetching calendars:", calError);
             }
           }
 

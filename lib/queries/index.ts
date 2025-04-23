@@ -227,25 +227,6 @@ export async function getRecentConversationsQuery(
   };
 }
 
-export async function getToolCredentialQuery(
-  prisma: PrismaClient,
-  toolId: string,
-  userId: string,
-  provider: string
-) {
-  const credential = await prisma.toolCredential.findFirst({
-    where: {
-      toolId,
-      userId,
-      provider,
-    },
-  });
-
-  return {
-    data: credential,
-  };
-}
-
 export async function checkOrganizationSlugAvailabilityQuery(
   prisma: PrismaClient,
   slug: string,

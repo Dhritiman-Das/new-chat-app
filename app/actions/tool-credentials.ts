@@ -6,8 +6,20 @@ import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
+import { getCalendarsForCredential as getGoogleCalendars } from "@/lib/tools/google-calendar/services/credentials-service";
+import { ActionResponse, appErrors } from "./types";
 
 const actionClient = createSafeActionClient();
+
+// Define the Calendar interface here for proper typing
+interface Calendar {
+  id: string;
+  name: string;
+  isPrimary?: boolean;
+  description?: string;
+  backgroundColor?: string;
+  foregroundColor?: string;
+}
 
 // Schema for connect Google Calendar input
 const connectGoogleCalendarSchema = z.object({
@@ -16,15 +28,62 @@ const connectGoogleCalendarSchema = z.object({
   orgId: z.string(),
 });
 
-// Define a type for action responses
-interface ActionResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    message: string;
-    code?: string;
-  };
-}
+/**
+ * Server action to fetch calendars for a credential
+ */
+export const getCalendarsForCredential = actionClient
+  .schema(z.object({ credentialId: z.string() }))
+  .action(async ({ parsedInput }): Promise<ActionResponse<Calendar[]>> => {
+    try {
+      const { credentialId } = parsedInput;
+
+      // Get the authenticated user
+      const session = await auth();
+      if (!session?.user?.id) {
+        return {
+          success: false,
+          error: appErrors.UNAUTHORIZED,
+        };
+      }
+
+      const userId = session.user.id;
+
+      // Verify the credential belongs to this user
+      const credential = await prisma.credential.findFirst({
+        where: {
+          id: credentialId,
+          userId,
+        },
+      });
+
+      if (!credential) {
+        return {
+          success: false,
+          error: {
+            code: "CREDENTIAL_NOT_FOUND",
+            message: "Credential not found",
+          },
+        };
+      }
+
+      // Fetch calendars
+      const calendars = await getGoogleCalendars(credentialId);
+
+      return {
+        success: true,
+        data: calendars as Calendar[],
+      };
+    } catch (error) {
+      console.error("Error fetching calendars:", error);
+      return {
+        success: false,
+        error: {
+          code: "FETCH_CALENDARS_ERROR",
+          message: "Failed to fetch calendars",
+        },
+      };
+    }
+  });
 
 /**
  * Server action to initiate Google Calendar OAuth flow
@@ -98,6 +157,7 @@ export const connectGoogleCalendar = actionClient
         return {
           success: false,
           error: {
+            code: "GOOGLE_AUTH_FAILED",
             message: "Failed to initiate Google authentication",
           },
         };
@@ -123,46 +183,120 @@ export const disconnectGoogleCalendar = actionClient
       if (!session?.user?.id) {
         return {
           success: false,
-          error: {
-            message: "User not authenticated",
-          },
+          error: appErrors.UNAUTHORIZED,
         };
       }
 
       const userId = session.user.id;
 
-      // Find the credential
-      const credential = await prisma.toolCredential.findFirst({
+      // Find the bot tool first to get credential relationship
+      const botTool = await prisma.botTool.findFirst({
+        where: {
+          botId: toolId,
+          tool: {
+            integrationType: "google",
+          },
+        },
+        include: {
+          credential: true,
+        },
+      });
+
+      // If we have a related credential through bot tool
+      if (botTool?.credential) {
+        // Clear the credentialId on the bot tool
+        await prisma.botTool.update({
+          where: {
+            id: botTool.id,
+          },
+          data: {
+            credentialId: null,
+          },
+        });
+
+        // If the credential is used only by this bot tool, delete it
+        const otherBotToolsUsingCredential = await prisma.botTool.count({
+          where: {
+            credentialId: botTool.credential.id,
+            id: {
+              not: botTool.id,
+            },
+          },
+        });
+
+        if (otherBotToolsUsingCredential === 0) {
+          // No other bot tools use this credential, so we can safely delete it
+          await prisma.credential.delete({
+            where: {
+              id: botTool.credential.id,
+            },
+          });
+        }
+
+        return {
+          success: true,
+          data: {
+            message: "Google Calendar disconnected successfully",
+          },
+        };
+      }
+
+      // Check for a direct credential (legacy flow)
+      const credential = await prisma.credential.findFirst({
         where: {
           userId,
-          toolId,
           provider: "google",
         },
       });
 
       if (!credential) {
+        // Last resort, check for old tool credential
+        const oldCredential = await prisma.credential.findFirst({
+          where: {
+            userId,
+            provider: "google",
+          },
+        });
+
+        if (oldCredential) {
+          // Delete the old credential
+          await prisma.credential.delete({
+            where: {
+              id: oldCredential.id,
+            },
+          });
+
+          // Update any related bot tools to remove the credential ID
+          await prisma.botTool.updateMany({
+            where: {
+              credentialId: oldCredential.id,
+            },
+            data: {
+              credentialId: null,
+            },
+          });
+
+          return {
+            success: true,
+            data: {
+              message: "Google Calendar disconnected successfully",
+            },
+          };
+        }
+
         return {
           success: false,
           error: {
+            code: "GOOGLE_NOT_CONNECTED",
             message: "Google Calendar is not connected",
           },
         };
       }
 
       // Delete the credential
-      await prisma.toolCredential.delete({
+      await prisma.credential.delete({
         where: {
           id: credential.id,
-        },
-      });
-
-      // Update any related bot tools to remove the credential ID
-      await prisma.botTool.updateMany({
-        where: {
-          toolCredentialId: credential.id,
-        },
-        data: {
-          toolCredentialId: null,
         },
       });
 
@@ -177,6 +311,7 @@ export const disconnectGoogleCalendar = actionClient
       return {
         success: false,
         error: {
+          code: "GOOGLE_DISCONNECT_FAILED",
           message: "Failed to disconnect Google Calendar",
         },
       };
