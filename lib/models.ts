@@ -60,6 +60,21 @@ export const models: Model[] = [
     modelPriceUrl: "https://openai.com/api/pricing",
   },
   {
+    id: "gpt-4o-mini",
+    name: "GPT-4o Mini",
+    provider: "openai",
+    providerName: "OpenAI",
+    description:
+      "GPT-4o Mini from OpenAI is a smaller, faster version of GPT-4o with reduced context window.",
+    contextWindow: 128000,
+    inputPricing: "$0.15 / million tokens",
+    outputPricing: "$0.60 / million tokens",
+    attributes: ["Pro"],
+    isAvailable: true,
+    modelPageUrl: "https://openai.com/api/models/gpt-4o-mini",
+    modelPriceUrl: "https://openai.com/api/pricing",
+  },
+  {
     id: "claude-3-5-sonnet",
     name: "Claude 3.5 Sonnet",
     provider: "anthropic",

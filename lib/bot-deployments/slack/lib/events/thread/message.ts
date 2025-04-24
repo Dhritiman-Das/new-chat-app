@@ -1,10 +1,6 @@
-import { openai } from "@ai-sdk/openai";
 import type { GenericMessageEvent, WebClient } from "@slack/web-api";
-import { generateText } from "ai";
-
-// Maximum number of messages to include in the conversation history
-// TODO: Connect this to the database configuration in the future
-const maxMessagesToProcess = 5;
+import { processDeploymentMessage } from "../../../../processor";
+import { ChatMessage, DeploymentPlatform } from "../../../../types";
 
 // Define a more specific type for our message events
 interface SlackMessageEvent extends GenericMessageEvent {
@@ -20,6 +16,7 @@ export async function assistantThreadMessage(
   options: {
     userId: string;
     organizationId: string;
+    botId: string;
   }
 ) {
   // Update the status of the thread
@@ -33,75 +30,91 @@ export async function assistantThreadMessage(
     console.warn("Could not set thread status:", error);
   }
 
+  // Get conversation history from the thread
   const threadHistory = await client.conversations.replies({
     channel: event.channel,
     ts: event.thread_ts || event.ts,
-    limit: maxMessagesToProcess + 1, // Adding 1 to account for the thread starter message
+    limit: 5, // Limiting to 5 messages for context
     inclusive: true,
   });
 
-  const messagesHistory = threadHistory.messages
-    ?.map((msg) => ({
-      role: msg.bot_id ? ("assistant" as const) : ("user" as const),
+  if (!threadHistory.messages || threadHistory.messages.length === 0) {
+    console.warn("No messages found in the thread");
+    return;
+  }
+
+  // Convert Slack messages to a format the chat processor can understand
+  const messages: ChatMessage[] = threadHistory.messages
+    .map((msg) => ({
+      role: msg.bot_id ? "assistant" : "user",
       content: msg.text || "",
     }))
     .reverse()
-    .slice(0, maxMessagesToProcess); // Take only the configured number of messages
+    .slice(0, 5); // Take only the configured number of messages
 
-  if (!messagesHistory || messagesHistory.length === 0) {
-    console.warn("No messages found in the thread");
-  }
-
-  // Use options.userId and options.organizationId for potential future use cases
-  // such as personalization or tracking
-  console.log(
-    `Processing message for user: ${options.userId} in organization: ${options.organizationId}`
-  );
-
-  const { text } = await generateText({
-    model: openai("gpt-4o-mini"),
-    system:
-      "You are a helpful assistant that can answer questions and help with tasks. You are currently deployed in Slack.",
-    messages: [
-      ...(messagesHistory ?? []),
-      {
-        role: "user" as const,
-        content: event.text || "",
-      },
-    ],
-  });
-
-  if (text) {
-    // Send the message to the thread
-    await client.chat.postMessage({
-      channel: event.channel,
-      thread_ts: event.thread_ts || event.ts,
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: text,
+  // Create the Slack platform adapter
+  const slackPlatform: DeploymentPlatform = {
+    type: "slack",
+    supportsStreaming: false,
+    sendMessage: async (content: string) => {
+      // Send the message to the thread
+      await client.chat.postMessage({
+        channel: event.channel,
+        thread_ts: event.thread_ts || event.ts,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: content,
+            },
           },
-        },
-      ],
+        ],
+      });
+    },
+    setStatus: async (status: string = "") => {
+      try {
+        await client.assistant.threads.setStatus({
+          channel_id: event.channel,
+          thread_ts: event.thread_ts || event.ts,
+          status,
+        });
+      } catch (error) {
+        console.warn("Could not update thread status:", error);
+      }
+    },
+  };
+
+  try {
+    // Process the message through the common processor
+    await processDeploymentMessage({
+      botId: options.botId,
+      userId: options.userId,
+      organizationId: options.organizationId,
+      source: "slack",
+      deploymentType: "SLACK",
+      messages,
+      platform: slackPlatform,
     });
-  } else {
-    // If no previous message found, post the new message
+  } catch (error) {
+    console.error("Error processing Slack message:", error);
+
+    // Send error message to thread
     await client.chat.postMessage({
       channel: event.channel,
       thread_ts: event.thread_ts || event.ts,
-      text: "Sorry I couldn't find an answer to that question",
+      text: "Sorry, I encountered an error processing your request.",
     });
 
+    // Clear status
     try {
       await client.assistant.threads.setStatus({
         channel_id: event.channel,
         thread_ts: event.thread_ts || event.ts,
         status: "",
       });
-    } catch (error) {
-      console.warn("Could not clear thread status:", error);
+    } catch (statusError) {
+      console.warn("Could not clear thread status:", statusError);
     }
   }
 }

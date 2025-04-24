@@ -544,8 +544,10 @@ export const getBotConversationMetrics = async (
 };
 
 // Cache bot details with tools and knowledge bases
-export const getBotDetails = async (botId: string) => {
-  await requireAuth();
+export const getBotDetails = async (botId: string, bypassAuth = false) => {
+  if (!bypassAuth) {
+    await requireAuth();
+  }
 
   return unstable_cache(
     async () => {

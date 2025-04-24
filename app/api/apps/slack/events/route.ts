@@ -117,6 +117,7 @@ export async function POST(request: NextRequest) {
       await assistantThreadMessage(body.event, slackClient.client, {
         userId: integration.userId,
         organizationId: bot.organizationId,
+        botId: bot.id,
       });
 
       return NextResponse.json({ success: true });
