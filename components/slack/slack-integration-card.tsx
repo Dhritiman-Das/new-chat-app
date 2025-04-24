@@ -19,6 +19,7 @@ import {
   SlackDeploymentConfig,
   SlackIntegrationConfig,
 } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/deployments/slack/utils";
+import { SlackChannelList } from "./slack-channel-list";
 
 interface SlackIntegrationProps {
   integration?: {
@@ -73,14 +74,12 @@ export function SlackIntegrationCard({
 
   // Get channel information from deployment config
   const channels = integration?.deployment?.config.channels || [];
-  const activeChannels = channels.filter((channel) => channel.active);
 
   return (
     <Card className="w-full">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Icons.Slack className="h-5 w-5 text-[#4A154B]" />
             <CardTitle className="text-xl">Slack Integration</CardTitle>
           </div>
           {isConnected && (
@@ -108,16 +107,6 @@ export function SlackIntegrationCard({
                   </div>
                 </div>
                 <div className="flex justify-between">
-                  <div className="text-sm font-medium">Active Channels</div>
-                  <div className="text-sm">
-                    {activeChannels.length > 0
-                      ? activeChannels
-                          .map((ch) => `#${ch.channelName}`)
-                          .join(", ")
-                      : `${integration.metadata.channel || "general"}`}
-                  </div>
-                </div>
-                <div className="flex justify-between">
                   <div className="text-sm font-medium">Integration ID</div>
                   <div className="text-sm truncate max-w-[180px]">
                     {integration.id}
@@ -125,6 +114,28 @@ export function SlackIntegrationCard({
                 </div>
               </div>
             </div>
+
+            {/* Channels Section */}
+            <div className="border rounded-md p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium">Channels</h3>
+                <SlackConnectButton
+                  botId={botId}
+                  orgId={orgId}
+                  variant="outline"
+                  size="sm"
+                  isAddingChannel={true}
+                  integrationId={integration.id}
+                />
+              </div>
+
+              <SlackChannelList
+                channels={channels}
+                integrationId={integration.id}
+                deploymentId={integration.deployment?.id}
+              />
+            </div>
+
             <div className="border-t pt-4">
               <h3 className="text-sm font-medium mb-2">Getting Started</h3>
               <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1">

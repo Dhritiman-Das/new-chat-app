@@ -2,10 +2,8 @@ import { requireAuth } from "@/utils/auth";
 import { getBotById } from "@/lib/queries/cached-queries";
 import { getSlackIntegrations } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/deployments/slack/utils";
 import { SlackSettings } from "@/components/slack/slack-settings";
-import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { BackButton } from "@/components/slack/back-button";
 
 import {
   Breadcrumb,
@@ -93,8 +91,12 @@ export default async function SlackSettingsPage({ params }: PageProps) {
       </header>
 
       <div className="flex-1 overflow-y-auto p-6 pb-16">
-        <div className="mx-auto w-full max-w-5xl space-y-8">
-          <div className="flex items-center justify-between">
+        <div className="mx-auto w-full space-y-8">
+          <div className="flex items-center gap-4">
+            <BackButton
+              href={`/dashboard/${orgId}/bots/${botId}/deployments/slack`}
+            />
+
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
                 Slack Settings
@@ -103,14 +105,6 @@ export default async function SlackSettingsPage({ params }: PageProps) {
                 Configure how your bot interacts with Slack.
               </p>
             </div>
-            <Button variant="outline" asChild>
-              <Link
-                href={`/dashboard/${orgId}/bots/${botId}/deployments/slack`}
-              >
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Back to Slack
-              </Link>
-            </Button>
           </div>
 
           <div className="space-y-6">

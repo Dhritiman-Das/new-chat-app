@@ -2,7 +2,6 @@ import { requireAuth } from "@/utils/auth";
 import { getBotById } from "@/lib/queries/cached-queries";
 
 import { SlackIntegrationCard } from "@/components/slack/slack-integration-card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,7 +12,10 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Icons } from "@/components/icons";
+import { BackButton } from "@/components/slack/back-button";
 import { getSlackIntegrations } from "./utils";
+import { GuideButton } from "@/components/slack/guide-button";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -74,75 +76,36 @@ export default async function SlackDeploymentsPage({ params }: PageProps) {
       </header>
 
       <div className="flex-1 overflow-y-auto p-6 pb-16">
-        <div className="mx-auto w-full max-w-5xl space-y-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Slack Integration
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              Connect your bot to Slack to enable messaging in channels and
-              direct messages.
-            </p>
-          </div>
-
-          <Tabs defaultValue="setup" className="w-full">
-            <TabsList className="mb-6">
-              <TabsTrigger value="setup">Setup</TabsTrigger>
-              <TabsTrigger value="guide">Guide</TabsTrigger>
-            </TabsList>
-            <TabsContent value="setup" className="space-y-6">
-              <SlackIntegrationCard
-                integration={integration}
-                botId={botId}
-                orgId={orgId}
+        <div className="mx-auto w-full space-y-8">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <BackButton
+                href={`/dashboard/${orgId}/bots/${botId}/deployments`}
               />
-            </TabsContent>
-            <TabsContent value="guide" className="space-y-6">
-              <div className="rounded-lg border bg-card p-6">
-                <h2 className="text-xl font-semibold mb-4">
-                  How to use the Slack Integration
-                </h2>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-medium">1. Connect to Slack</h3>
-                    <p className="text-muted-foreground mt-1">
-                      Use the &quot;Connect to Slack&quot; button to authorize
-                      the app in your workspace.
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium">
-                      2. Invite the bot to channels
-                    </h3>
-                    <p className="text-muted-foreground mt-1">
-                      Type{" "}
-                      <code className="bg-muted px-1 py-0.5 rounded-sm">
-                        /invite @YourBot
-                      </code>{" "}
-                      in any Slack channel to add the bot.
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium">3. Start conversations</h3>
-                    <p className="text-muted-foreground mt-1">
-                      Mention the bot using{" "}
-                      <code className="bg-muted px-1 py-0.5 rounded-sm">
-                        @YourBot
-                      </code>{" "}
-                      followed by your question or command.
-                    </p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium">4. Configure settings</h3>
-                    <p className="text-muted-foreground mt-1">
-                      Use the Settings page to customize your bot&apos;s
-                      behavior in Slack.
-                    </p>
-                  </div>
+
+              <div className="flex items-center gap-3">
+                <Icons.Slack className="h-8 w-8 text-[#4A154B]" />
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">Slack</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Connect your bot to Slack to enable messaging in channels
+                    and direct messages.
+                  </p>
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+
+            <GuideButton />
+          </div>
+
+          <div>
+            {/* Integration Card Section */}
+            <SlackIntegrationCard
+              integration={integration}
+              botId={botId}
+              orgId={orgId}
+            />
+          </div>
         </div>
       </div>
     </div>

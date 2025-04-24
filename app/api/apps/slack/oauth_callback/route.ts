@@ -121,7 +121,13 @@ export async function GET(request: Request) {
     }
 
     // Parse the metadata
-    let metadata: { botId: string; orgId: string; provider: string };
+    let metadata: {
+      botId: string;
+      orgId: string;
+      provider: string;
+      isAddingChannel?: boolean;
+      integrationId?: string | null;
+    };
     try {
       metadata = JSON.parse(oauthState.metadata);
     } catch {
@@ -176,6 +182,91 @@ export async function GET(request: Request) {
         },
       },
     });
+
+    // Handle the case where we're adding a new channel to an existing integration
+    if (metadata.isAddingChannel && metadata.integrationId) {
+      // Find the integration with its deployments
+      const integration = await prisma.integration.findUnique({
+        where: { id: metadata.integrationId },
+        include: {
+          deployments: {
+            where: {
+              type: "SLACK",
+            },
+          },
+        },
+      });
+
+      if (integration && integration.deployments.length > 0) {
+        const deployment = integration.deployments[0];
+        // We need to use any here due to JSON type constraints
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const config = deployment.config as unknown as Record<string, any>;
+        const channels = config.channels || [];
+
+        // Create the new channel object
+        const newChannel = {
+          channelId: response.incoming_webhook?.channel_id || "",
+          channelName: response.incoming_webhook?.channel || "",
+          configuration_url: response.incoming_webhook?.configuration_url,
+          url: response.incoming_webhook?.url,
+          active: true,
+          settings: {
+            mentionsOnly: false,
+          },
+        };
+
+        // Add the new channel (avoid duplicates by channel ID)
+        const updatedChannels = [
+          ...channels.filter(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (ch: any) => ch.channelId !== newChannel.channelId
+          ),
+          newChannel,
+        ];
+
+        // Update the deployment with the new channel
+        await prisma.deployment.update({
+          where: { id: deployment.id },
+          data: {
+            config: {
+              ...config,
+              channels: updatedChannels,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } as any,
+          },
+        });
+
+        // Delete the OAuth state
+        await prisma.oAuthState.delete({
+          where: { state },
+        });
+
+        // Return success HTML
+        const htmlResponse = `
+          <html>
+            <head>
+              <title>Channel Added Successfully</title>
+              <script>
+                window.opener.postMessage('app_oauth_completed', '*');
+                window.close();
+              </script>
+            </head>
+            <body>
+              <h1>Channel Added Successfully</h1>
+              <p>You have successfully added a new channel to your Slack integration.</p>
+              <p>You can close this window now.</p>
+            </body>
+          </html>
+        `;
+
+        return new NextResponse(htmlResponse, {
+          headers: {
+            "Content-Type": "text/html",
+          },
+        });
+      }
+    }
 
     // Check for existing Slack integration for this bot
     const existingIntegrationId = await getSlackIntegrationForBot(
@@ -239,7 +330,7 @@ export async function GET(request: Request) {
           team_name: response.team?.name,
         },
         config: {
-          MAX_MESSAGES_TO_PROCESS: 10,
+          maxMessagesToProcess: 10,
           messageStyle: "blocks",
           sendThreadedReplies: true,
           autoRespondToMentions: true,

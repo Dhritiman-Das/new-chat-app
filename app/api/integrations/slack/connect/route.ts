@@ -48,7 +48,7 @@ export async function POST(req: Request) {
           channel: channelName || "general",
         },
         config: {
-          MAX_MESSAGES_TO_PROCESS: 10,
+          maxMessagesToProcess: 10,
           messageStyle: "blocks",
           sendThreadedReplies: true,
           autoRespondToMentions: true,

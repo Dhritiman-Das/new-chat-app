@@ -17,6 +17,8 @@ const action = createSafeActionClient();
 const initiateConnectionSchema = z.object({
   botId: z.string(),
   orgId: z.string(),
+  isAddingChannel: z.boolean().optional(),
+  integrationId: z.string().optional(),
 });
 
 // Schema for sending a message to Slack
@@ -79,7 +81,7 @@ export const initiateSlackConnection = action
   .action(async ({ parsedInput }): Promise<ActionResponse> => {
     try {
       const session = await auth();
-      const { botId, orgId } = parsedInput;
+      const { botId, orgId, isAddingChannel, integrationId } = parsedInput;
 
       if (!session?.user?.id) {
         return {
@@ -92,17 +94,19 @@ export const initiateSlackConnection = action
       }
 
       // Check if an integration already exists for this bot and provider
-      const existingIntegrationId = await getSlackIntegrationForBot(botId);
+      if (!isAddingChannel) {
+        const existingIntegrationId = await getSlackIntegrationForBot(botId);
 
-      if (existingIntegrationId) {
-        return {
-          success: false,
-          error: {
-            code: "INTEGRATION_EXISTS",
-            message: "A Slack integration already exists for this bot",
-          },
-          data: { integrationId: existingIntegrationId },
-        };
+        if (existingIntegrationId) {
+          return {
+            success: false,
+            error: {
+              code: "INTEGRATION_EXISTS",
+              message: "A Slack integration already exists for this bot",
+            },
+            data: { integrationId: existingIntegrationId },
+          };
+        }
       }
 
       // Generate and store OAuth state
@@ -116,6 +120,8 @@ export const initiateSlackConnection = action
             botId,
             orgId,
             provider: "slack",
+            isAddingChannel: isAddingChannel || false,
+            integrationId: integrationId || null,
           }),
           expiresAt: new Date(Date.now() + 1000 * 60 * 15), // 15 minutes
         },

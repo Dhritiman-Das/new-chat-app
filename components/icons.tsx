@@ -78,6 +78,7 @@ import {
   CircleOff,
   ArrowUp,
   ArrowDown,
+  BookOpen,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
 import {
@@ -182,6 +183,7 @@ export const Icons = {
   CircleOff,
   ArrowUp,
   ArrowDown,
+  BookOpen,
 };
 
 // Export individual icons for direct imports

@@ -11,6 +11,8 @@ interface SlackConnectButtonProps {
   orgId: string;
   variant?: "default" | "outline" | "secondary";
   size?: "default" | "sm" | "lg" | "icon";
+  isAddingChannel?: boolean;
+  integrationId?: string;
 }
 
 export function SlackConnectButton({
@@ -18,6 +20,8 @@ export function SlackConnectButton({
   orgId,
   variant = "default",
   size = "default",
+  isAddingChannel = false,
+  integrationId,
 }: SlackConnectButtonProps) {
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -28,6 +32,8 @@ export function SlackConnectButton({
       const result = await initiateSlackConnection({
         botId,
         orgId,
+        isAddingChannel: isAddingChannel,
+        integrationId: integrationId,
       });
 
       // Check if result exists and handle the response based on its structure
@@ -130,7 +136,7 @@ export function SlackConnectButton({
       ) : (
         <Icons.Slack className="h-4 w-4" />
       )}
-      Connect to Slack
+      {isAddingChannel ? "Add Channel" : "Connect to Slack"}
     </Button>
   );
 }

@@ -23,7 +23,7 @@ export interface SlackDeploymentConfig {
 }
 
 export interface SlackIntegrationConfig {
-  MAX_MESSAGES_TO_PROCESS?: number;
+  maxMessagesToProcess?: number;
   messageStyle?: "simple" | "blocks" | "markdown";
   sendThreadedReplies?: boolean;
   autoRespondToMentions?: boolean;

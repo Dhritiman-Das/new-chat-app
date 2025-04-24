@@ -3,6 +3,25 @@ import { createSlackClient } from "@/lib/bot-deployments/slack";
 import { assistantThreadMessage } from "@/lib/bot-deployments/slack/lib/events/thread";
 import { NextRequest, NextResponse } from "next/server";
 
+// Define interfaces for type-safe deployment config
+interface SlackChannelConfig {
+  channelId: string;
+  channelName: string;
+  active: boolean;
+  settings?: {
+    mentionsOnly?: boolean;
+    [key: string]: unknown;
+  };
+}
+
+interface SlackDeploymentConfig {
+  channels?: SlackChannelConfig[];
+  globalSettings?: {
+    defaultResponseTime?: string;
+    [key: string]: unknown;
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -28,14 +47,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Handle Slack event
-    if (body.event?.type === "message" && !body.event?.subtype) {
-      const { team: team_id } = body.event;
-
-      // Ignore messages from bots
-      if (body.event?.bot_id) {
-        return NextResponse.json({ success: true });
-      }
+    // Handle app_mention event - this is the key change
+    if (body.event?.type === "app_mention") {
+      const { team: team_id, channel } = body.event;
 
       // Find integration for this team
       const integration = await prisma.integration.findFirst({
@@ -49,6 +63,11 @@ export async function POST(request: NextRequest) {
         include: {
           credential: true,
           bot: true,
+          deployments: {
+            where: {
+              type: "SLACK",
+            },
+          },
         },
       });
 
@@ -67,6 +86,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Bot not found" }, { status: 404 });
       }
 
+      // Check if the channel is allowed in the deployment config
+      const deployment = integration.deployments[0];
+      if (deployment) {
+        const config = deployment.config as SlackDeploymentConfig;
+        const channels = config.channels || [];
+
+        // Check if this channel is in the allowed channels list
+        const isChannelAllowed = channels.some(
+          (ch) => ch.channelId === channel && ch.active === true
+        );
+
+        if (!isChannelAllowed) {
+          console.log(
+            `Channel ${channel} is not in the allowed channels list or is not active`
+          );
+          return NextResponse.json({ success: true });
+        }
+      }
+
       // Create client
       const credentials = integration.credential.credentials as {
         access_token: string;
@@ -75,7 +113,7 @@ export async function POST(request: NextRequest) {
         token: credentials.access_token,
       });
 
-      // Process the message with the AI implementation
+      // Process the mention with the AI implementation
       await assistantThreadMessage(body.event, slackClient.client, {
         userId: integration.userId,
         organizationId: bot.organizationId,

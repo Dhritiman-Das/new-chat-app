@@ -39,7 +39,7 @@ import {
 
 const formSchema = z.object({
   integrationConfig: z.object({
-    MAX_MESSAGES_TO_PROCESS: z.number().min(1).max(100).optional(),
+    maxMessagesToProcess: z.number().min(1).max(100).optional(),
     messageStyle: z.enum(["simple", "blocks", "markdown"]),
     sendThreadedReplies: z.boolean(),
     autoRespondToMentions: z.boolean(),
@@ -105,8 +105,7 @@ export function SlackSettings({ integration }: SlackSettingsProps) {
 
   const defaultValues: FormValues = {
     integrationConfig: {
-      MAX_MESSAGES_TO_PROCESS:
-        integration.config?.MAX_MESSAGES_TO_PROCESS || 10,
+      maxMessagesToProcess: integration.config?.maxMessagesToProcess || 10,
       messageStyle: integration.config?.messageStyle || "blocks",
       sendThreadedReplies: integration.config?.sendThreadedReplies ?? true,
       autoRespondToMentions: integration.config?.autoRespondToMentions ?? true,
@@ -191,7 +190,7 @@ export function SlackSettings({ integration }: SlackSettingsProps) {
 
                 <FormField
                   control={form.control}
-                  name="integrationConfig.MAX_MESSAGES_TO_PROCESS"
+                  name="integrationConfig.maxMessagesToProcess"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Max Messages to Process</FormLabel>

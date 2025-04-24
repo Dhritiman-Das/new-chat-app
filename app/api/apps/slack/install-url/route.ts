@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
           "channels:read",
           "incoming-webhook",
           "users:read",
+          "assistant:write",
         ].join(",");
 
         const url = `https://slack.com/oauth/v2/authorize?client_id=${
@@ -106,6 +107,7 @@ export async function GET(request: NextRequest) {
       "channels:read",
       "incoming-webhook",
       "users:read",
+      "assistant:write",
     ].join(",");
 
     const url = `https://slack.com/oauth/v2/authorize?client_id=${

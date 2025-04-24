@@ -4,7 +4,7 @@ import { generateText } from "ai";
 
 // Maximum number of messages to include in the conversation history
 // TODO: Connect this to the database configuration in the future
-const MAX_MESSAGES_TO_PROCESS = 5;
+const maxMessagesToProcess = 5;
 
 // Define a more specific type for our message events
 interface SlackMessageEvent extends GenericMessageEvent {
@@ -36,7 +36,7 @@ export async function assistantThreadMessage(
   const threadHistory = await client.conversations.replies({
     channel: event.channel,
     ts: event.thread_ts || event.ts,
-    limit: MAX_MESSAGES_TO_PROCESS + 1, // Adding 1 to account for the thread starter message
+    limit: maxMessagesToProcess + 1, // Adding 1 to account for the thread starter message
     inclusive: true,
   });
 
@@ -46,7 +46,7 @@ export async function assistantThreadMessage(
       content: msg.text || "",
     }))
     .reverse()
-    .slice(0, MAX_MESSAGES_TO_PROCESS); // Take only the configured number of messages
+    .slice(0, maxMessagesToProcess); // Take only the configured number of messages
 
   if (!messagesHistory || messagesHistory.length === 0) {
     console.warn("No messages found in the thread");
