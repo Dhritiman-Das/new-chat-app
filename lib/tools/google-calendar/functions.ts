@@ -179,7 +179,7 @@ export const bookAppointment: ToolFunction = {
       try {
         // Dynamic import to avoid circular dependencies
         const { storeCalendarAppointment } = await import(
-          "../calendar/appointment-integration"
+          "../appointment-core/appointment-integration"
         );
 
         // Process organizer data
@@ -471,7 +471,7 @@ export const rescheduleAppointment: ToolFunction = {
         } else {
           // If not found, store it as a new appointment
           const { storeCalendarAppointment } = await import(
-            "../calendar/appointment-integration"
+            "../appointment-core/appointment-integration"
           );
 
           // Process organizer data
@@ -631,7 +631,7 @@ export const cancelAppointment: ToolFunction = {
       try {
         // Dynamic import to avoid circular dependencies
         const { findAppointmentByExternalId, updateAppointmentStatus } =
-          await import("../calendar/appointment-storage");
+          await import("../appointment-core/appointment-storage");
 
         // Find appointment in database
         const appointmentResult = await findAppointmentByExternalId(
