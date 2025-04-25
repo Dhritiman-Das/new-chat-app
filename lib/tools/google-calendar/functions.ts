@@ -24,7 +24,7 @@ import {
   isBefore,
   areIntervalsOverlapping,
 } from "date-fns";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/lib/db/prisma";
 
 // Type for Google API errors
 interface GoogleApiError {
@@ -399,7 +399,6 @@ export const rescheduleAppointment: ToolFunction = {
       // Update appointment in our database
       try {
         // First find if we have this appointment already stored
-        const prisma = new PrismaClient();
         const existingAppointment = await prisma.appointment.findFirst({
           where: {
             externalEventId: appointmentId,
