@@ -40,6 +40,18 @@ import {
   getCalendarsForCredential,
 } from "@/app/actions/tool-credentials";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import Link from "next/link";
+import { AppointmentsTab } from "./google-calendar/appointments-tab";
+import { Appointment } from "./google-calendar/types";
 
 // Interface for serialized tool object
 interface SerializableTool {
@@ -113,6 +125,10 @@ export default function GoogleCalendarTool({
   const [isConfigLoading, setIsConfigLoading] = useState(false);
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [selectedCalendar, setSelectedCalendar] = useState<string | null>(null);
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<Appointment | null>(null);
+  const [isAppointmentDetailsOpen, setIsAppointmentDetailsOpen] =
+    useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -277,6 +293,25 @@ export default function GoogleCalendarTool({
     checkConnection();
   }, [tool.id, searchParams, router, form, fetchToolConfig]);
 
+  // Function to open appointment details dialog
+  const openAppointmentDetails = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setIsAppointmentDetailsOpen(true);
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  // Format time for display
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   async function onSubmit(values: z.infer<typeof configSchema>) {
     try {
       setIsSaving(true);
@@ -407,6 +442,7 @@ export default function GoogleCalendarTool({
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="functions">Functions</TabsTrigger>
           <TabsTrigger value="auth">Authentication</TabsTrigger>
+          <TabsTrigger value="appointments">Appointments</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
@@ -835,7 +871,197 @@ export default function GoogleCalendarTool({
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="appointments">
+          <AppointmentsTab
+            botId={botId}
+            openAppointmentDetails={openAppointmentDetails}
+            activeTab={activeTab}
+          />
+        </TabsContent>
       </Tabs>
+
+      {/* Appointment Details Dialog */}
+      <Dialog
+        open={isAppointmentDetailsOpen}
+        onOpenChange={setIsAppointmentDetailsOpen}
+      >
+        <DialogContent className="lg:max-w-screen-md overflow-y-scroll max-h-screen">
+          <DialogHeader>
+            <DialogTitle>Appointment Details</DialogTitle>
+            <DialogDescription>
+              Details for the selected appointment
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAppointment && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-1 gap-2">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Title</p>
+                  <p className="text-base">
+                    {selectedAppointment.title || "Untitled Appointment"}
+                  </p>
+                </div>
+
+                {selectedAppointment.description && (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Description</p>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {selectedAppointment.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Date</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDate(selectedAppointment.startTime)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Status</p>
+                  <Badge
+                    variant={
+                      selectedAppointment.status === "cancelled"
+                        ? "destructive"
+                        : selectedAppointment.status === "confirmed"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
+                    {selectedAppointment.status || "confirmed"}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Start Time</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatTime(selectedAppointment.startTime)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">End Time</p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatTime(selectedAppointment.endTime)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Timezone</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedAppointment.timeZone || "UTC"}
+                </p>
+              </div>
+
+              {selectedAppointment.location && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Location</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAppointment.location}
+                  </p>
+                </div>
+              )}
+
+              {selectedAppointment.attendees &&
+                selectedAppointment.attendees.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Attendees</p>
+                    <div className="space-y-1">
+                      {selectedAppointment.attendees.map((attendee, index) => (
+                        <div
+                          key={index}
+                          className="text-sm text-muted-foreground"
+                        >
+                          {attendee.name
+                            ? `${attendee.name} (${attendee.email})`
+                            : attendee.email}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {selectedAppointment.meetingLink && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Meeting Link</p>
+                  <a
+                    href={selectedAppointment.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary underline"
+                  >
+                    {selectedAppointment.meetingLink}
+                  </a>
+                </div>
+              )}
+
+              {selectedAppointment.conversationId && (
+                <div className="mt-2">
+                  <Link
+                    href={`/dashboard/${orgId}/bots/${botId}/conversations/${selectedAppointment.conversationId}`}
+                    target="_blank"
+                    className="flex items-center hover:underline text-sm"
+                  >
+                    Check conversation
+                    <Icons.ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </div>
+              )}
+
+              {/* Properties */}
+              {selectedAppointment.properties &&
+                Object.keys(selectedAppointment.properties).length > 0 && (
+                  <>
+                    <Separator className="my-2" />
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold">Properties</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(selectedAppointment.properties).map(
+                          ([key, value]) => (
+                            <div key={key} className="space-y-1">
+                              <p className="text-sm font-medium capitalize">
+                                {key}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {value === null || value === undefined
+                                  ? "—"
+                                  : typeof value === "object"
+                                  ? JSON.stringify(value)
+                                  : String(value)}
+                              </p>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+              {/* Metadata */}
+              {selectedAppointment.metadata &&
+                Object.keys(selectedAppointment.metadata).length > 0 && (
+                  <>
+                    <Separator className="my-2" />
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold">Metadata</h4>
+                      <pre className="bg-secondary/50 p-4 rounded-md overflow-auto text-xs">
+                        {JSON.stringify(selectedAppointment.metadata, null, 2)}
+                      </pre>
+                    </div>
+                  </>
+                )}
+            </div>
+          )}
+          <DialogClose asChild>
+            <Button variant="outline">Close</Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

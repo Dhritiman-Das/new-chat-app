@@ -259,21 +259,6 @@ export const getLeads = actionClient
         orderBy,
         skip,
         take: limit,
-        // Make sure we select all fields, including properties and metadata
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          company: true,
-          source: true,
-          status: true,
-          triggerKeyword: true,
-          properties: true,
-          metadata: true,
-          createdAt: true,
-          updatedAt: true,
-        },
       });
 
       return {

@@ -44,11 +44,11 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  organizations   UserOrganization[]
-  bots            Bot[]
-  integrations    Integration[]
-  credentials     Credential[]
-  survey          Survey? // Added relation to Survey
+  organizations UserOrganization[]
+  bots          Bot[]
+  integrations  Integration[]
+  credentials   Credential[]
+  survey        Survey? // Added relation to Survey
 
   @@map("users")
 }
@@ -94,6 +94,7 @@ model Bot {
   conversations    Conversation[]
   deployments      Deployment[]
   integrations     Integration[]
+  appointments     Appointment[]
 
   @@index([userId])
   @@index([organizationId])
@@ -144,17 +145,17 @@ model Tool {
 
 // New Credential model for unified auth storage
 model Credential {
-  id            String    @id @default(uuid())
-  userId        String    @map("user_id")
-  provider      String    // e.g., "slack", "google", "hubspot"
-  credentials   Json      // Contains { access_token, refresh_token, scopes[], expires_at, etc. }
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  provider    String // e.g., "slack", "google", "hubspot"
+  credentials Json // Contains { access_token, refresh_token, scopes[], expires_at, etc. }
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  botTools      BotTool[]
-  integrations  Integration[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botTools     BotTool[]
+  integrations Integration[]
 
   @@unique([userId, provider])
   @@index([userId])
@@ -164,19 +165,19 @@ model Credential {
 
 // Junction table between Bots and Tools with tool-specific config
 model BotTool {
-  id               String   @id @default(uuid())
-  botId            String   @map("bot_id")
-  toolId           String   @map("tool_id")
-  credentialId     String?  @map("credential_id")
-  isEnabled        Boolean  @default(true) @map("is_enabled")
-  config           Json? // Tool-specific configuration as JSONB
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  botId        String   @map("bot_id")
+  toolId       String   @map("tool_id")
+  credentialId String?  @map("credential_id")
+  isEnabled    Boolean  @default(true) @map("is_enabled")
+  config       Json? // Tool-specific configuration as JSONB
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  bot            Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
-  tool           Tool            @relation(fields: [toolId], references: [id], onDelete: Cascade)
-  credential     Credential?     @relation(fields: [credentialId], references: [id])
+  bot        Bot         @relation(fields: [botId], references: [id], onDelete: Cascade)
+  tool       Tool        @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  credential Credential? @relation(fields: [credentialId], references: [id])
 
   @@unique([botId, toolId])
   @@index([botId])
@@ -274,10 +275,10 @@ model Integration {
   updatedAt        DateTime         @updatedAt @map("updated_at")
 
   // Relations
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bot             Bot              @relation(fields: [botId], references: [id], onDelete: Cascade)
-  credential      Credential?      @relation(fields: [credentialId], references: [id])
-  deployments     Deployment[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bot         Bot          @relation(fields: [botId], references: [id], onDelete: Cascade)
+  credential  Credential?  @relation(fields: [credentialId], references: [id])
+  deployments Deployment[]
 
   @@index([userId])
   @@index([botId])
@@ -323,6 +324,7 @@ model Conversation {
   toolExecutions ToolExecution[]
   bot            Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
   leads          Lead[]
+  appointments   Appointment[]
 
   @@index([botId])
   @@index([externalUserId])
@@ -383,7 +385,7 @@ model ToolExecution {
 model OAuthState {
   state     String   @id
   userId    String   @map("user_id")
-  metadata  String   // JSON string with state metadata
+  metadata  String // JSON string with state metadata
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -503,6 +505,44 @@ model Lead {
   @@index([status])
   @@index([createdAt])
   @@map("leads")
+}
+
+// Appointment model - stores calendar appointment details
+model Appointment {
+  id               String   @id @default(uuid())
+  botId            String   @map("bot_id")
+  conversationId   String?  @map("conversation_id")
+  calendarId       String?  @map("calendar_id")
+  externalEventId  String?  @map("external_event_id") // ID from the calendar service
+  calendarProvider String   @map("calendar_provider") // e.g., "google", "outlook", "apple"
+  title            String?
+  description      String?
+  location         String?
+  status           String?  @default("confirmed") // confirmed, cancelled, tentative
+  startTime        DateTime @map("start_time")
+  endTime          DateTime @map("end_time")
+  timeZone         String?  @map("time_zone")
+  organizer        Json? // Details about the organizer
+  attendees        Json? // Array of attendee objects with names and emails
+  recurringPattern String?  @map("recurring_pattern")
+  meetingLink      String?  @map("meeting_link")
+  source           String?  @default("chat")
+  properties       Json? // Provider-specific properties
+  metadata         Json? // Additional metadata
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  bot          Bot           @relation(fields: [botId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([botId])
+  @@index([conversationId])
+  @@index([calendarProvider])
+  @@index([startTime])
+  @@index([status])
+  @@index([createdAt])
+  @@map("appointments")
 }
 
 // Add new enums

@@ -58,6 +58,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Link from "next/link";
 
 // Interface for serialized tool object
 interface SerializableTool {
@@ -74,6 +75,7 @@ interface SerializableTool {
 interface LeadCaptureToolProps {
   tool: SerializableTool;
   botId: string;
+  orgId: string;
 }
 
 // Define a Lead type for capturing lead data
@@ -90,6 +92,7 @@ interface Lead {
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  conversationId?: string;
 }
 
 const fieldOptions = [
@@ -122,7 +125,11 @@ interface ExportResponse {
   message: string;
 }
 
-export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
+export default function LeadCaptureTool({
+  tool,
+  botId,
+  orgId,
+}: LeadCaptureToolProps) {
   const [activeTab, setActiveTab] = useState("settings");
   const [newTrigger, setNewTrigger] = useState("");
   const [newCustomTrigger, setNewCustomTrigger] = useState("");
@@ -922,6 +929,19 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
                   {new Date(selectedLead.createdAt).toLocaleString()}
                 </p>
               </div>
+
+              {selectedLead.conversationId && (
+                <div className="mt-2">
+                  <Link
+                    href={`/dashboard/${orgId}/bots/${botId}/conversations/${selectedLead.conversationId}`}
+                    target="_blank"
+                    className="flex items-center hover:underline text-sm"
+                  >
+                    Check conversation
+                    <Icons.ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </div>
+              )}
 
               {/* Custom Properties */}
               {selectedLead.properties &&

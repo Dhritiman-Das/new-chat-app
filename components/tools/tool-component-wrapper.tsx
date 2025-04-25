@@ -127,7 +127,7 @@ export default function ToolComponentWrapper({
     case "google-calendar":
       return <GoogleCalendarTool tool={tool} botId={botId} orgId={orgId} />;
     case "lead-capture":
-      return <LeadCaptureTool tool={tool} botId={botId} />;
+      return <LeadCaptureTool tool={tool} botId={botId} orgId={orgId} />;
     default:
       return <DefaultToolComponent tool={tool} botId={botId} orgId={orgId} />;
   }

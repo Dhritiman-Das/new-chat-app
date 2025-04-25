@@ -620,3 +620,38 @@ export async function getInstalledDeploymentsQuery(
 
   return installedDeployments;
 }
+
+export async function getBotAppointmentsQuery(
+  prisma: PrismaClient,
+  botId: string,
+  page = 1,
+  limit = 10
+) {
+  // Calculate skip for pagination
+  const skip = (page - 1) * limit;
+
+  // Get appointments with pagination
+  const [appointments, total] = await Promise.all([
+    prisma.appointment.findMany({
+      where: { botId },
+      orderBy: { startTime: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.appointment.count({
+      where: { botId },
+    }),
+  ]);
+
+  // Calculate total pages
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    data: {
+      appointments,
+      totalPages,
+      currentPage: page,
+      total,
+    },
+  };
+}

@@ -16,6 +16,7 @@ import {
   getConversationsQuery,
   getConversationSourcesQuery,
   getInstalledDeploymentsQuery,
+  getBotAppointmentsQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -673,5 +674,25 @@ export const getInstalledDeployments = async (botId: string) => {
     },
     ["installed-deployments", botId],
     { tags: [`installed-deployments-${botId}`], revalidate: 60 }
+  )();
+};
+
+export const getBotAppointments = async (
+  botId: string,
+  page = 1,
+  limit = 10
+) => {
+  // Ensure the user is authenticated
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return getBotAppointmentsQuery(prisma, botId, page, limit);
+    },
+    ["bot_appointments", botId, page.toString(), limit.toString()],
+    {
+      tags: [`bot_appointments_${botId}`],
+      revalidate: 30, // Cache for 30 seconds since appointments might be updated frequently
+    }
   )();
 };

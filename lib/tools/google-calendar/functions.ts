@@ -24,6 +24,7 @@ import {
   isBefore,
   areIntervalsOverlapping,
 } from "date-fns";
+import { PrismaClient } from "@prisma/client";
 
 // Type for Google API errors
 interface GoogleApiError {
@@ -162,19 +163,87 @@ export const bookAppointment: ToolFunction = {
       const formalDate = format(parsedStartTime, "EEEE, MMMM d, yyyy");
       const formalTime = format(parsedStartTime, "h:mm a");
 
+      // Extract event details for storage
+      const appointmentDetails = {
+        id: response.data.id,
+        title: response.data.summary || title,
+        date: format(parsedStartTime, "yyyy-MM-dd"),
+        time: format(parsedStartTime, "HH:mm"),
+        duration: appointmentDuration,
+        bufferTime: Number(bufferTimeBetweenMeetings),
+        link: response.data.htmlLink || "",
+        calendarId: defaultCalendarId,
+      };
+
+      // Store appointment in our database
+      try {
+        // Dynamic import to avoid circular dependencies
+        const { storeCalendarAppointment } = await import(
+          "../calendar/appointment-integration"
+        );
+
+        // Process organizer data
+        let organizerData = undefined;
+        if (response.data.organizer?.email) {
+          organizerData = {
+            email: response.data.organizer.email,
+            name: response.data.organizer.displayName || "",
+          };
+        }
+
+        // Process attendees data - filter out any attendees without email
+        const attendeesData =
+          response.data.attendees
+            ?.filter(
+              (
+                attendee
+              ): attendee is {
+                email: string;
+                displayName?: string;
+                responseStatus?: string;
+              } => typeof attendee.email === "string"
+            )
+            .map((attendee) => ({
+              email: attendee.email,
+              name: attendee.displayName || "",
+              response: attendee.responseStatus || "",
+            })) || [];
+
+        await storeCalendarAppointment({
+          botId: context.botId,
+          conversationId: context.conversationId,
+          calendarProvider: "google",
+          calendarId: defaultCalendarId,
+          externalEventId: response.data.id || undefined,
+          title: response.data.summary || title,
+          description: response.data.description || description,
+          startTime: parsedStartTime,
+          endTime: actualMeetingEndTime,
+          timeZone: response.data.start?.timeZone || "Etc/UTC",
+          organizer: organizerData,
+          attendees: attendeesData,
+          meetingLink: response.data.htmlLink || "",
+          status: response.data.status || "confirmed",
+          properties: {
+            eventId: response.data.id,
+            iCalUID: response.data.iCalUID,
+            appointmentDuration,
+            bufferTime: bufferTimeBetweenMeetings,
+          },
+          metadata: {
+            source: "google-calendar-tool",
+            created: new Date().toISOString(),
+          },
+        });
+      } catch (storageError) {
+        // Log error but don't fail the appointment booking
+        console.error("Error storing appointment in database:", storageError);
+      }
+
       return {
         success: true,
         appointmentId: response.data.id,
-        appointmentDetails: {
-          id: response.data.id,
-          title: response.data.summary || title,
-          date: format(parsedStartTime, "yyyy-MM-dd"),
-          time: format(parsedStartTime, "HH:mm"),
-          duration: appointmentDuration,
-          bufferTime: Number(bufferTimeBetweenMeetings),
-          link: response.data.htmlLink || "",
-          calendarId: defaultCalendarId,
-        },
+        appointmentDetails,
         message: `Successfully booked appointment: ${title} on ${formalDate} at ${formalTime}`,
       };
     } catch (error) {
@@ -254,13 +323,13 @@ export const rescheduleAppointment: ToolFunction = {
         throw validationError; // Re-throw if it's not our expected error type
       }
 
-      // Parse the start time
+      // Parse the new start time
       const parsedStartTime = parseISO(startTime);
 
       // Format dates in RFC3339 format (required by Google Calendar API)
       const formattedStartTime = formatISO(parsedStartTime);
 
-      // Calculate end time based on new start time and duration (including buffer)
+      // Calculate end time from start time and duration (including buffer)
       const totalDuration =
         appointmentDuration + Number(bufferTimeBetweenMeetings);
       const actualMeetingEndTime = addMinutes(
@@ -273,45 +342,35 @@ export const rescheduleAppointment: ToolFunction = {
       const formattedActualEndTime = formatISO(actualMeetingEndTime);
       const formattedBufferEndTime = formatISO(bufferEndTime);
 
-      // Update the description with buffer time information if needed
-      const existingDescription = existingEvent.data.description || "";
-      // Remove any previous buffer time information if it exists
-      const cleanDescription = existingDescription.replace(
-        /\n\nActual meeting end time:[\s\S]*?Buffer time:[\s\S]*?(?=\n|$)/,
-        ""
-      );
-
+      // Update the event with new times and preserve other properties
       const meetingEndTimeFormatted = format(actualMeetingEndTime, "h:mm a");
-      const updatedDescription =
+      const originalDescription =
+        existingEvent.data.description?.replace(
+          /\n\nActual meeting end time:.+?minutes after meeting/,
+          ""
+        ) || "";
+      const enhancedDescription =
         bufferTimeBetweenMeetings > 0
-          ? `${cleanDescription}\n\nActual meeting end time: ${meetingEndTimeFormatted}\nBuffer time: ${bufferTimeBetweenMeetings} minutes after meeting`
-          : cleanDescription;
+          ? `${originalDescription}\n\nActual meeting end time: ${meetingEndTimeFormatted}\nBuffer time: ${bufferTimeBetweenMeetings} minutes after meeting`
+          : originalDescription;
 
-      // Prepare the updated event
       const updatedEvent = {
         ...existingEvent.data,
-        description: updatedDescription,
+        description: enhancedDescription,
         start: {
           dateTime: formattedStartTime,
-          timeZone: "Etc/UTC",
+          timeZone: "Etc/UTC", // Using UTC for consistency
         },
         end: {
           dateTime:
             Number(bufferTimeBetweenMeetings) > 0
               ? formattedBufferEndTime
               : formattedActualEndTime,
-          timeZone: "Etc/UTC",
+          timeZone: "Etc/UTC", // Using UTC for consistency
         },
       };
 
-      console.log("Updating event with:", {
-        id: appointmentId,
-        start: updatedEvent.start,
-        end: updatedEvent.end,
-        calendar: defaultCalendarId,
-      });
-
-      // Update the event
+      // Update the event in the calendar
       const response = await calendarClient.events.update({
         calendarId: defaultCalendarId,
         eventId: appointmentId,
@@ -322,26 +381,165 @@ export const rescheduleAppointment: ToolFunction = {
         throw new Error("Failed to update calendar event");
       }
 
-      // Format start date/time for response
+      // Format dates for display
       const formalDate = format(parsedStartTime, "EEEE, MMMM d, yyyy");
       const formalTime = format(parsedStartTime, "h:mm a");
 
+      const appointmentDetails = {
+        id: response.data.id,
+        title: response.data.summary || "Appointment",
+        date: format(parsedStartTime, "yyyy-MM-dd"),
+        time: format(parsedStartTime, "HH:mm"),
+        duration: appointmentDuration,
+        bufferTime: Number(bufferTimeBetweenMeetings),
+        link: response.data.htmlLink || "",
+        calendarId: defaultCalendarId,
+      };
+
+      // Update appointment in our database
+      try {
+        // First find if we have this appointment already stored
+        const prisma = new PrismaClient();
+        const existingAppointment = await prisma.appointment.findFirst({
+          where: {
+            externalEventId: appointmentId,
+            calendarProvider: "google",
+          },
+        });
+
+        // If found, update it
+        if (existingAppointment) {
+          // Process organizer data
+          let organizerData = undefined;
+          if (response.data.organizer?.email) {
+            organizerData = {
+              email: response.data.organizer.email,
+              name: response.data.organizer.displayName || "",
+            };
+          }
+
+          // Process attendees data - filter out any attendees without email
+          const attendeesData =
+            response.data.attendees
+              ?.filter(
+                (
+                  attendee
+                ): attendee is {
+                  email: string;
+                  displayName?: string;
+                  responseStatus?: string;
+                } => typeof attendee.email === "string"
+              )
+              .map((attendee) => ({
+                email: attendee.email,
+                name: attendee.displayName || "",
+                response: attendee.responseStatus || "",
+              })) || [];
+
+          // Ensure description is string or undefined (not null)
+          const safeDescription =
+            typeof response.data.description === "string"
+              ? response.data.description
+              : undefined;
+
+          await prisma.appointment.update({
+            where: { id: existingAppointment.id },
+            data: {
+              title: response.data.summary || "Appointment",
+              description: safeDescription,
+              startTime: parsedStartTime,
+              endTime: actualMeetingEndTime,
+              timeZone: response.data.start?.timeZone || "Etc/UTC",
+              organizer: organizerData
+                ? JSON.parse(JSON.stringify(organizerData))
+                : null,
+              attendees: attendeesData.length
+                ? JSON.parse(JSON.stringify(attendeesData))
+                : null,
+              status: response.data.status || "confirmed",
+              properties: {
+                eventId: response.data.id,
+                iCalUID: response.data.iCalUID,
+                appointmentDuration,
+                bufferTime: bufferTimeBetweenMeetings,
+                rescheduled: true,
+                originalStartTime: existingAppointment.startTime,
+              },
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          // If not found, store it as a new appointment
+          const { storeCalendarAppointment } = await import(
+            "../calendar/appointment-integration"
+          );
+
+          // Process organizer data
+          let organizerData = undefined;
+          if (response.data.organizer?.email) {
+            organizerData = {
+              email: response.data.organizer.email,
+              name: response.data.organizer.displayName || "",
+            };
+          }
+
+          // Process attendees data - filter out any attendees without email
+          const attendeesData =
+            response.data.attendees
+              ?.filter(
+                (
+                  attendee
+                ): attendee is {
+                  email: string;
+                  displayName?: string;
+                  responseStatus?: string;
+                } => typeof attendee.email === "string"
+              )
+              .map((attendee) => ({
+                email: attendee.email,
+                name: attendee.displayName || "",
+                response: attendee.responseStatus || "",
+              })) || [];
+
+          await storeCalendarAppointment({
+            botId: context.botId,
+            conversationId: context.conversationId,
+            calendarProvider: "google",
+            calendarId: defaultCalendarId,
+            externalEventId: response.data.id || undefined,
+            title: response.data.summary || "Appointment",
+            description: response.data.description || "",
+            startTime: parsedStartTime,
+            endTime: actualMeetingEndTime,
+            timeZone: response.data.start?.timeZone || "Etc/UTC",
+            organizer: organizerData,
+            attendees: attendeesData,
+            meetingLink: response.data.htmlLink || "",
+            status: response.data.status || "confirmed",
+            properties: {
+              eventId: response.data.id,
+              iCalUID: response.data.iCalUID,
+              appointmentDuration,
+              bufferTime: bufferTimeBetweenMeetings,
+              rescheduled: true,
+            },
+            metadata: {
+              source: "google-calendar-tool",
+              rescheduled: true,
+              rescheduledAt: new Date().toISOString(),
+            },
+          });
+        }
+      } catch (storageError) {
+        // Log error but don't fail the appointment update
+        console.error("Error updating appointment in database:", storageError);
+      }
+
       return {
         success: true,
-        appointmentId: response.data.id || appointmentId,
-        appointmentDetails: {
-          id: response.data.id || appointmentId,
-          title: response.data.summary || "Rescheduled Appointment",
-          date: format(parsedStartTime, "yyyy-MM-dd"),
-          time: format(parsedStartTime, "HH:mm"),
-          duration: appointmentDuration,
-          bufferTime: Number(bufferTimeBetweenMeetings),
-          link: response.data.htmlLink || "",
-          calendarId: defaultCalendarId,
-        },
-        message: `Successfully rescheduled appointment: ${
-          response.data.summary || "Appointment"
-        } to ${formalDate} at ${formalTime}`,
+        appointmentId: response.data.id,
+        appointmentDetails,
+        message: `Successfully rescheduled appointment to ${formalDate} at ${formalTime}`,
       };
     } catch (error) {
       console.error("Error rescheduling appointment:", error);
@@ -428,6 +626,50 @@ export const cancelAppointment: ToolFunction = {
         eventId: appointmentId,
         sendUpdates: "all", // Send cancellation emails to attendees
       });
+
+      // Update appointment in our database
+      try {
+        // Dynamic import to avoid circular dependencies
+        const { findAppointmentByExternalId, updateAppointmentStatus } =
+          await import("../calendar/appointment-storage");
+
+        // Find appointment in database
+        const appointmentResult = await findAppointmentByExternalId(
+          appointmentId,
+          "google"
+        );
+
+        // If found, update it to mark as cancelled
+        if (appointmentResult.success && appointmentResult.data) {
+          // Create new properties object without spread
+          const updatedProperties: Record<string, unknown> = {
+            cancelReason: reason || "No reason provided",
+            cancelledAt: new Date().toISOString(),
+          };
+
+          // Add existing properties if available
+          if (
+            appointmentResult.data.properties &&
+            typeof appointmentResult.data.properties === "object"
+          ) {
+            Object.entries(
+              appointmentResult.data.properties as Record<string, unknown>
+            ).forEach(([key, value]) => {
+              updatedProperties[key] = value;
+            });
+          }
+
+          await updateAppointmentStatus(
+            appointmentResult.data.id,
+            "cancelled",
+            updatedProperties
+          );
+        }
+        // If not found in database, no need to update anything
+      } catch (storageError) {
+        // Log error but don't fail the appointment cancellation
+        console.error("Error updating appointment in database:", storageError);
+      }
 
       const cancellationMessage = reason
         ? `Successfully cancelled appointment: ${eventTitle} (Reason: ${reason})`
