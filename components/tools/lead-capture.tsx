@@ -963,26 +963,9 @@ export default function LeadCaptureTool({ tool, botId }: LeadCaptureToolProps) {
                     <Separator className="my-2" />
                     <div className="space-y-2">
                       <h4 className="text-sm font-semibold">Metadata</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        {Object.entries(selectedLead.metadata).map(
-                          ([key, value]) => (
-                            <div key={key} className="space-y-1">
-                              <p className="text-sm font-medium capitalize">
-                                {key}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {value === null || value === undefined
-                                  ? "—"
-                                  : typeof value === "object"
-                                  ? value
-                                    ? JSON.stringify(value)
-                                    : "—"
-                                  : String(value)}
-                              </p>
-                            </div>
-                          )
-                        )}
-                      </div>
+                      <pre className="bg-secondary/50 p-4 rounded-md overflow-auto text-xs">
+                        {JSON.stringify(selectedLead.metadata, null, 2)}
+                      </pre>
                     </div>
                   </>
                 )}
