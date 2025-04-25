@@ -93,9 +93,7 @@ export default async function SlackSettingsPage({ params }: PageProps) {
       <div className="flex-1 overflow-y-auto p-6 pb-16">
         <div className="mx-auto w-full space-y-8">
           <div className="flex items-center gap-4">
-            <BackButton
-              href={`/dashboard/${orgId}/bots/${botId}/deployments/slack`}
-            />
+            <BackButton />
 
             <div>
               <h1 className="text-3xl font-bold tracking-tight">

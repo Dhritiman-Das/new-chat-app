@@ -607,3 +607,16 @@ export async function getConversationSourcesQuery(
 
   return sources.map((s) => s.source).filter(Boolean) as string[];
 }
+
+export async function getInstalledDeploymentsQuery(
+  prisma: PrismaClient,
+  botId: string
+) {
+  const installedDeployments = await prisma.deployment.findMany({
+    where: {
+      botId,
+    },
+  });
+
+  return installedDeployments;
+}

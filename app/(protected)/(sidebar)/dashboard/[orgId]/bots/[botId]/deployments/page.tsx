@@ -1,5 +1,9 @@
 import { requireAuth } from "@/utils/auth";
-import { getBotById } from "@/lib/queries/cached-queries";
+import {
+  getBotById,
+  getInstalledDeployments,
+} from "@/lib/queries/cached-queries";
+import { Suspense } from "react";
 
 import {
   Breadcrumb,
@@ -11,6 +15,9 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { deployments } from "@/lib/bot-deployments";
+import { DeploymentCard } from "@/components/deployment-card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -21,7 +28,6 @@ export default async function DeploymentsPage({ params }: PageProps) {
   const { botId, orgId } = await params;
 
   const botResponse = await getBotById(botId);
-
   const bot = botResponse?.data;
 
   return (
@@ -64,8 +70,85 @@ export default async function DeploymentsPage({ params }: PageProps) {
         </div>
       </header>
 
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Overview</h1>
+      <Suspense fallback={<DeploymentsLoading />}>
+        <DeploymentsContent botId={botId} />
+      </Suspense>
+    </div>
+  );
+}
+
+// Loading state component
+function DeploymentsLoading() {
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Deployments</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="border rounded-lg p-4 space-y-3">
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Main content component
+async function DeploymentsContent({ botId }: { botId: string }) {
+  // We'll use botId for future DB queries related to this bot
+  console.log(`Loading deployments for bot: ${botId}`);
+
+  // Mock data for installed deployments - replace with actual data from your database
+  const installedDeployments = await getInstalledDeployments(botId);
+  const installedDeploymentTypes: string[] = installedDeployments.data.map(
+    (deployment) => deployment.type
+  );
+  console.log({ installedDeploymentTypes });
+
+  // Filter deployments if needed
+  const filteredDeployments = deployments;
+
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Deployments</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredDeployments.map((deployment) => {
+          // Convert StaticImageData to string URLs if needed
+          const imageUrls: string[] = Array.isArray(deployment.images)
+            ? deployment.images.map((img: unknown) =>
+                typeof img === "string"
+                  ? img
+                  : img && typeof img === "object" && "src" in img
+                  ? (img.src as string)
+                  : ""
+              )
+            : [];
+
+          return (
+            <DeploymentCard
+              key={deployment.id}
+              id={deployment.id}
+              logoId={deployment.id}
+              name={deployment.name}
+              short_description={deployment.short_description}
+              description={deployment.description}
+              settings={deployment.settings || {}}
+              images={imageUrls}
+              active={deployment.active}
+              category={deployment.category}
+              installed={installedDeploymentTypes.includes(
+                deployment.deploymentType
+              )}
+              userSettings={{}}
+            />
+          );
+        })}
       </div>
     </div>
   );

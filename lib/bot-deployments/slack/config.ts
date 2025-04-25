@@ -1,5 +1,5 @@
 import image from "./assets/image.png";
-import { Logo } from "./assets/logo";
+import { onInitialize } from "./initialize";
 
 export interface SlackConfig {
   clientId: string;
@@ -24,12 +24,13 @@ export default {
   id: "slack",
   category: "Assistant",
   active: true,
-  logo: Logo,
   destination: "/slack",
+  deploymentType: "SLACK",
   short_description:
     "Integrating with Slack enables you to use the app right from anywhere.",
   description:
     "Integrating with Slack enables you to use the app right from anywhere. This is a great way to get started with the app.",
   images: [image],
   settings: [], // Ignore this for now
+  onInitialize,
 };

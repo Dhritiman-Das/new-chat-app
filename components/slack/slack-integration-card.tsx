@@ -20,6 +20,7 @@ import {
   SlackIntegrationConfig,
 } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/deployments/slack/utils";
 import { SlackChannelList } from "./slack-channel-list";
+import { deploymentLogos } from "@/lib/bot-deployments";
 
 interface SlackIntegrationProps {
   integration?: {
@@ -46,6 +47,8 @@ export function SlackIntegrationCard({
   orgId,
 }: SlackIntegrationProps) {
   const [isRemoving, setIsRemoving] = useState(false);
+  const LogoComponent =
+    deploymentLogos["slack" as keyof typeof deploymentLogos];
 
   const handleRemoveIntegration = async () => {
     try {
@@ -150,7 +153,11 @@ export function SlackIntegrationCard({
         ) : (
           <div className="flex flex-col items-center justify-center py-6 text-center space-y-4">
             <div className="bg-muted rounded-full p-3">
-              <Icons.Slack className="h-6 w-6 text-[#4A154B]" />
+              {LogoComponent ? (
+                <LogoComponent />
+              ) : (
+                <div className="h-6 w-6 bg-muted rounded-md" />
+              )}
             </div>
             <div>
               <h3 className="font-medium">Not Connected</h3>

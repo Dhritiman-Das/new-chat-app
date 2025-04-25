@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Icons } from "@/components/icons";
+
 import { BackButton } from "@/components/slack/back-button";
 import { getSlackIntegrations } from "./utils";
 import { GuideButton } from "@/components/slack/guide-button";
+import { deploymentLogos } from "@/lib/bot-deployments";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -24,6 +25,9 @@ interface PageProps {
 export default async function SlackDeploymentsPage({ params }: PageProps) {
   await requireAuth();
   const { botId, orgId } = await params;
+
+  const LogoComponent =
+    deploymentLogos["slack" as keyof typeof deploymentLogos];
 
   const botResponse = await getBotById(botId);
   const slackIntegrations = await getSlackIntegrations(botId);
@@ -79,12 +83,14 @@ export default async function SlackDeploymentsPage({ params }: PageProps) {
         <div className="mx-auto w-full space-y-8">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <BackButton
-                href={`/dashboard/${orgId}/bots/${botId}/deployments`}
-              />
+              <BackButton />
 
               <div className="flex items-center gap-3">
-                <Icons.Slack className="h-8 w-8 text-[#4A154B]" />
+                {LogoComponent ? (
+                  <LogoComponent />
+                ) : (
+                  <div className="h-6 w-6 bg-muted rounded-md" />
+                )}
                 <div>
                   <h1 className="text-2xl font-bold tracking-tight">Slack</h1>
                   <p className="text-sm text-muted-foreground">

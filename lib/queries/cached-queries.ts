@@ -15,6 +15,7 @@ import {
   getConversationStatusCountsQuery,
   getConversationsQuery,
   getConversationSourcesQuery,
+  getInstalledDeploymentsQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -662,3 +663,15 @@ export async function getIframeConfigForBot(botId: string) {
     };
   }
 }
+
+export const getInstalledDeployments = async (botId: string) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return { data: await getInstalledDeploymentsQuery(prisma, botId) };
+    },
+    ["installed-deployments", botId],
+    { tags: [`installed-deployments-${botId}`], revalidate: 60 }
+  )();
+};

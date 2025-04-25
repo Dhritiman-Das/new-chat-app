@@ -16,6 +16,9 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { IframeConfig } from "@/components/iframe/types";
 import { IframeConfigurator } from "@/components/iframe/iframe-configurator";
+import { BackButton } from "@/components/slack/back-button";
+import { GuideButton } from "@/components/slack/guide-button";
+import { deploymentLogos } from "@/lib/bot-deployments";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -30,6 +33,9 @@ export default async function DeploymentsIframePage({ params }: PageProps) {
 
   const bot = botResponse?.data;
   const iframeConfig = configResponse?.data || {};
+
+  const LogoComponent =
+    deploymentLogos["iframe" as keyof typeof deploymentLogos];
 
   return (
     <div className="flex flex-col h-full">
@@ -75,11 +81,38 @@ export default async function DeploymentsIframePage({ params }: PageProps) {
         </div>
       </header>
 
-      <div className="p-6">
-        <IframeConfigurator
-          botId={botId}
-          initialConfig={iframeConfig as Partial<IframeConfig>}
-        />
+      <div className="flex-1 overflow-y-auto p-6 pb-16">
+        <div className="mx-auto w-full space-y-8">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <BackButton />
+
+              <div className="flex items-center gap-3">
+                {LogoComponent ? (
+                  <LogoComponent />
+                ) : (
+                  <div className="h-6 w-6 bg-muted rounded-md" />
+                )}
+
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">Iframe</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Embed your bot in your website using our iframe integration.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <GuideButton />
+          </div>
+
+          <div>
+            <IframeConfigurator
+              botId={botId}
+              initialConfig={iframeConfig as Partial<IframeConfig>}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

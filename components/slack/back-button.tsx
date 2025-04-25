@@ -2,27 +2,17 @@
 
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
+import { useRouter } from "next/navigation";
 
-interface BackButtonProps {
-  href: string;
-}
-
-export function BackButton({ href }: BackButtonProps) {
+export function BackButton() {
+  const router = useRouter();
   const handleClick = () => {
-    window.history.back();
+    router.back();
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={handleClick}
-      className="rounded-full"
-      asChild
-    >
-      <a href={href}>
-        <Icons.ArrowLeft className="h-4 w-4" />
-      </a>
+    <Button variant="ghost" size="icon" onClick={handleClick} className="">
+      <Icons.ArrowLeft className="h-4 w-4" />
     </Button>
   );
 }
