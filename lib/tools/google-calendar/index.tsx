@@ -10,6 +10,8 @@ import {
   listAppointments,
   listAvailableSlots,
 } from "./functions";
+import GoogleCalendarLogo from "./assets/logo";
+import GoogleCalendarScopeDialog from "./components/scope-details-dialog";
 
 export const googleCalendarTool: ToolDefinition = {
   id: "google-calendar",
@@ -19,6 +21,7 @@ export const googleCalendarTool: ToolDefinition = {
   type: "CALENDAR_BOOKING",
   integrationType: "google",
   version: "1.0.0",
+  icon: <GoogleCalendarLogo className="w-8 h-8" />,
   configSchema: googleCalendarConfigSchema,
   functions: {
     bookAppointment,
@@ -50,4 +53,5 @@ export const googleCalendarTool: ToolDefinition = {
     authAction: "connectGoogleCalendar",
     disconnectAction: "disconnectGoogleCalendar",
   },
+  moreDetailsDialog: <GoogleCalendarScopeDialog />,
 };

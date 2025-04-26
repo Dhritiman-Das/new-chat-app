@@ -18,6 +18,7 @@ import ToolComponentWrapper from "@/components/tools/tool-component-wrapper";
 import InstallToolCard from "@/components/tools/install-tool-card";
 import { ToolAuthStatus } from "@/components/tools/tool-auth-status";
 import { AuthRequirement } from "@/lib/tools/definitions/tool-interface";
+import { BackButton } from "@/components/back-button";
 
 // Define a serializable tool interface without function references
 interface SerializableTool {
@@ -85,15 +86,6 @@ export default async function ToolDetailPage({ params }: PageProps) {
     auth: tool.auth,
   };
 
-  // Map tool types to their corresponding icons
-  const iconMap: Record<string, React.ReactNode> = {
-    CALENDAR_BOOKING: <Icons.Calendar className="h-5 w-5" />,
-    CONTACT_FORM: <Icons.MessageCircle className="h-5 w-5" />,
-    CRM_TAG: <Icons.Database className="h-5 w-5" />,
-    DATA_QUERY: <Icons.Database className="h-5 w-5" />,
-    CUSTOM: <Icons.Settings className="h-5 w-5" />,
-  };
-
   return (
     <div>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
@@ -143,13 +135,17 @@ export default async function ToolDetailPage({ params }: PageProps) {
       </header>
 
       <div className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-md bg-muted">
-            {iconMap[tool.type] || <Icons.Hammer className="h-5 w-5" />}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">{tool.name}</h1>
-            <p className="text-muted-foreground">{tool.description}</p>
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <BackButton />
+
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-muted">{tool.icon}</div>
+              <div>
+                <h1 className="text-2xl font-bold">{tool.name}</h1>
+                <p className="text-muted-foreground">{tool.description}</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -158,9 +154,15 @@ export default async function ToolDetailPage({ params }: PageProps) {
           <AlertTitle>Integration Type</AlertTitle>
           <AlertDescription className="flex items-center justify-between">
             <span>
-              {tool.integrationType
-                ? `This tool integrates with ${tool.integrationType} and requires authentication.`
-                : "This tool doesn't require any external integration."}
+              {tool.integrationType ? (
+                <>
+                  This tool integrates with {tool.integrationType} and requires
+                  authentication. Click {tool.moreDetailsDialog} for more
+                  information.
+                </>
+              ) : (
+                "This tool doesn't require any external integration."
+              )}
             </span>
 
             {isToolInstalled && tool.auth?.required && (

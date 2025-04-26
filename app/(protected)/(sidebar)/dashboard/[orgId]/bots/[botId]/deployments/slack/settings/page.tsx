@@ -3,7 +3,7 @@ import { getBotById } from "@/lib/queries/cached-queries";
 import { getSlackIntegrations } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/deployments/slack/utils";
 import { SlackSettings } from "@/components/slack/slack-settings";
 import { notFound } from "next/navigation";
-import { BackButton } from "@/components/slack/back-button";
+import { BackButton } from "@/components/back-button";
 
 import {
   Breadcrumb,

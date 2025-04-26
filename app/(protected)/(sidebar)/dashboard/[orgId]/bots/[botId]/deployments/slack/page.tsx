@@ -13,7 +13,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
-import { BackButton } from "@/components/slack/back-button";
+import { BackButton } from "@/components/back-button";
 import { getSlackIntegrations } from "./utils";
 import { GuideButton } from "@/components/slack/guide-button";
 import { deploymentLogos } from "@/lib/bot-deployments";

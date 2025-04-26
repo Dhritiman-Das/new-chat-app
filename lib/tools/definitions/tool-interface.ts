@@ -35,9 +35,11 @@ export interface ToolDefinition {
   type: string;
   integrationType?: string;
   version: string;
+  icon: React.ReactNode;
   configSchema: z.ZodType;
   functions: Record<string, ToolFunction>;
   getCredentialSchema: () => z.ZodType;
   defaultConfig?: Record<string, unknown>;
   auth?: AuthRequirement; // Authentication requirements
+  moreDetailsDialog?: React.ReactNode;
 }

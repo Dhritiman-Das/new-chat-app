@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { IframeConfig } from "@/components/iframe/types";
 import { IframeConfigurator } from "@/components/iframe/iframe-configurator";
-import { BackButton } from "@/components/slack/back-button";
+import { BackButton } from "@/components/back-button";
 import { GuideButton } from "@/components/slack/guide-button";
 import { deploymentLogos } from "@/lib/bot-deployments";
 

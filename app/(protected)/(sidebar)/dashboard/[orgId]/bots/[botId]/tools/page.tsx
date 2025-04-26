@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Icons } from "@/components/icons";
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -87,24 +87,20 @@ export default async function ToolsPage({ params }: PageProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tools.map((tool) => {
             // Map tool types to their corresponding icons
-            const iconMap: Record<string, React.ReactNode> = {
-              CALENDAR_BOOKING: <Icons.Calendar className="h-5 w-5" />,
-              CONTACT_FORM: <Icons.MessageCircle className="h-5 w-5" />,
-              CRM_TAG: <Icons.Database className="h-5 w-5" />,
-              DATA_QUERY: <Icons.Database className="h-5 w-5" />,
-              CUSTOM: <Icons.Settings className="h-5 w-5" />,
-            };
+            // const iconMap: Record<string, React.ReactNode> = {
+            //   CALENDAR_BOOKING: <Icons.Calendar className="h-5 w-5" />,
+            //   CONTACT_FORM: <Icons.MessageCircle className="h-5 w-5" />,
+            //   CRM_TAG: <Icons.Database className="h-5 w-5" />,
+            //   DATA_QUERY: <Icons.Database className="h-5 w-5" />,
+            //   CUSTOM: <Icons.Settings className="h-5 w-5" />,
+            // };
 
             return (
               <Card key={tool.id} className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{tool.name}</CardTitle>
-                    <div className="p-1 rounded-md bg-muted">
-                      {iconMap[tool.type] || (
-                        <Icons.Hammer className="h-5 w-5" />
-                      )}
-                    </div>
+                    <div className="p-1 rounded-md bg-muted">{tool.icon}</div>
                   </div>
                   <CardDescription className="line-clamp-2 h-10">
                     {tool.description}
