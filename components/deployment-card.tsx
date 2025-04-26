@@ -15,6 +15,7 @@ import { useQueryState } from "nuqs";
 import { deploymentLogos } from "@/lib/bot-deployments";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { Icons } from "./icons";
 
 interface SettingItem {
   id: string;
@@ -53,7 +54,7 @@ export function DeploymentCard({
   const LogoComponent = deploymentLogos[logoId as keyof typeof deploymentLogos];
 
   return (
-    <Card key={id} className="w-full flex flex-col">
+    <Card key={id} className="w-full flex flex-col gap-3 py-3">
       <Sheet open={params === id} onOpenChange={() => setParams(null)}>
         <div className="pt-4 px-4 h-14 flex items-center justify-between">
           {LogoComponent ? (
@@ -116,7 +117,10 @@ export function DeploymentCard({
                 <Link
                   href={`/dashboard/${orgId}/bots/${botId}/deployments/${id}`}
                 >
-                  Install
+                  <div className="flex items-center gap-2">
+                    <Icons.Add className="size-4" />
+                    Install
+                  </div>
                 </Link>
               </Button>
             )}
