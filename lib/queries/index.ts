@@ -655,3 +655,56 @@ export async function getBotAppointmentsQuery(
     },
   };
 }
+
+/**
+ * Get user's bots grouped by organizations
+ */
+export async function getUserBotsGroupedByOrgQuery(
+  prisma: PrismaClient,
+  userId: string
+) {
+  // First get all organizations the user belongs to
+  const userOrgs = await prisma.userOrganization.findMany({
+    where: {
+      userId: userId,
+    },
+    include: {
+      organization: true,
+    },
+    orderBy: {
+      organization: {
+        name: "asc",
+      },
+    },
+  });
+
+  // Initialize result with organizations
+  const result = await Promise.all(
+    userOrgs.map(async (userOrg) => {
+      // Fetch bots for each organization
+      const bots = await prisma.bot.findMany({
+        where: {
+          organizationId: userOrg.organization.id,
+        },
+        orderBy: {
+          name: "asc",
+        },
+      });
+
+      return {
+        organization: {
+          id: userOrg.organization.id,
+          name: userOrg.organization.name,
+          slug: userOrg.organization.slug,
+          logoUrl: userOrg.organization.logoUrl,
+        },
+        role: userOrg.role,
+        bots: bots,
+      };
+    })
+  );
+
+  return {
+    data: result,
+  };
+}

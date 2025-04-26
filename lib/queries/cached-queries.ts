@@ -17,6 +17,7 @@ import {
   getConversationSourcesQuery,
   getInstalledDeploymentsQuery,
   getBotAppointmentsQuery,
+  getUserBotsGroupedByOrgQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -693,6 +694,23 @@ export const getBotAppointments = async (
     {
       tags: [`bot_appointments_${botId}`],
       revalidate: 30, // Cache for 30 seconds since appointments might be updated frequently
+    }
+  )();
+};
+
+// Cache user's bots grouped by organizations
+export const getUserBotsGroupedByOrg = async () => {
+  const user = await requireAuth();
+  const userId = user.id;
+
+  return unstable_cache(
+    async () => {
+      return getUserBotsGroupedByOrgQuery(prisma, userId);
+    },
+    ["user_bots_grouped", userId],
+    {
+      tags: [`user_bots_${userId}`, `user_organizations_${userId}`],
+      revalidate: 60, // Cache for 1 minute
     }
   )();
 };

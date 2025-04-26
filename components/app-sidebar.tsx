@@ -11,20 +11,39 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { User } from "@/lib/generated/prisma";
+import { Bot, User } from "@/lib/generated/prisma";
+import { BotSwitcher } from "./bot-switch";
+
+interface OrganizationBots {
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl?: string | null;
+  };
+  role: string;
+  bots: Bot[];
+}
 
 interface AppSidebarProps {
   orgId: string;
   botId: string;
   user: User;
+  botsGroupedByOrg: OrganizationBots[];
 }
 
-export function AppSidebar({ orgId, botId, user }: AppSidebarProps) {
+export function AppSidebar({
+  orgId,
+  botId,
+  user,
+  botsGroupedByOrg,
+}: AppSidebarProps) {
   const pathname = usePathname();
 
   // Menu items with dynamic paths
@@ -85,9 +104,16 @@ export function AppSidebar({ orgId, botId, user }: AppSidebarProps) {
 
   return (
     <Sidebar>
+      <SidebarHeader>
+        <BotSwitcher
+          orgId={orgId}
+          botId={botId}
+          botsGroupedByOrg={botsGroupedByOrg}
+        />
+      </SidebarHeader>
       <SidebarContent className="h-full flex flex-col">
         <SidebarGroup>
-          <SidebarGroupLabel>Bot</SidebarGroupLabel>
+          <SidebarGroupLabel>Platform</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (

@@ -3,15 +3,28 @@
 import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { OrgSidebar } from "./org-sidebar";
-import { User } from "@/lib/generated/prisma";
+import { Bot, User } from "@/lib/generated/prisma";
 import { UserOrganization } from "@/lib/types/prisma";
+
+interface OrganizationBots {
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    logoUrl?: string | null;
+  };
+  role: string;
+  bots: Bot[];
+}
 
 export function ConditionalAppSidebar({
   user,
   userOrganizations,
+  botsGroupedByOrg,
 }: {
   user: User;
   userOrganizations: UserOrganization[];
+  botsGroupedByOrg: OrganizationBots[];
 }) {
   const pathname = usePathname();
   const isBotPage =
@@ -46,5 +59,12 @@ export function ConditionalAppSidebar({
       />
     );
 
-  return <AppSidebar orgId={orgId} botId={botId} user={user} />;
+  return (
+    <AppSidebar
+      orgId={orgId}
+      botId={botId}
+      user={user}
+      botsGroupedByOrg={botsGroupedByOrg}
+    />
+  );
 }
