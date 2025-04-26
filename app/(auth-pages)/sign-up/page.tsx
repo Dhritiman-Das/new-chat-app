@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Icons } from "@/components/icons";
 
 export default async function Signup(props: {
   searchParams: Promise<Message>;
@@ -33,6 +34,11 @@ export default async function Signup(props: {
       <div className="flex flex-col gap-6 w-full max-w-md">
         <Card className="w-full">
           <CardHeader className="text-center">
+            <div className="flex justify-center mb-2">
+              <div className="bg-primary/10 p-3 rounded-full">
+                <Icons.LogoIcon className="h-10 w-10 text-primary" />
+              </div>
+            </div>
             <CardTitle className="text-2xl font-medium">
               Create account
             </CardTitle>
