@@ -632,7 +632,7 @@ export function ConfigurePanel({
                       onChange={(e) =>
                         handleBrandingChange("brandingText", e.target.value)
                       }
-                      placeholder="Powered by AI"
+                      placeholder="Powered by Bonti"
                     />
                   </div>
 

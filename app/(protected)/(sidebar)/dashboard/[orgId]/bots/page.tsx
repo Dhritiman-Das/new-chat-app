@@ -5,7 +5,7 @@ import {
 } from "@/lib/queries/cached-queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, MessageCircle } from "@/components/icons";
+import { MessageCircle, Icons } from "@/components/icons";
 import { Organization } from "@/lib/generated/prisma";
 import {
   Breadcrumb,
@@ -87,7 +87,7 @@ export default async function BotsPage({ params }: PageProps) {
           </div>
           <Button asChild>
             <Link href={`/dashboard/${orgId}/bots/new`}>
-              <PlusCircle className="mr-2 h-4 w-4" />
+              <Icons.Add className="mr-2 h-4 w-4" />
               New Bot
             </Link>
           </Button>
@@ -126,7 +126,7 @@ async function EmptyState({ params }: { params: Promise<{ orgId: string }> }) {
         </div>
         <Button asChild>
           <Link href={`/dashboard/${orgId}/bots/new`}>
-            <PlusCircle className="mr-2 h-4 w-4" />
+            <Icons.Add className="mr-2 h-4 w-4" />
             Create Your First Bot
           </Link>
         </Button>

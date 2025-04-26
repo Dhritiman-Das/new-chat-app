@@ -26,7 +26,7 @@ export const defaultIframeConfig: IframeConfig = {
   },
   branding: {
     showBranding: true,
-    brandingText: "Powered by AI",
+    brandingText: "Powered by Bonti",
     brandingLogo: "",
   },
   features: {
