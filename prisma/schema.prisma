@@ -29,6 +29,7 @@ model Organization {
   // Relations
   users UserOrganization[]
   bots  Bot[]
+  templates Template[]
 
   @@map("organizations")
 }
@@ -49,6 +50,7 @@ model User {
   integrations  Integration[]
   credentials   Credential[]
   survey        Survey? // Added relation to Survey
+  templates     Template[] // Added relation to Template
 
   @@map("users")
 }
@@ -391,6 +393,46 @@ model OAuthState {
 
   @@index([expiresAt])
   @@map("oauth_states")
+}
+
+// Template model for storing prompt templates
+model Template {
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  content          String            // The template with placeholders
+  isPublic         Boolean           @default(false) @map("is_public")
+  organizationId   String?           @map("organization_id")
+  createdBy        String            @map("created_by") // User ID who created this
+  placeholderSchema Json             @map("placeholder_schema") // JSON schema for placeholders
+  usageCount       Int               @default(0) @map("usage_count")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  organization     Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator          User              @relation(fields: [createdBy], references: [id])
+  categories       TemplateCategory[] @relation("TemplatesToCategories")
+
+  @@index([organizationId])
+  @@index([createdBy])
+  @@index([isPublic])
+  @@map("templates")
+}
+
+// Category model for template filtering
+model TemplateCategory {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  slug        String     @unique
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  templates   Template[] @relation("TemplatesToCategories")
+
+  @@map("template_categories")
 }
 
 // Enums

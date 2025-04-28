@@ -92,6 +92,11 @@ export function AppSidebar({
       url: `/dashboard/${orgId}/bots/${botId}/analytics`,
       icon: Icons.Chart,
     },
+    {
+      title: "Templates",
+      url: `/dashboard/${orgId}/bots/${botId}/templates`,
+      icon: Icons.LayoutTemplate,
+    },
   ];
 
   const items = getItems(orgId, botId);

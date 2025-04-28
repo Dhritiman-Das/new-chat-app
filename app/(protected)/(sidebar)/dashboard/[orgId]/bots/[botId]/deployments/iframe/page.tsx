@@ -70,7 +70,11 @@ export default async function DeploymentsIframePage({ params }: PageProps) {
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>Deployments</BreadcrumbPage>
+                <BreadcrumbLink
+                  href={`/dashboard/${orgId}/bots/${botId}/deployments`}
+                >
+                  Deployments
+                </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>

@@ -79,6 +79,8 @@ import {
   ArrowUp,
   ArrowDown,
   BookOpen,
+  LayoutTemplate,
+  TextQuote,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
 import {
@@ -239,6 +241,8 @@ export const Icons = {
   ArrowDown,
   BookOpen,
   LeadCapture: PiTargetDuotone,
+  LayoutTemplate,
+  Placeholder: TextQuote,
 };
 
 // Export individual icons for direct imports

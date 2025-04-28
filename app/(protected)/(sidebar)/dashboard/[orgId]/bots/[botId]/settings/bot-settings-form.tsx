@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { Switch } from "@/components/ui/switch";
+import { TemplateDialog } from "./template-dialog";
 
 interface BotSettingsFormProps {
   bot: {
@@ -26,9 +27,10 @@ interface BotSettingsFormProps {
     systemPrompt: string;
     isActive: boolean;
   };
+  orgId: string;
 }
 
-export default function BotSettingsForm({ bot }: BotSettingsFormProps) {
+export default function BotSettingsForm({ bot, orgId }: BotSettingsFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm({
@@ -46,6 +48,7 @@ export default function BotSettingsForm({ bot }: BotSettingsFormProps) {
     systemPrompt: string;
     isActive: boolean;
   }) => {
+    console.log("Form is being submitted. Values: ", values);
     setIsSubmitting(true);
     try {
       const response = await updateBot({
@@ -73,6 +76,12 @@ export default function BotSettingsForm({ bot }: BotSettingsFormProps) {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Function to handle system prompt update from template
+  const handleApplyTemplate = (newSystemPrompt: string) => {
+    console.log("Applying template. New system prompt: ", newSystemPrompt);
+    form.setValue("systemPrompt", newSystemPrompt);
   };
 
   return (
@@ -125,7 +134,13 @@ export default function BotSettingsForm({ bot }: BotSettingsFormProps) {
           name="systemPrompt"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>System Prompt</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>System Prompt</FormLabel>
+                <TemplateDialog
+                  orgId={orgId}
+                  onApplyTemplate={handleApplyTemplate}
+                />
+              </div>
               <FormControl>
                 <Textarea
                   placeholder="Enter system prompt"

@@ -88,7 +88,7 @@ export default async function BotSettings({ params }: PageProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <BotSettingsForm bot={bot} />
+              <BotSettingsForm bot={bot} orgId={orgId} />
             </CardContent>
           </Card>
 
