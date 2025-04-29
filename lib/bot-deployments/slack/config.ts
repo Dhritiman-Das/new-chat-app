@@ -27,9 +27,9 @@ export default {
   destination: "/slack",
   deploymentType: "SLACK",
   short_description:
-    "Integrating with Slack enables you to use the app right from anywhere.",
+    "Seamlessly connect your workflows with Slack's messaging platform for real-time team collaboration and notifications.",
   description:
-    "Integrating with Slack enables you to use the app right from anywhere. This is a great way to get started with the app.",
+    "Integrating with Slack allows direct interaction with the app through channels and DMs, enabling automated alerts, data sharing, and collaborative workflows. This enhances cross-team coordination and keeps stakeholders informed through centralized communication.",
   images: [image],
   settings: [], // Ignore this for now
   onInitialize,
