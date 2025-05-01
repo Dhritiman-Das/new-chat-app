@@ -10,10 +10,17 @@ import {
 import {
   ChevronRight,
   Database,
-  Building,
+  Hammer,
   MessageCircle,
+  ArrowUpRight,
 } from "@/components/icons";
 import { Bot } from "@/lib/generated/prisma";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Extended type for the bot with organization information
 export interface BotWithOrg extends Bot {
@@ -22,6 +29,12 @@ export interface BotWithOrg extends Bot {
     name: string;
     slug: string;
     logoUrl: string | null;
+  };
+  _count: {
+    knowledgeBases: number;
+    botTools: number;
+    deployments: number;
+    conversations: number;
   };
 }
 
@@ -53,20 +66,59 @@ export function BotCard({ bot, orgId }: BotCardProps) {
             {bot.description || "No description provided"}
           </CardDescription>
         </CardHeader>
-        <CardContent className="pb-2 text-sm text-muted-foreground space-y-2">
-          <div className="flex items-center gap-1">
-            <Database className="h-3.5 w-3.5" />
-            <span>Knowledge Bases: 0</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Building className="h-3.5 w-3.5" />
-            <span>Organization: {bot.organization.name}</span>
+        <CardContent className="pb-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex items-center gap-1">
+                    <Database className="h-3.5 w-3.5" />
+                    <span>{bot._count.knowledgeBases}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Knowledge Bases</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex items-center gap-1">
+                    <Hammer className="h-3.5 w-3.5" />
+                    <span>{bot._count.botTools}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Active Tools</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="flex items-center gap-1">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    <span>{bot._count.deployments}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Active Deployments</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </CardContent>
         <CardFooter className="flex justify-between border-t pt-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <MessageCircle className="h-3.5 w-3.5" />
-            <span>No recent conversations</span>
+            <span>
+              {bot._count.conversations
+                ? `${bot._count.conversations} conversations in last 7 days`
+                : "No recent conversations"}
+            </span>
           </div>
           <div>Created {new Date(bot.createdAt).toLocaleDateString()}</div>
         </CardFooter>

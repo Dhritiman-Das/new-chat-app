@@ -18,6 +18,7 @@ import {
   getInstalledDeploymentsQuery,
   getBotAppointmentsQuery,
   getUserBotsGroupedByOrgQuery,
+  getBotCountsQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -711,6 +712,28 @@ export const getUserBotsGroupedByOrg = async () => {
     {
       tags: [`user_bots_${userId}`, `user_organizations_${userId}`],
       revalidate: 60, // Cache for 1 minute
+    }
+  )();
+};
+
+// Cache bot counts
+export const getBotCounts = async (botId: string) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return getBotCountsQuery(prisma, botId);
+    },
+    ["bot_counts", botId],
+    {
+      tags: [
+        `bot_${botId}`,
+        `bot_tools_${botId}`,
+        `bot_knowledge_bases_${botId}`,
+        `bot_deployments_${botId}`,
+        `bot_conversations_${botId}`,
+      ],
+      revalidate: 30, // Cache for 30 seconds since these counts might change frequently
     }
   )();
 };

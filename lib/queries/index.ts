@@ -67,6 +67,9 @@ export async function getOrganizationBotsQuery(
 }
 
 export async function getUserBotsQuery(prisma: PrismaClient, userId: string) {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
   const bots = await prisma.bot.findMany({
     where: {
       userId: userId,
@@ -78,6 +81,28 @@ export async function getUserBotsQuery(prisma: PrismaClient, userId: string) {
           name: true,
           slug: true,
           logoUrl: true,
+        },
+      },
+      _count: {
+        select: {
+          knowledgeBases: true,
+          botTools: {
+            where: {
+              isEnabled: true,
+            },
+          },
+          deployments: {
+            where: {
+              status: "ACTIVE",
+            },
+          },
+          conversations: {
+            where: {
+              startedAt: {
+                gte: sevenDaysAgo,
+              },
+            },
+          },
         },
       },
     },
@@ -707,4 +732,40 @@ export async function getUserBotsGroupedByOrgQuery(
   return {
     data: result,
   };
+}
+
+// New function to get bot counts
+export async function getBotCountsQuery(prisma: PrismaClient, botId: string) {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const counts = await prisma.bot.findUnique({
+    where: { id: botId },
+    select: {
+      _count: {
+        select: {
+          knowledgeBases: true,
+          botTools: {
+            where: {
+              isEnabled: true,
+            },
+          },
+          deployments: {
+            where: {
+              status: "ACTIVE",
+            },
+          },
+          conversations: {
+            where: {
+              startedAt: {
+                gte: sevenDaysAgo,
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return counts?._count;
 }
