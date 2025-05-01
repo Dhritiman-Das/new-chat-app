@@ -11,6 +11,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -95,6 +96,14 @@ export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
 
   return (
     <Sidebar>
+      <SidebarHeader>
+        <div className="flex items-center gap-2 justify-center pt-2">
+          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <Icons.LogoIcon className="size-4" />
+          </div>
+          <span className="text-md font-medium tracking-widest">Bonti</span>
+        </div>
+      </SidebarHeader>
       <SidebarContent className="h-full flex flex-col">
         <SidebarGroup>
           <SidebarGroupLabel>Bots</SidebarGroupLabel>

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import Image from "next/image";
+import { MarkdownContent } from "@/components/markdown-content";
 
 interface IframeChatProps {
   botId: string;
@@ -201,9 +202,14 @@ export function IframeChat({ botId, config = {}, className }: IframeChatProps) {
                 )}
                 style={{ fontFamily: "inherit" }}
               >
-                <div className="text-sm sm:text-base break-words">
-                  {message.content}
-                </div>
+                <MarkdownContent
+                  content={message.content}
+                  className={cn(
+                    "text-sm sm:text-base break-words",
+                    message.role === "user" &&
+                      "text-white [&_*]:text-white [&_pre]:bg-white/10"
+                  )}
+                />
               </div>
             </motion.div>
           ))}
