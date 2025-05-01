@@ -2,6 +2,7 @@
 
 import { Icons } from "@/components/icons";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 import {
@@ -17,17 +18,9 @@ import {
 } from "@/components/ui/sidebar";
 import { NavUser } from "./nav-user";
 import { User } from "@/lib/generated/prisma";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { UserOrganization } from "@/lib/types/prisma";
 // import { getUserOrganizations } from "@/lib/queries/cached-queries";
-
-interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  logoUrl?: string | null;
-  role: string;
-}
 
 interface OrgSidebarProps {
   orgId: string;
@@ -37,70 +30,63 @@ interface OrgSidebarProps {
 
 export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
   const pathname = usePathname();
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-
-  useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        setOrganizations(userOrganizations);
-      } catch (error) {
-        console.error("Failed to fetch organizations:", error);
-      }
-    };
-
-    fetchOrganizations();
-  }, [userOrganizations]);
 
   // Bot level
-  const getBotItems = () => [
-    {
-      title: "All bots",
-      url: `/dashboard/bots`,
-    },
-  ];
+  const botItems = useMemo(
+    () => [
+      {
+        title: "All bots",
+        url: `/dashboard/bots`,
+      },
+    ],
+    []
+  );
 
-  const getOrgItems = () => {
-    return organizations.map((org) => ({
-      title: org.name,
-      url: `/dashboard/${org.id}`,
-    }));
-  };
+  const orgItems = useMemo(
+    () =>
+      userOrganizations.map((org) => ({
+        title: org.name,
+        url: `/dashboard/${org.id}`,
+      })),
+    [userOrganizations]
+  );
 
-  const getAccountItems = () => [
-    {
-      title: "My account",
-      url: `/dashboard/account/me`,
-      icon: Icons.User,
-    },
-    {
-      title: "Access tokens",
-      url: `/dashboard/access-tokens`,
-      icon: Icons.Key,
-    },
-    {
-      title: "Notifications",
-      url: `/dashboard/notifications`,
-      icon: Icons.Bell,
-    },
-  ];
+  const accountItems = useMemo(
+    () => [
+      {
+        title: "My account",
+        url: `/dashboard/account/me`,
+        icon: Icons.User,
+      },
+      {
+        title: "Access tokens",
+        url: `/dashboard/access-tokens`,
+        icon: Icons.Key,
+      },
+      {
+        title: "Notifications",
+        url: `/dashboard/notifications`,
+        icon: Icons.Bell,
+      },
+    ],
+    []
+  );
 
-  const getDocumentationItems = () => [
-    {
-      title: "API Reference",
-      url: `/dashboard/api-reference`,
-      icon: Icons.ExternalLink,
-    },
-    {
-      title: "Change log",
-      url: `/dashboard/change-log`,
-      icon: Icons.ExternalLink,
-    },
-  ];
-
-  const botItems = getBotItems();
-  const orgItems = getOrgItems();
-  const accountItems = getAccountItems();
-  const documentationItems = getDocumentationItems();
+  const documentationItems = useMemo(
+    () => [
+      {
+        title: "API Reference",
+        url: `/dashboard/api-reference`,
+        icon: Icons.ExternalLink,
+      },
+      {
+        title: "Change log",
+        url: `/dashboard/change-log`,
+        icon: Icons.ExternalLink,
+      },
+    ],
+    []
+  );
 
   // Check if a given URL is active
   const isActive = (url: string) => {
@@ -123,9 +109,9 @@ export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
                         "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
-                    <a href={item.url}>
+                    <Link href={item.url} prefetch={true}>
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -148,9 +134,9 @@ export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
                         "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
-                    <a href={item.url}>
+                    <Link href={item.url} prefetch={true}>
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -173,7 +159,7 @@ export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
                         "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
-                    <a href={item.url}>
+                    <Link href={item.url} prefetch={true}>
                       <item.icon
                         className={cn(
                           "h-4 w-4",
@@ -181,7 +167,7 @@ export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
                         )}
                       />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -204,7 +190,7 @@ export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
                         "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
-                    <a href={item.url}>
+                    <Link href={item.url} prefetch={true}>
                       <item.icon
                         className={cn(
                           "h-4 w-4",
@@ -212,7 +198,7 @@ export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
                         )}
                       />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

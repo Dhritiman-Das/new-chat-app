@@ -3,6 +3,7 @@
 import { Icons } from "@/components/icons";
 import { NavUser } from "@/components/nav-user";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 import {
@@ -130,7 +131,7 @@ export function AppSidebar({
                         "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
-                    <a href={item.url}>
+                    <Link href={item.url} prefetch={true}>
                       <item.icon
                         className={cn(
                           "h-4 w-4",
@@ -138,7 +139,7 @@ export function AppSidebar({
                         )}
                       />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -161,7 +162,7 @@ export function AppSidebar({
                         "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                   >
-                    <a href={item.url}>
+                    <Link href={item.url} prefetch={true}>
                       <item.icon
                         className={cn(
                           "h-4 w-4",
@@ -169,7 +170,7 @@ export function AppSidebar({
                         )}
                       />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
