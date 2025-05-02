@@ -7,6 +7,7 @@ import {
   addMinutes,
   isValid,
 } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 
 // Type for calendar configuration
 export interface CalendarConfig {
@@ -19,6 +20,7 @@ export interface CalendarConfig {
     startTime: string;
     endTime: string;
   }>;
+  timeZone?: string;
 }
 
 /**
@@ -47,6 +49,8 @@ export function validateAppointmentTime(
   duration: number,
   config: CalendarConfig
 ): void {
+  const timeZone = config.timeZone || "Asia/Kolkata";
+
   // Map day number to day name
   const dayNames = [
     "sunday",
@@ -58,8 +62,8 @@ export function validateAppointmentTime(
     "saturday",
   ];
 
-  // Parse the start time
-  const parsedStartTime = parseISO(startTime);
+  // Parse the start time and convert to IST
+  const parsedStartTime = toZonedTime(parseISO(startTime), timeZone);
 
   // Check if valid date
   if (!isValid(parsedStartTime)) {
@@ -70,7 +74,8 @@ export function validateAppointmentTime(
   }
 
   // Check if in the past
-  if (isBefore(parsedStartTime, new Date())) {
+  const currentTime = toZonedTime(new Date(), timeZone);
+  if (isBefore(parsedStartTime, currentTime)) {
     throw new AppointmentValidationError(
       "Appointment start time cannot be in the past.",
       "START_TIME_IN_PAST"
@@ -85,7 +90,7 @@ export function validateAppointmentTime(
     bufferTimeBetweenMeetings
   );
 
-  // Get the day of week from the start time
+  // Get the day of week from the start time in IST
   const dayOfWeek = getDay(parsedStartTime);
   const dayName = dayNames[dayOfWeek];
 
@@ -118,7 +123,7 @@ export function validateAppointmentTime(
   const [startHour, startMinute] = daySlot.startTime.split(":").map(Number);
   const [endHour, endMinute] = daySlot.endTime.split(":").map(Number);
 
-  // Create date objects for the configured start/end times on this date
+  // Create date objects for the configured start/end times on this date in IST
   const configuredStartTime = new Date(parsedStartTime);
   configuredStartTime.setHours(startHour, startMinute, 0, 0);
 
@@ -131,7 +136,7 @@ export function validateAppointmentTime(
       `Appointment time is outside available hours. Available times on ${format(
         parsedStartTime,
         "EEEE"
-      )} are between ${daySlot.startTime} and ${daySlot.endTime}.`,
+      )} are between ${daySlot.startTime} and ${daySlot.endTime} IST.`,
       "OUTSIDE_AVAILABLE_HOURS"
     );
   }
@@ -142,15 +147,15 @@ export function validateAppointmentTime(
       `Appointment would end outside available hours. Available times on ${format(
         parsedStartTime,
         "EEEE"
-      )} are between ${daySlot.startTime} and ${daySlot.endTime}.`,
+      )} are between ${daySlot.startTime} and ${daySlot.endTime} IST.`,
       "OUTSIDE_AVAILABLE_HOURS"
     );
   }
 
-  // Check availability window
+  // Check availability window with timezone consideration
   const availabilityWindowDays = config.availabilityWindowDays || 14;
   const maxFutureDate = addMinutes(
-    new Date(),
+    currentTime,
     availabilityWindowDays * 24 * 60
   );
 

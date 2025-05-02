@@ -44,6 +44,7 @@ interface CalendarConfig {
     startTime: string;
     endTime: string;
   }>;
+  timeZone?: string;
 }
 
 export const bookAppointment: ToolFunction = {
@@ -129,14 +130,14 @@ export const bookAppointment: ToolFunction = {
         description: enhancedDescription,
         start: {
           dateTime: formattedStartTime,
-          timeZone: "Etc/UTC", // Using UTC for consistency
+          timeZone: config.timeZone || "Asia/Kolkata",
         },
         end: {
           dateTime:
             Number(bufferTimeBetweenMeetings) > 0
               ? formattedBufferEndTime
               : formattedActualEndTime,
-          timeZone: "Etc/UTC", // Using UTC for consistency
+          timeZone: config.timeZone || "Asia/Kolkata",
         },
         reminders: {
           useDefault: true,
@@ -219,7 +220,7 @@ export const bookAppointment: ToolFunction = {
           description: response.data.description || description,
           startTime: parsedStartTime,
           endTime: actualMeetingEndTime,
-          timeZone: response.data.start?.timeZone || "Etc/UTC",
+          timeZone: config.timeZone || "Asia/Kolkata",
           organizer: organizerData,
           attendees: attendeesData,
           meetingLink: response.data.htmlLink || "",
@@ -359,14 +360,14 @@ export const rescheduleAppointment: ToolFunction = {
         description: enhancedDescription,
         start: {
           dateTime: formattedStartTime,
-          timeZone: "Etc/UTC", // Using UTC for consistency
+          timeZone: config.timeZone || "Asia/Kolkata",
         },
         end: {
           dateTime:
             Number(bufferTimeBetweenMeetings) > 0
               ? formattedBufferEndTime
               : formattedActualEndTime,
-          timeZone: "Etc/UTC", // Using UTC for consistency
+          timeZone: config.timeZone || "Asia/Kolkata",
         },
       };
 
@@ -448,7 +449,7 @@ export const rescheduleAppointment: ToolFunction = {
               description: safeDescription,
               startTime: parsedStartTime,
               endTime: actualMeetingEndTime,
-              timeZone: response.data.start?.timeZone || "Etc/UTC",
+              timeZone: config.timeZone || "Asia/Kolkata",
               organizer: organizerData
                 ? JSON.parse(JSON.stringify(organizerData))
                 : null,
@@ -510,7 +511,7 @@ export const rescheduleAppointment: ToolFunction = {
             description: response.data.description || "",
             startTime: parsedStartTime,
             endTime: actualMeetingEndTime,
-            timeZone: response.data.start?.timeZone || "Etc/UTC",
+            timeZone: config.timeZone || "Asia/Kolkata",
             organizer: organizerData,
             attendees: attendeesData,
             meetingLink: response.data.htmlLink || "",

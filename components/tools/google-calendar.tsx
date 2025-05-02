@@ -52,6 +52,23 @@ import {
 import Link from "next/link";
 import { AppointmentsTab } from "./google-calendar/appointments-tab";
 import { Appointment } from "./google-calendar/types";
+import { googleCalendarTimezones } from "@/lib/google-calendar-timezones";
+import * as React from "react";
+import { ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // Interface for serialized tool object
 interface SerializableTool {
@@ -100,6 +117,7 @@ const configSchema = z.object({
   availableTimeSlots: z.array(timeSlotSchema),
   defaultCalendarId: z.string().optional(),
   bufferTimeBetweenMeetings: z.number().min(0).max(60).optional(),
+  timeZone: z.string(),
 });
 
 const DAYS_OF_WEEK = [
@@ -111,6 +129,58 @@ const DAYS_OF_WEEK = [
   { id: "saturday", label: "Saturday" },
   { id: "sunday", label: "Sunday" },
 ];
+
+interface TimezoneComboboxProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function TimezoneCombobox({ value, onChange }: TimezoneComboboxProps) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          {value ? value : "Select timezone..."}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[400px] p-0">
+        <Command>
+          <CommandInput placeholder="Search timezone..." className="h-9" />
+          <CommandList>
+            <CommandEmpty>No timezone found.</CommandEmpty>
+            <CommandGroup>
+              {googleCalendarTimezones.map((tz) => (
+                <CommandItem
+                  key={tz}
+                  value={tz}
+                  onSelect={(currentValue) => {
+                    onChange(currentValue);
+                    setOpen(false);
+                  }}
+                >
+                  {tz}
+                  <Check
+                    className={cn(
+                      "ml-auto h-4 w-4",
+                      value === tz ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function GoogleCalendarTool({
   tool,
@@ -149,6 +219,11 @@ export default function GoogleCalendarTool({
         { day: "friday", startTime: "09:00", endTime: "17:00" },
       ],
       bufferTimeBetweenMeetings: 0,
+      timeZone:
+        typeof tool.defaultConfig?.timeZone === "string" &&
+        tool.defaultConfig.timeZone
+          ? (tool.defaultConfig.timeZone as string)
+          : "Asia/Kolkata",
     },
   });
 
@@ -195,6 +270,12 @@ export default function GoogleCalendarTool({
         if (data.config.defaultCalendarId) {
           setSelectedCalendar(data.config.defaultCalendarId);
           form.setValue("defaultCalendarId", data.config.defaultCalendarId);
+        }
+
+        if (data.config.timeZone && typeof data.config.timeZone === "string") {
+          form.setValue("timeZone", data.config.timeZone);
+        } else {
+          form.setValue("timeZone", "Asia/Kolkata");
         }
       }
     } catch (error) {
@@ -467,78 +548,106 @@ export default function GoogleCalendarTool({
                     onSubmit={form.handleSubmit(onSubmit)}
                     className="space-y-6"
                   >
-                    <FormField
-                      control={form.control}
-                      name="appointmentDuration"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            Default Appointment Duration (minutes)
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(parseInt(e.target.value))
-                              }
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Default meeting duration when booking appointments
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {/* First row: Appointment Duration & Availability Window */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="appointmentDuration"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Default Appointment Duration (minutes)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseInt(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Default meeting duration when booking appointments
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                    <FormField
-                      control={form.control}
-                      name="availabilityWindowDays"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Availability Window (days)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(parseInt(e.target.value))
-                              }
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            How many days in advance can appointments be booked
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                      <FormField
+                        control={form.control}
+                        name="availabilityWindowDays"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Availability Window (days)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseInt(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              How many days in advance can appointments be
+                              booked
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
-                    <FormField
-                      control={form.control}
-                      name="bufferTimeBetweenMeetings"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            Buffer Time Between Meetings (minutes)
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(parseInt(e.target.value))
-                              }
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Add buffer time between scheduled meetings
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {/* Second row: Buffer Time & Timezone */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="bufferTimeBetweenMeetings"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Buffer Time Between Meetings (minutes)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseInt(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Add buffer time between scheduled meetings
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="timeZone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Timezone</FormLabel>
+                            <FormControl>
+                              <TimezoneCombobox
+                                value={field.value}
+                                onChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              All appointments will use this timezone by
+                              default.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
                     <div>
                       <h3 className="text-md font-medium mb-2">

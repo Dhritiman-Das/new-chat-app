@@ -81,6 +81,8 @@ import {
   BookOpen,
   LayoutTemplate,
   TextQuote,
+  Minimize,
+  Maximize,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
 import {
@@ -94,6 +96,7 @@ import { FaXTwitter } from "react-icons/fa6";
 import { SiGooglecalendar, SiSlack } from "react-icons/si";
 import { TiContacts } from "react-icons/ti";
 import { PiTargetDuotone } from "react-icons/pi";
+import { RiAnthropicFill } from "react-icons/ri";
 
 // Create an Icons object that contains all icons
 export const Icons = {
@@ -259,6 +262,9 @@ export const Icons = {
   LeadCapture: PiTargetDuotone,
   LayoutTemplate,
   Placeholder: TextQuote,
+  Minimize,
+  Maximize,
+  Anthropic: RiAnthropicFill,
 };
 
 // Export individual icons for direct imports
