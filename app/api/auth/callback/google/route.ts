@@ -109,11 +109,12 @@ export async function GET(request: Request) {
       Date.now() + tokens.expires_in * 1000
     ).toISOString();
 
-    // Check if there's an existing credential
+    // Check if there's an existing credential for this bot
     const existingCredential = await prisma.credential.findFirst({
       where: {
         userId,
         provider: "google",
+        botId,
       },
     });
 
@@ -148,10 +149,22 @@ export async function GET(request: Request) {
       credentialId = existingCredential.id;
     } else {
       try {
+        // Create a descriptive name based on bot name
+        const bot = await prisma.bot.findUnique({
+          where: { id: botId },
+          select: { name: true },
+        });
+
+        const credentialName = bot
+          ? `Google Calendar for ${bot.name}`
+          : `Google Calendar`;
+
         const newCredential = await prisma.credential.create({
           data: {
             userId,
             provider: "google",
+            name: credentialName,
+            botId,
             credentials: {
               access_token: tokens.access_token,
               refresh_token: tokens.refresh_token,

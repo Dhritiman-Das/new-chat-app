@@ -40,7 +40,7 @@ export async function getGoogleCredentials(
 ): Promise<GoogleCredentials> {
   try {
     // Use context to identify the user and tool
-    const { userId, credentialId } = context;
+    const { userId, credentialId, botId } = context;
 
     if (!userId) {
       throw new CredentialError("User ID is required", "USER_NOT_FOUND");
@@ -53,12 +53,27 @@ export async function getGoogleCredentials(
       credential = await prisma.credential.findUnique({
         where: { id: credentialId },
       });
+    } else if (botId) {
+      // If we have a bot ID, look for credentials associated with this bot
+      credential = await prisma.credential.findFirst({
+        where: {
+          userId,
+          provider: "google",
+          botId,
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+      });
     } else {
       // Otherwise look for Google credentials for this user
       credential = await prisma.credential.findFirst({
         where: {
           userId,
           provider: "google",
+        },
+        orderBy: {
+          updatedAt: "desc",
         },
       });
     }
@@ -139,7 +154,7 @@ async function updateGoogleCredentials(
   context: ToolContext,
   newCredentials: GoogleCredentials
 ) {
-  const { userId, credentialId } = context;
+  const { userId, credentialId, botId } = context;
 
   try {
     if (credentialId) {
@@ -150,7 +165,21 @@ async function updateGoogleCredentials(
           updatedAt: new Date(),
         },
       });
+    } else if (botId) {
+      // Update credentials associated with this bot
+      await prisma.credential.updateMany({
+        where: {
+          userId,
+          provider: "google",
+          botId,
+        },
+        data: {
+          credentials: newCredentials as unknown as Prisma.InputJsonValue,
+          updatedAt: new Date(),
+        },
+      });
     } else {
+      // Update all Google credentials for this user (old behavior)
       await prisma.credential.updateMany({
         where: {
           userId,

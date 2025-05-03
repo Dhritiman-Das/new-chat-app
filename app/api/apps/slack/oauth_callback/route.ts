@@ -153,35 +153,60 @@ export async function GET(request: Request) {
       });
     }
 
-    // Store the token in Credentials table - use upsert to handle existing credentials
-    const credential = await prisma.credential.upsert({
+    // Get bot name for credential name
+    const bot = await prisma.bot.findUnique({
+      where: { id: metadata.botId },
+      select: { name: true },
+    });
+
+    const credentialName = bot ? `Slack for ${bot.name}` : `Slack Integration`;
+
+    // Check for existing credential for this bot
+    const existingCredential = await prisma.credential.findFirst({
       where: {
-        userId_provider: {
-          userId: oauthState.userId,
-          provider: "slack",
-        },
-      },
-      update: {
-        credentials: {
-          access_token: response.access_token,
-          team_id: response.team?.id,
-          team_name: response.team?.name,
-          scope: response.scope,
-          expires_at: null, // Slack tokens don't expire by default
-        },
-      },
-      create: {
         userId: oauthState.userId,
         provider: "slack",
-        credentials: {
-          access_token: response.access_token,
-          team_id: response.team?.id,
-          team_name: response.team?.name,
-          scope: response.scope,
-          expires_at: null, // Slack tokens don't expire by default
-        },
+        botId: metadata.botId,
       },
     });
+
+    // Store or update the credentials in the database
+    let credential;
+
+    if (existingCredential) {
+      // Update existing credential
+      credential = await prisma.credential.update({
+        where: {
+          id: existingCredential.id,
+        },
+        data: {
+          credentials: {
+            access_token: response.access_token,
+            team_id: response.team?.id,
+            team_name: response.team?.name,
+            scope: response.scope,
+            expires_at: null, // Slack tokens don't expire by default
+          },
+        },
+      });
+    } else {
+      // Create new credential
+      credential = await prisma.credential.create({
+        data: {
+          userId: oauthState.userId,
+          provider: "slack",
+          name: credentialName,
+          botId: metadata.botId,
+          credentials: {
+            access_token: response.access_token,
+            team_id: response.team?.id,
+            team_name: response.team?.name,
+            scope: response.scope,
+            expires_at: null, // Slack tokens don't expire by default
+          },
+        },
+      });
+    }
 
     // Handle the case where we're adding a new channel to an existing integration
     if (metadata.isAddingChannel && metadata.integrationId) {

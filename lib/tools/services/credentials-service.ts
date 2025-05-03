@@ -87,10 +87,14 @@ export class ToolCredentialsService {
     userId,
     provider,
     credentials,
+    name = "Default",
+    botId,
   }: {
     userId: string;
     provider: string;
     credentials: Record<string, unknown>;
+    name?: string;
+    botId?: string;
   }) {
     // Encrypt sensitive credential data
     const encryptedCredentials = encryptData(credentials);
@@ -99,6 +103,8 @@ export class ToolCredentialsService {
       data: {
         userId,
         provider,
+        name,
+        botId,
         credentials: encryptedCredentials as InputJsonValue,
       },
     });
@@ -135,11 +141,16 @@ export class ToolCredentialsService {
     };
   }
 
-  async findCredentialsByProvider(userId: string, provider: string) {
+  async findCredentialsByProvider(
+    userId: string,
+    provider: string,
+    botId?: string
+  ) {
     const credentials = await prisma.credential.findMany({
       where: {
         userId,
         provider,
+        ...(botId ? { botId } : {}),
       },
       orderBy: {
         updatedAt: "desc", // Get the most recently updated first
@@ -148,6 +159,33 @@ export class ToolCredentialsService {
 
     // No need to decrypt here since we're just returning IDs
     return credentials;
+  }
+
+  async findCredentialByProviderAndBot(
+    userId: string,
+    provider: string,
+    botId: string
+  ) {
+    const credential = await prisma.credential.findFirst({
+      where: {
+        userId,
+        provider,
+        botId,
+      },
+      orderBy: {
+        updatedAt: "desc", // Get the most recently updated
+      },
+    });
+
+    if (!credential) return null;
+
+    // Decrypt credentials for use
+    return {
+      ...credential,
+      credentials: decryptData(
+        credential.credentials as Record<string, unknown>
+      ),
+    };
   }
 }
 

@@ -97,6 +97,7 @@ model Bot {
   deployments      Deployment[]
   integrations     Integration[]
   appointments     Appointment[]
+  credentials      Credential[]      // New relation to Credential
 
   @@index([userId])
   @@index([organizationId])
@@ -149,19 +150,23 @@ model Tool {
 model Credential {
   id          String   @id @default(uuid())
   userId      String   @map("user_id")
-  provider    String // e.g., "slack", "google", "hubspot"
-  credentials Json // Contains { access_token, refresh_token, scopes[], expires_at, etc. }
+  provider    String   // e.g., "slack", "google", "hubspot"
+  name        String   @default("Default") // A descriptive name for the credential
+  botId       String?  @map("bot_id")
+  credentials Json     // Contains { access_token, refresh_token, scopes[], expires_at, etc. }
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bot          Bot?          @relation(fields: [botId], references: [id])
   botTools     BotTool[]
   integrations Integration[]
 
-  @@unique([userId, provider])
+  @@unique([userId, provider, name])
   @@index([userId])
   @@index([provider])
+  @@index([botId])
   @@map("credentials")
 }
 
