@@ -27,8 +27,8 @@ model Organization {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  users UserOrganization[]
-  bots  Bot[]
+  users     UserOrganization[]
+  bots      Bot[]
   templates Template[]
 
   @@map("organizations")
@@ -97,7 +97,7 @@ model Bot {
   deployments      Deployment[]
   integrations     Integration[]
   appointments     Appointment[]
-  credentials      Credential[]      // New relation to Credential
+  credentials      Credential[] // New relation to Credential
 
   @@index([userId])
   @@index([organizationId])
@@ -150,10 +150,10 @@ model Tool {
 model Credential {
   id          String   @id @default(uuid())
   userId      String   @map("user_id")
-  provider    String   // e.g., "slack", "google", "hubspot"
+  provider    String // e.g., "slack", "google", "hubspot"
   name        String   @default("Default") // A descriptive name for the credential
   botId       String?  @map("bot_id")
-  credentials Json     // Contains { access_token, refresh_token, scopes[], expires_at, etc. }
+  credentials Json // Contains { access_token, refresh_token, scopes[], expires_at, etc. }
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -402,22 +402,22 @@ model OAuthState {
 
 // Template model for storing prompt templates
 model Template {
-  id               String            @id @default(uuid())
-  name             String
-  description      String?
-  content          String            // The template with placeholders
-  isPublic         Boolean           @default(false) @map("is_public")
-  organizationId   String?           @map("organization_id")
-  createdBy        String            @map("created_by") // User ID who created this
-  placeholderSchema Json             @map("placeholder_schema") // JSON schema for placeholders
-  usageCount       Int               @default(0) @map("usage_count")
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
+  id                String   @id @default(uuid())
+  name              String
+  description       String?
+  content           String // The template with placeholders
+  isPublic          Boolean  @default(false) @map("is_public")
+  organizationId    String?  @map("organization_id")
+  createdBy         String   @map("created_by") // User ID who created this
+  placeholderSchema Json     @map("placeholder_schema") // JSON schema for placeholders
+  usageCount        Int      @default(0) @map("usage_count")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   // Relations
-  organization     Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  creator          User              @relation(fields: [createdBy], references: [id])
-  categories       TemplateCategory[] @relation("TemplatesToCategories")
+  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator      User               @relation(fields: [createdBy], references: [id])
+  categories   TemplateCategory[] @relation("TemplatesToCategories")
 
   @@index([organizationId])
   @@index([createdBy])
@@ -427,15 +427,15 @@ model Template {
 
 // Category model for template filtering
 model TemplateCategory {
-  id          String     @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   description String?
-  slug        String     @unique
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
+  slug        String   @unique
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  templates   Template[] @relation("TemplatesToCategories")
+  templates Template[] @relation("TemplatesToCategories")
 
   @@map("template_categories")
 }
@@ -478,6 +478,7 @@ enum DeploymentType {
   CUSTOM_API
   WEBHOOK
   SLACK
+  GOHIGHLEVEL
 }
 
 enum DeploymentStatus {

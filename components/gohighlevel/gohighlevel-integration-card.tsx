@@ -14,42 +14,41 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import Link from "next/link";
-import { SlackConnectButton } from "./slack-connect-button";
-import {
-  SlackDeploymentConfig,
-  SlackIntegrationConfig,
-} from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/deployments/slack/utils";
-import { SlackChannelList } from "./slack-channel-list";
+import { GoHighLevelConnectButton } from "./gohighlevel-connect-button";
+import { removeGoHighLevelIntegration } from "@/app/actions/gohighlevel";
 import { deploymentLogos } from "@/lib/bot-deployments";
+import { GoHighLevelDeploymentConfig } from "@/lib/bot-deployments/gohighlevel/types";
 import { useClipboard } from "@/hooks/use-clipboard";
 
-interface SlackIntegrationProps {
+interface GoHighLevelIntegrationProps {
   integration?: {
     id: string;
     name: string;
     connectionStatus: string;
     metadata: {
-      team_name?: string;
-      channel?: string;
+      locationName?: string;
+      locationId?: string;
     };
-    config?: SlackIntegrationConfig;
+    config?: {
+      [key: string]: unknown;
+    };
     deployment?: {
       id: string;
-      config: SlackDeploymentConfig;
+      config: GoHighLevelDeploymentConfig;
     } | null;
   };
   botId: string;
   orgId: string;
 }
 
-export function SlackIntegrationCard({
+export function GoHighLevelIntegrationCard({
   integration,
   botId,
   orgId,
-}: SlackIntegrationProps) {
+}: GoHighLevelIntegrationProps) {
   const [isRemoving, setIsRemoving] = useState(false);
   const LogoComponent =
-    deploymentLogos["slack" as keyof typeof deploymentLogos];
+    deploymentLogos["gohighlevel" as keyof typeof deploymentLogos];
   const { copy } = useClipboard({
     successMessage: "Integration ID copied to clipboard",
   });
@@ -57,20 +56,24 @@ export function SlackIntegrationCard({
   const handleRemoveIntegration = async () => {
     try {
       setIsRemoving(true);
-      const response = await fetch(`/api/integrations/${integration?.id}`, {
-        method: "DELETE",
+      const response = await removeGoHighLevelIntegration({
+        integrationId: integration!.id,
       });
 
-      if (response.ok) {
-        toast.success("Slack integration removed successfully");
+      if (response?.data?.success) {
+        toast.success("GoHighLevel integration removed successfully");
         // Reload the page to reflect changes
         window.location.reload();
       } else {
-        throw new Error("Failed to remove integration");
+        const errorMsg =
+          response?.data?.error?.message || "Failed to remove integration";
+        toast.error(errorMsg);
       }
     } catch (error) {
-      console.error("Error removing Slack integration:", error);
-      toast.error("Failed to remove Slack integration. Please try again.");
+      console.error("Error removing GoHighLevel integration:", error);
+      toast.error(
+        "Failed to remove GoHighLevel integration. Please try again."
+      );
     } finally {
       setIsRemoving(false);
     }
@@ -79,15 +82,12 @@ export function SlackIntegrationCard({
   const isConnected =
     integration && integration.connectionStatus === "CONNECTED";
 
-  // Get channel information from deployment config
-  const channels = integration?.deployment?.config.channels || [];
-
   return (
     <Card className="w-full">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <CardTitle className="text-xl">Slack Integration</CardTitle>
+            <CardTitle className="text-xl">GoHighLevel Integration</CardTitle>
           </div>
           {isConnected && (
             <Badge
@@ -99,7 +99,8 @@ export function SlackIntegrationCard({
           )}
         </div>
         <CardDescription>
-          Connect your bot to Slack and enable conversations in channels.
+          Connect your bot to GoHighLevel and enable conversations across
+          multiple channels.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -108,9 +109,15 @@ export function SlackIntegrationCard({
             <div className="rounded-md bg-muted p-4">
               <div className="grid gap-2">
                 <div className="flex justify-between">
-                  <div className="text-sm font-medium">Workspace</div>
+                  <div className="text-sm font-medium">Location</div>
                   <div className="text-sm">
-                    {integration.metadata.team_name || "Unknown"}
+                    {integration.metadata.locationName || "Unknown"}
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <div className="text-sm font-medium">Location ID</div>
+                  <div className="text-sm truncate max-w-[180px]">
+                    {integration.metadata.locationId || "Unknown"}
                   </div>
                 </div>
                 <div className="flex justify-between">
@@ -127,35 +134,14 @@ export function SlackIntegrationCard({
               </div>
             </div>
 
-            {/* Channels Section */}
-            <div className="border rounded-md p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium">Channels</h3>
-                <SlackConnectButton
-                  botId={botId}
-                  orgId={orgId}
-                  variant="outline"
-                  size="sm"
-                  isAddingChannel={true}
-                  integrationId={integration.id}
-                />
-              </div>
-
-              <SlackChannelList
-                channels={channels}
-                integrationId={integration.id}
-                deploymentId={integration.deployment?.id}
-              />
-            </div>
-
             <div className="border-t pt-4">
               <h3 className="text-sm font-medium mb-2">Getting Started</h3>
               <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1">
+                <li>Configure your channels above</li>
                 <li>
-                  Invite <code>@YourBot</code> to any channel
+                  Your bot will respond to messages in the selected channels
                 </li>
-                <li>Start a conversation by mentioning the bot</li>
-                <li>Use slash commands for quick actions (if configured)</li>
+                <li>View conversation history in your GoHighLevel dashboard</li>
               </ol>
             </div>
           </div>
@@ -171,7 +157,7 @@ export function SlackIntegrationCard({
             <div>
               <h3 className="font-medium">Not Connected</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Connect your bot to Slack to start conversations.
+                Connect your bot to GoHighLevel to start conversations.
               </p>
             </div>
           </div>
@@ -182,7 +168,7 @@ export function SlackIntegrationCard({
           <>
             <Button variant="outline" asChild>
               <Link
-                href={`/dashboard/${orgId}/bots/${botId}/deployments/slack/settings`}
+                href={`/dashboard/${orgId}/bots/${botId}/deployments/gohighlevel/settings`}
               >
                 <Icons.Settings className="mr-2 h-4 w-4" />
                 Settings
@@ -202,7 +188,7 @@ export function SlackIntegrationCard({
             </Button>
           </>
         ) : (
-          <SlackConnectButton botId={botId} orgId={orgId} />
+          <GoHighLevelConnectButton botId={botId} orgId={orgId} />
         )}
       </CardFooter>
     </Card>
