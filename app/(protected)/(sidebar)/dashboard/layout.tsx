@@ -28,7 +28,7 @@ export default async function BotsLayout({ children }: BotsLayoutProps) {
         botsGroupedByOrg={botsGroupedByOrg.data}
       />
       <main className="flex-1 overflow-y-auto">
-        <div className="container">{children}</div>
+        <div className="">{children}</div>
       </main>
     </SidebarProvider>
   );
