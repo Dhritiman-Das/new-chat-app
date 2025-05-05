@@ -9,7 +9,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import Image from "next/image";
 import { useQueryState } from "nuqs";
 import { deploymentLogos } from "@/lib/bot-deployments";
@@ -127,20 +132,11 @@ export function DeploymentCard({
           </div>
         </div>
 
-        <SheetContent>
-          <SheetHeader>
-            <div className="mb-4">
-              <Image
-                src={images[0]}
-                alt={name}
-                width={465}
-                height={290}
-                quality={100}
-              />
-            </div>
-
-            <div className="flex items-center justify-between border-b border-border pb-2">
-              <div className="flex items-center space-x-2">
+        <SheetContent className="sm:max-w-md md:max-w-xl p-0">
+          <SheetHeader className="px-6 pt-6 pb-4 space-y-4 border-b border-border">
+            <SheetTitle className="sr-only">{name} Details</SheetTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
                 {LogoComponent ? (
                   <LogoComponent />
                 ) : (
@@ -148,7 +144,7 @@ export function DeploymentCard({
                 )}
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="text-lg leading-none">{name}</h3>
+                    <h3 className="text-lg font-medium leading-none">{name}</h3>
                     {installed && (
                       <div className="bg-green-600 text-[9px] dark:bg-green-300 rounded-full size-1" />
                     )}
@@ -193,64 +189,87 @@ export function DeploymentCard({
             </div>
           </SheetHeader>
 
-          <ScrollArea className="h-[calc(100vh-530px)] pt-2">
-            <Accordion
-              type="multiple"
-              defaultValue={[
-                "description",
-                ...(params === id ? ["settings"] : []),
-              ]}
-              className="mt-4"
-            >
-              <AccordionItem value="description" className="border-none">
-                <AccordionTrigger>How it works</AccordionTrigger>
-                <AccordionContent className="text-muted-foreground text-sm">
-                  {description}
-                </AccordionContent>
-              </AccordionItem>
-
-              {settings && (
-                <AccordionItem value="settings" className="border-none">
-                  <AccordionTrigger>Settings</AccordionTrigger>
+          <div className="px-6 py-4">
+            <ScrollArea className="h-[calc(100vh-220px)] pr-4">
+              <Accordion
+                type="multiple"
+                defaultValue={["description", "settings", "images"]}
+              >
+                <AccordionItem value="description" className="border-none">
+                  <AccordionTrigger>How it works</AccordionTrigger>
                   <AccordionContent className="text-muted-foreground text-sm">
-                    {/* Placeholder for AppSettings - replace with actual component */}
-                    <div className="p-2 border rounded">
-                      <p>Settings panel for {id}</p>
-                      <pre className="text-xs bg-muted p-2 rounded mt-2">
-                        {JSON.stringify(
-                          [
-                            ...Object.values({
-                              ...Object.fromEntries(
-                                (Array.isArray(settings) ? settings : []).map(
-                                  (setting: SettingItem) => [
-                                    setting.id,
-                                    setting,
-                                  ]
-                                )
-                              ),
-                              ...Object.fromEntries(
-                                (Array.isArray(userSettings)
-                                  ? userSettings
-                                  : []
-                                ).map((setting: SettingItem) => [
-                                  setting.id,
-                                  setting,
-                                ])
-                              ),
-                            }),
-                          ],
-                          null,
-                          2
-                        )}
-                      </pre>
-                    </div>
+                    {description}
                   </AccordionContent>
                 </AccordionItem>
-              )}
-            </Accordion>
-          </ScrollArea>
 
-          <div className="absolute bottom-4 pt-8 border-t border-border">
+                {settings && (
+                  <AccordionItem value="settings" className="border-none">
+                    <AccordionTrigger>Settings</AccordionTrigger>
+                    <AccordionContent className="text-muted-foreground text-sm">
+                      {/* Placeholder for AppSettings - replace with actual component */}
+                      <div className="p-2 border rounded">
+                        <p>Settings panel for {id}</p>
+                        <pre className="text-xs bg-muted p-2 rounded mt-2 overflow-x-auto">
+                          {JSON.stringify(
+                            [
+                              ...Object.values({
+                                ...Object.fromEntries(
+                                  (Array.isArray(settings) ? settings : []).map(
+                                    (setting: SettingItem) => [
+                                      setting.id,
+                                      setting,
+                                    ]
+                                  )
+                                ),
+                                ...Object.fromEntries(
+                                  (Array.isArray(userSettings)
+                                    ? userSettings
+                                    : []
+                                  ).map((setting: SettingItem) => [
+                                    setting.id,
+                                    setting,
+                                  ])
+                                ),
+                              }),
+                            ],
+                            null,
+                            2
+                          )}
+                        </pre>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {images && images.length > 0 && (
+                  <AccordionItem value="images" className="border-none">
+                    <AccordionTrigger>Screenshots</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="flex flex-col gap-4 mt-2">
+                        {images.map((image, index) => (
+                          <div
+                            key={index}
+                            className="border border-border rounded-md overflow-hidden"
+                          >
+                            <Image
+                              src={image}
+                              alt={`${name} screenshot ${index + 1}`}
+                              width={600}
+                              height={375}
+                              className="w-full h-auto"
+                              quality={90}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+              </Accordion>
+            </ScrollArea>
+          </div>
+
+          <div className="px-6 py-4 border-t border-border mt-auto">
             <p className="text-[10px] text-muted-foreground">
               All apps on the Midday App Store are open-source and
               peer-reviewed. Midday Labs AB maintains high standards but
@@ -261,7 +280,7 @@ export function DeploymentCard({
 
             <a
               href="mailto:support@midday.dev"
-              className="text-[10px] text-destructive"
+              className="text-[10px] text-destructive mt-2 inline-block"
             >
               Report app
             </a>
