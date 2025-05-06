@@ -59,8 +59,7 @@ export async function assistantConversationMessage(
     // Check if the contact has the kill_switch tag
     const hasKillSwitch = await checkContactHasKillSwitch(
       Promise.resolve(client),
-      contactId,
-      locationId
+      contactId
     );
 
     if (hasKillSwitch) {

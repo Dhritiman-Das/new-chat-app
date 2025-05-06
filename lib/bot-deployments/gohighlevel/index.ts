@@ -183,22 +183,15 @@ export async function sendMessage(
 // Check if a contact has the kill_switch tag
 export async function checkContactHasKillSwitch(
   client: ReturnType<typeof createGoHighLevelClient>,
-  contactId: string,
-  locationId: string
+  contactId: string
 ) {
   try {
     // Get contact's tags
-    const response = await (
-      await client
-    ).get(`/contacts/${contactId}/tags`, {
-      params: {
-        locationId,
-      },
-    });
+    const response = await (await client).get(`/contacts/${contactId}`);
 
     // Check if one of the tags is kill_switch
     return (
-      response.data?.tags?.some(
+      response.data?.contact?.tags?.some(
         (tag: { name: string }) => tag.name.toLowerCase() === "kill_switch"
       ) || false
     );
