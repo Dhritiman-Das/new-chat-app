@@ -36,6 +36,12 @@ export const googleCalendarConfigSchema = z.object({
     )
     .optional()
     .describe("Available time slots for appointments"),
+  timeZone: z
+    .string()
+    .optional()
+    .describe(
+      "Default timezone for calendar operations. If provided, use IANA timezone identifiers."
+    ),
 });
 
 // Credential schema for Google Calendar
@@ -52,6 +58,12 @@ export const bookAppointmentSchema = z.object({
   title: z.string().describe("Title of the appointment"),
   description: z.string().optional().describe("Description of the appointment"),
   startTime: z.string().optional().describe("Start time (ISO string format)"),
+  userTimeZone: z
+    .string()
+    .optional()
+    .describe(
+      "User's preferred timezone. Pass empty string if not provided by the user. If provided, use IANA timezone identifiers."
+    ),
 });
 
 export const rescheduleAppointmentSchema = z.object({
@@ -60,6 +72,12 @@ export const rescheduleAppointmentSchema = z.object({
     .string()
     .optional()
     .describe("New start time (ISO string format)"),
+  userTimeZone: z
+    .string()
+    .optional()
+    .describe(
+      "User's preferred timezone. Pass empty string if not provided by the user. If provided, use IANA timezone identifiers."
+    ),
 });
 
 export const cancelAppointmentSchema = z.object({
@@ -81,6 +99,12 @@ export const listAppointmentsSchema = z.object({
     .optional()
     .default(10)
     .describe("Maximum number of results to return"),
+  userTimeZone: z
+    .string()
+    .optional()
+    .describe(
+      "User's preferred timezone. Pass empty string if not provided by the user. If provided, use IANA timezone identifiers."
+    ),
 });
 
 // Schema for listing available slots
@@ -98,4 +122,10 @@ export const listAvailableSlotsSchema = z.object({
     .optional()
     .default(30)
     .describe("Interval between slots in minutes (e.g., 30 min slots)"),
+  userTimeZone: z
+    .string()
+    .optional()
+    .describe(
+      "User's preferred timezone. Pass empty string if not provided by the user. If provided, it should be a accepted timezone by google calendar."
+    ),
 });

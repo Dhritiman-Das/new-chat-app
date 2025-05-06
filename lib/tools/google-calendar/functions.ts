@@ -47,6 +47,8 @@ interface CalendarConfig {
   timeZone?: string;
 }
 
+const DEFAULT_TIME_ZONE = "Asia/Kolkata";
+
 export const bookAppointment: ToolFunction = {
   description: "Book a new appointment on Google Calendar",
   parameters: bookAppointmentSchema,
@@ -66,10 +68,12 @@ export const bookAppointment: ToolFunction = {
         title,
         description = "",
         startTime,
+        userTimeZone,
       } = params as {
         title: string;
         description?: string;
         startTime?: string;
+        userTimeZone?: string;
       };
 
       if (!startTime) {
@@ -117,6 +121,9 @@ export const bookAppointment: ToolFunction = {
       const formattedActualEndTime = formatISO(actualMeetingEndTime);
       const formattedBufferEndTime = formatISO(bufferEndTime);
 
+      // Use userTimeZone if provided, otherwise fall back to config.timeZone or default
+      const timeZone = userTimeZone || config.timeZone || DEFAULT_TIME_ZONE;
+
       // Create the event - if there's a buffer, include it in the event's end time
       // but note the actual meeting end time in the description
       const meetingEndTimeFormatted = format(actualMeetingEndTime, "h:mm a");
@@ -130,14 +137,14 @@ export const bookAppointment: ToolFunction = {
         description: enhancedDescription,
         start: {
           dateTime: formattedStartTime,
-          timeZone: config.timeZone || "Asia/Kolkata",
+          timeZone: timeZone,
         },
         end: {
           dateTime:
             Number(bufferTimeBetweenMeetings) > 0
               ? formattedBufferEndTime
               : formattedActualEndTime,
-          timeZone: config.timeZone || "Asia/Kolkata",
+          timeZone: timeZone,
         },
         reminders: {
           useDefault: true,
@@ -220,7 +227,7 @@ export const bookAppointment: ToolFunction = {
           description: response.data.description || description,
           startTime: parsedStartTime,
           endTime: actualMeetingEndTime,
-          timeZone: config.timeZone || "Asia/Kolkata",
+          timeZone: timeZone,
           organizer: organizerData,
           attendees: attendeesData,
           meetingLink: response.data.htmlLink || "",
@@ -281,9 +288,10 @@ export const rescheduleAppointment: ToolFunction = {
       const bufferTimeBetweenMeetings = config.bufferTimeBetweenMeetings || 0;
 
       // Extract parameters
-      const { appointmentId, startTime } = params as {
+      const { appointmentId, startTime, userTimeZone } = params as {
         appointmentId: string;
         startTime?: string;
+        userTimeZone?: string;
       };
 
       if (!startTime) {
@@ -343,6 +351,9 @@ export const rescheduleAppointment: ToolFunction = {
       const formattedActualEndTime = formatISO(actualMeetingEndTime);
       const formattedBufferEndTime = formatISO(bufferEndTime);
 
+      // Use userTimeZone if provided, otherwise fall back to config.timeZone or default
+      const timeZone = userTimeZone || config.timeZone || DEFAULT_TIME_ZONE;
+
       // Update the event with new times and preserve other properties
       const meetingEndTimeFormatted = format(actualMeetingEndTime, "h:mm a");
       const originalDescription =
@@ -360,14 +371,14 @@ export const rescheduleAppointment: ToolFunction = {
         description: enhancedDescription,
         start: {
           dateTime: formattedStartTime,
-          timeZone: config.timeZone || "Asia/Kolkata",
+          timeZone: timeZone,
         },
         end: {
           dateTime:
             Number(bufferTimeBetweenMeetings) > 0
               ? formattedBufferEndTime
               : formattedActualEndTime,
-          timeZone: config.timeZone || "Asia/Kolkata",
+          timeZone: timeZone,
         },
       };
 
@@ -449,7 +460,7 @@ export const rescheduleAppointment: ToolFunction = {
               description: safeDescription,
               startTime: parsedStartTime,
               endTime: actualMeetingEndTime,
-              timeZone: config.timeZone || "Asia/Kolkata",
+              timeZone: timeZone,
               organizer: organizerData
                 ? JSON.parse(JSON.stringify(organizerData))
                 : null,
@@ -511,7 +522,7 @@ export const rescheduleAppointment: ToolFunction = {
             description: response.data.description || "",
             startTime: parsedStartTime,
             endTime: actualMeetingEndTime,
-            timeZone: config.timeZone || "Asia/Kolkata",
+            timeZone: timeZone,
             organizer: organizerData,
             attendees: attendeesData,
             meetingLink: response.data.htmlLink || "",
@@ -717,11 +728,16 @@ export const listAppointments: ToolFunction = {
         startDate,
         endDate,
         maxResults = 10,
+        userTimeZone, // eslint-disable-line @typescript-eslint/no-unused-vars
       } = params as {
         startDate?: string;
         endDate?: string;
         maxResults?: number;
+        userTimeZone?: string;
       };
+
+      // Note: userTimeZone is included for schema consistency but not used in this function
+      // since we're only retrieving events from the calendar
 
       // Calculate date range (use configured availability window if not specified)
       const dateRange = getDateRange(
@@ -877,10 +893,12 @@ export const listAvailableSlots: ToolFunction = {
         startDate,
         endDate,
         interval = 30,
+        userTimeZone,
       } = params as {
         startDate?: string;
         endDate?: string;
         interval?: number;
+        userTimeZone?: string;
       };
 
       console.log("Listing available slots params:", {
@@ -889,6 +907,9 @@ export const listAvailableSlots: ToolFunction = {
         interval,
         appointmentDuration, // Log configured duration
       });
+
+      // Use userTimeZone if provided, otherwise fall back to config.timeZone or default
+      const timeZone = userTimeZone || config.timeZone || DEFAULT_TIME_ZONE;
 
       // Calculate date range
       const dateRange = getDateRange(
@@ -974,6 +995,7 @@ export const listAvailableSlots: ToolFunction = {
         endTime: string;
         iso8601: string;
         durationMinutes: number;
+        timeZone: string;
       }[] = [];
 
       // Calculate the current time plus 1 hour to avoid suggesting slots in the very near future
@@ -1039,6 +1061,7 @@ export const listAvailableSlots: ToolFunction = {
               endTime: format(currentSlotEnd, "HH:mm"),
               iso8601: formatISO(currentSlotStart),
               durationMinutes: appointmentDuration,
+              timeZone: timeZone,
             });
           }
 
