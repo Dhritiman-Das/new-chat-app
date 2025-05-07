@@ -7,7 +7,10 @@ import {
   listAvailableSlotsSchema,
 } from "./schema";
 import { getGoogleCalendarClient } from "./services/credentials-service";
-import { getDateRange } from "./utils/date-utils";
+import {
+  getDateRange,
+  getDateTimeRangeInUserTimeZone,
+} from "./utils/date-utils";
 import {
   validateAppointmentTime,
   AppointmentValidationError,
@@ -18,12 +21,9 @@ import {
   formatISO,
   addMinutes,
   eachDayOfInterval,
-  getDay,
-  setHours,
-  setMinutes,
-  isBefore,
   areIntervalsOverlapping,
 } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import prisma from "@/lib/db/prisma";
 
 // Type for Google API errors
@@ -909,16 +909,18 @@ export const listAvailableSlots: ToolFunction = {
       });
 
       // Use userTimeZone if provided, otherwise fall back to config.timeZone or default
-      const timeZone = userTimeZone || config.timeZone || DEFAULT_TIME_ZONE;
+      const timeZoneOfUser =
+        userTimeZone || config.timeZone || DEFAULT_TIME_ZONE;
 
       // Calculate date range
-      const dateRange = getDateRange(
+      const dateTimeRangeInUserTimeZone = getDateTimeRangeInUserTimeZone({
         startDate,
         endDate,
-        availabilityWindowDays
-      );
-      const startDateTime = parseISO(dateRange.start);
-      const endDateTime = parseISO(dateRange.end);
+        userTimeZone: timeZoneOfUser,
+        availabilityWindowDays,
+      });
+      const startDateTime = parseISO(dateTimeRangeInUserTimeZone.start);
+      const endDateTime = parseISO(dateTimeRangeInUserTimeZone.end);
 
       // Get all days in the range
       const daysInRange = eachDayOfInterval({
@@ -926,22 +928,11 @@ export const listAvailableSlots: ToolFunction = {
         end: endDateTime,
       });
 
-      // Map day number to day name
-      const dayNames = [
-        "sunday",
-        "monday",
-        "tuesday",
-        "wednesday",
-        "thursday",
-        "friday",
-        "saturday",
-      ];
-
       // Fetch existing events for the date range
       const response = await calendarClient.events.list({
         calendarId: defaultCalendarId,
-        timeMin: dateRange.start,
-        timeMax: dateRange.end,
+        timeMin: dateTimeRangeInUserTimeZone.start,
+        timeMax: dateTimeRangeInUserTimeZone.end,
         singleEvents: true,
         orderBy: "startTime",
       });
@@ -1001,72 +992,65 @@ export const listAvailableSlots: ToolFunction = {
       // Calculate the current time plus 1 hour to avoid suggesting slots in the very near future
       const minimumStartTime = addMinutes(new Date(), 60);
 
-      // Process each day in the range
+      console.log({
+        existingEvents,
+      });
+
+      // Generate available time slots
       for (const day of daysInRange) {
-        const dayName = dayNames[getDay(day)];
-
-        // Find the available slot for this day based on configured availableTimeSlots
-        const daySlot = availableTimeSlots.find(
-          (slot) => slot.day.toLowerCase() === dayName
+        // Get the day name in config.timeZone
+        const configDay = formatInTimeZone(
+          day,
+          config.timeZone || DEFAULT_TIME_ZONE,
+          "EEEE"
+        ).toLowerCase();
+        const slotConfig = availableTimeSlots.find(
+          (slot) => slot.day.toLowerCase() === configDay
         );
+        if (!slotConfig) continue;
 
-        // If no configuration for this day, skip
-        if (!daySlot) {
-          continue;
-        }
+        // Parse slot start and end in config.timeZone
+        const slotStartConfig = formatInTimeZone(
+          day,
+          config.timeZone || DEFAULT_TIME_ZONE,
+          `yyyy-MM-dd'T'${slotConfig.startTime}:00XXX`
+        );
+        const slotEndConfig = formatInTimeZone(
+          day,
+          config.timeZone || DEFAULT_TIME_ZONE,
+          `yyyy-MM-dd'T'${slotConfig.endTime}:00XXX`
+        );
+        const slotStart = parseISO(slotStartConfig);
+        const slotEnd = parseISO(slotEndConfig);
 
-        // Parse the start and end time for this day
-        const [startHour, startMinute] = daySlot.startTime
-          .split(":")
-          .map(Number);
-        const [endHour, endMinute] = daySlot.endTime.split(":").map(Number);
-
-        // Create start and end times for the day
-        let dayStart = new Date(day);
-        dayStart.setHours(startHour, startMinute, 0, 0);
-
-        const dayEnd = new Date(day);
-        dayEnd.setHours(endHour, endMinute, 0, 0);
-
-        // Don't suggest slots in the past or too near future
-        if (dayStart < minimumStartTime) {
-          dayStart = new Date(minimumStartTime);
-          // Round to the nearest interval
-          const minutes = getMinutesIntoDay(dayStart);
-          const roundedMinutes = Math.ceil(minutes / interval) * interval;
-          dayStart = setMinutesIntoDay(dayStart, roundedMinutes);
-        }
-
-        // Generate slots at regular intervals
-        let currentSlotStart = dayStart;
-
-        while (isBefore(currentSlotStart, dayEnd)) {
-          const currentSlotEnd = addMinutes(
-            currentSlotStart,
-            appointmentDuration
-          );
-
-          // Make sure there's enough time left in the day for the appointment (including buffer)
-          if (
-            isBefore(
-              addMinutes(currentSlotEnd, bufferTimeBetweenMeetings),
-              dayEnd
-            ) &&
-            isTimeSlotFree(currentSlotStart, currentSlotEnd)
-          ) {
+        // Convert slot start/end to user's timezone for display
+        let current = slotStart;
+        while (addMinutes(current, appointmentDuration) <= slotEnd) {
+          const slotEndTime = addMinutes(current, appointmentDuration);
+          // Only show slots in the future (with 1 hour buffer)
+          if (current < minimumStartTime) {
+            current = addMinutes(current, interval);
+            continue;
+          }
+          // Check for overlap
+          if (isTimeSlotFree(current, slotEndTime)) {
+            // Format for user timezone
+            const userSlotStart = formatInTimeZone(
+              current,
+              timeZoneOfUser,
+              "yyyy-MM-dd'T'HH:mm:ssXXX"
+            );
             availableSlots.push({
-              date: format(currentSlotStart, "yyyy-MM-dd"),
-              day: format(currentSlotStart, "EEEE"),
-              startTime: format(currentSlotStart, "HH:mm"),
-              endTime: format(currentSlotEnd, "HH:mm"),
-              iso8601: formatISO(currentSlotStart),
+              date: formatInTimeZone(current, timeZoneOfUser, "yyyy-MM-dd"),
+              day: formatInTimeZone(current, timeZoneOfUser, "EEEE"),
+              startTime: formatInTimeZone(current, timeZoneOfUser, "HH:mm"),
+              endTime: formatInTimeZone(slotEndTime, timeZoneOfUser, "HH:mm"),
+              iso8601: userSlotStart,
               durationMinutes: appointmentDuration,
-              timeZone: timeZone,
+              timeZone: timeZoneOfUser,
             });
           }
-
-          // Move to next slot
-          currentSlotStart = addMinutes(currentSlotStart, interval);
+          current = addMinutes(current, interval);
         }
       }
 
@@ -1096,15 +1080,3 @@ export const listAvailableSlots: ToolFunction = {
     }
   },
 };
-
-// Helper function to get minutes into the day
-function getMinutesIntoDay(date: Date): number {
-  return date.getHours() * 60 + date.getMinutes();
-}
-
-// Helper function to set minutes into the day
-function setMinutesIntoDay(date: Date, minutes: number): Date {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return setHours(setMinutes(new Date(date), mins), hours);
-}

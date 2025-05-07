@@ -9,6 +9,7 @@ import {
   addDays,
   isValid,
 } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 
 /**
  * Formats a date string into a specific format
@@ -163,4 +164,40 @@ export function getDateRange(
       end: formatISO(endOfDay(addDays(now, defaultDays))),
     };
   }
+}
+
+/**
+ * Get start and end timestamps for a date range in a specific timezone
+ */
+export function getDateTimeRangeInUserTimeZone({
+  startDate,
+  endDate,
+  userTimeZone,
+  availabilityWindowDays,
+}: {
+  startDate?: string;
+  endDate?: string;
+  userTimeZone: string;
+  availabilityWindowDays: number;
+}): { start: string; end: string } {
+  if (!startDate) {
+    startDate = new Date().toISOString();
+  }
+  if (!endDate) {
+    // Add availability window days to end date
+    endDate = addDays(new Date(), availabilityWindowDays).toISOString();
+  }
+  // Start at 00:00:00 in user timezone
+  const start = formatInTimeZone(
+    startDate,
+    userTimeZone,
+    "yyyy-MM-dd'T'00:00:00XXX"
+  );
+  // End at 23:59:59 in user timezone
+  const end = formatInTimeZone(
+    endDate,
+    userTimeZone,
+    "yyyy-MM-dd'T'23:59:59XXX"
+  );
+  return { start, end };
 }

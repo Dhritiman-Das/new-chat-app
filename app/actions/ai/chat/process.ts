@@ -4,7 +4,7 @@ import { streamText, generateText, ToolSet, CoreMessage } from "ai";
 import { ToolExecutionService, initializeTools } from "@/lib/tools";
 import { prisma } from "@/lib/db/prisma";
 import { getModelById } from "@/lib/models";
-import { format } from "date-fns";
+// import { format } from "date-fns";
 import {
   addMessage,
   completeConversation,
@@ -210,10 +210,7 @@ export async function processChatRequest(
     systemMessage = `${systemMessage}\n\n${contextualInfo}`;
   }
 
-  const timeContext = `The current date and time is ${new Date().toLocaleString()}. Today's DD/MM/YYYY is ${format(
-    new Date(),
-    "dd/MM/yyyy"
-  )}.`;
+  const timeContext = `The current date and time is ${new Date().toISOString()}.`;
 
   // Add special instructions for iframe mode
   let behaviorContext = `The responses should be concise and to the point. Refrain from sending links. Should the responses be in a rich text format (like **example**)? => False.`;
