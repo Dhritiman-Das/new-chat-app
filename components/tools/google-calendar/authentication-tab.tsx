@@ -27,6 +27,15 @@ import {
   getCalendarsForCredential,
 } from "@/app/actions/tool-credentials";
 import { Calendar, SerializableTool } from "./types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 interface AuthenticationTabProps {
   tool: SerializableTool;
@@ -44,6 +53,7 @@ export function AuthenticationTab({
   const [isLoading, setIsLoading] = useState(true);
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [selectedCalendar, setSelectedCalendar] = useState<string | null>(null);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -156,14 +166,6 @@ export function AuthenticationTab({
 
   // Handle disconnecting Google Calendar
   const handleDisconnectGoogleCalendar = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to disconnect Google Calendar? This will remove access to all calendars."
-      )
-    ) {
-      return;
-    }
-
     setIsConnecting(true);
     try {
       const result = await disconnectGoogleCalendar({
@@ -184,13 +186,14 @@ export function AuthenticationTab({
       toast.error("Failed to disconnect from Google Calendar");
     } finally {
       setIsConnecting(false);
+      setShowDisconnectDialog(false);
     }
   };
 
   // Toggle connection (connect or disconnect based on current state)
   const handleToggleConnection = async () => {
     if (isConnected) {
-      await handleDisconnectGoogleCalendar();
+      setShowDisconnectDialog(true);
     } else {
       await handleConnectGoogleCalendar();
     }
@@ -227,129 +230,164 @@ export function AuthenticationTab({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Google Authentication</CardTitle>
-        <CardDescription>
-          Connect your Google Calendar account to enable calendar functions
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium">Connect Google Account</h3>
-              <p className="text-sm text-muted-foreground">
-                Grant permissions to manage your calendars
-              </p>
-            </div>
-            {isLoading ? (
-              <Button variant="outline" disabled>
-                <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-                Loading...
-              </Button>
-            ) : (
-              <Button
-                onClick={handleToggleConnection}
-                disabled={isConnecting}
-                variant={isConnected ? "outline" : "default"}
-                className={
-                  isConnected
-                    ? "text-destructive border-destructive hover:bg-destructive/10"
-                    : ""
-                }
-              >
-                {isConnecting ? (
-                  <>
-                    <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-                    {isConnected ? "Disconnecting..." : "Connecting..."}
-                  </>
-                ) : isConnected ? (
-                  <>
-                    <Icons.X className="mr-2 h-4 w-4" />
-                    Disconnect Account
-                  </>
-                ) : (
-                  <>
-                    <Icons.Calendar className="mr-2 h-4 w-4" />
-                    Connect Account
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium">Default Calendar</h3>
-              <p className="text-sm text-muted-foreground">
-                Select a default calendar for appointments
-              </p>
-            </div>
-            {isLoading ? (
-              <div className="w-[200px] h-10 flex items-center justify-center">
-                <Icons.Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Google Authentication</CardTitle>
+          <CardDescription>
+            Connect your Google Calendar account to enable calendar functions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Connect Google Account</h3>
+                <p className="text-sm text-muted-foreground">
+                  Grant permissions to manage your calendars
+                </p>
               </div>
-            ) : (
-              <Select
-                disabled={!isConnected || calendars.length === 0}
-                value={selectedCalendar || undefined}
-                onValueChange={handleCalendarSelection}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue
-                    placeholder={
-                      !isConnected
-                        ? "Connect account first"
-                        : calendars.length === 0
-                        ? "No calendars available"
-                        : "Select a calendar"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {calendars.map((calendar) => (
-                    <SelectItem
-                      key={calendar.id}
-                      value={calendar.id}
-                      className="flex items-center"
-                    >
-                      <div className="flex items-center gap-2">
-                        {calendar.backgroundColor && (
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{
-                              backgroundColor: calendar.backgroundColor,
-                            }}
-                          ></div>
-                        )}
-                        <span>
-                          {calendar.name}
-                          {calendar.isPrimary && " (Primary)"}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium">Auto-Accept Invitations</h3>
-              <p className="text-sm text-muted-foreground">
-                Automatically accept calendar invitations created by the bot
-              </p>
+              {isLoading ? (
+                <Button variant="outline" disabled>
+                  <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleToggleConnection}
+                  disabled={isConnecting}
+                  variant={isConnected ? "outline" : "default"}
+                  className={
+                    isConnected
+                      ? "text-destructive border-destructive hover:bg-destructive/10"
+                      : ""
+                  }
+                >
+                  {isConnecting ? (
+                    <>
+                      <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                      {isConnected ? "Disconnecting..." : "Connecting..."}
+                    </>
+                  ) : isConnected ? (
+                    <>
+                      <Icons.X className="mr-2 h-4 w-4" />
+                      Disconnect Account
+                    </>
+                  ) : (
+                    <>
+                      <Icons.Calendar className="mr-2 h-4 w-4" />
+                      Connect Account
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
-            <Switch disabled={!isConnected} />
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Default Calendar</h3>
+                <p className="text-sm text-muted-foreground">
+                  Select a default calendar for appointments
+                </p>
+              </div>
+              {isLoading ? (
+                <div className="w-[200px] h-10 flex items-center justify-center">
+                  <Icons.Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Select
+                  disabled={!isConnected || calendars.length === 0}
+                  value={selectedCalendar || undefined}
+                  onValueChange={handleCalendarSelection}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue
+                      placeholder={
+                        !isConnected
+                          ? "Connect account first"
+                          : calendars.length === 0
+                          ? "No calendars available"
+                          : "Select a calendar"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {calendars.map((calendar) => (
+                      <SelectItem
+                        key={calendar.id}
+                        value={calendar.id}
+                        className="flex items-center"
+                      >
+                        <div className="flex items-center gap-2">
+                          {calendar.backgroundColor && (
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{
+                                backgroundColor: calendar.backgroundColor,
+                              }}
+                            ></div>
+                          )}
+                          <span>
+                            {calendar.name}
+                            {calendar.isPrimary && " (Primary)"}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Auto-Accept Invitations</h3>
+                <p className="text-sm text-muted-foreground">
+                  Automatically accept calendar invitations created by the bot
+                </p>
+              </div>
+              <Switch disabled={!isConnected} />
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Disconnect Confirmation Dialog */}
+      <Dialog
+        open={showDisconnectDialog}
+        onOpenChange={setShowDisconnectDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disconnect Google Calendar?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to disconnect Google Calendar? This will
+              remove access to all calendars.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="destructive"
+              onClick={handleDisconnectGoogleCalendar}
+              disabled={isConnecting}
+            >
+              {isConnecting ? (
+                <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Disconnect
+            </Button>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isConnecting}>
+                Cancel
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

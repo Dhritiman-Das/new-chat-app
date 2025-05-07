@@ -44,9 +44,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
 import Link from "next/link";
@@ -199,6 +200,7 @@ export default function GoogleCalendarTool({
     useState<Appointment | null>(null);
   const [isAppointmentDetailsOpen, setIsAppointmentDetailsOpen] =
     useState(false);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -450,14 +452,6 @@ export default function GoogleCalendarTool({
 
   // Handle disconnecting Google Calendar
   const handleDisconnectGoogleCalendar = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to disconnect Google Calendar? This will remove access to all calendars."
-      )
-    ) {
-      return;
-    }
-
     setIsConnecting(true);
     try {
       const result = await disconnectGoogleCalendar({
@@ -479,13 +473,14 @@ export default function GoogleCalendarTool({
       toast.error("Failed to disconnect from Google Calendar");
     } finally {
       setIsConnecting(false);
+      setShowDisconnectDialog(false);
     }
   };
 
   // Toggle connection (connect or disconnect based on current state)
   const handleToggleConnection = async () => {
     if (isConnected) {
-      await handleDisconnectGoogleCalendar();
+      setShowDisconnectDialog(true);
     } else {
       await handleConnectGoogleCalendar();
     }
@@ -905,6 +900,39 @@ export default function GoogleCalendarTool({
                     </Button>
                   )}
                 </div>
+
+                {/* Disconnect Confirmation Dialog */}
+                <Dialog
+                  open={showDisconnectDialog}
+                  onOpenChange={setShowDisconnectDialog}
+                >
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Disconnect Google Calendar?</DialogTitle>
+                      <DialogDescription>
+                        Are you sure you want to disconnect Google Calendar?
+                        This will remove access to all calendars.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button
+                        variant="destructive"
+                        onClick={handleDisconnectGoogleCalendar}
+                        disabled={isConnecting}
+                      >
+                        {isConnecting ? (
+                          <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
+                        Disconnect
+                      </Button>
+                      <DialogClose asChild>
+                        <Button variant="outline" disabled={isConnecting}>
+                          Cancel
+                        </Button>
+                      </DialogClose>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
                 <Separator />
 

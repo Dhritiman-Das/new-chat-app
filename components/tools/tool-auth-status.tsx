@@ -10,6 +10,15 @@ import {
   connectGoogleCalendar,
   disconnectGoogleCalendar,
 } from "@/app/actions/tool-credentials";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 interface ToolAuthStatusProps {
   toolId: string;
@@ -28,6 +37,7 @@ function AuthStatusContent({
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isActionInProgress, setIsActionInProgress] = useState<boolean>(false);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
   const router = useRouter();
   const provider = authRequirement?.provider || "service";
 
@@ -93,13 +103,8 @@ function AuthStatusContent({
 
   // Handle disconnecting from service
   const handleDisconnect = async () => {
-    if (!confirm(`Are you sure you want to disconnect from ${provider}?`)) {
-      return;
-    }
-
+    setIsActionInProgress(true);
     try {
-      setIsActionInProgress(true);
-
       if (provider === "google") {
         const result = await disconnectGoogleCalendar({
           toolId,
@@ -123,6 +128,7 @@ function AuthStatusContent({
       toast.error("An unexpected error occurred");
     } finally {
       setIsActionInProgress(false);
+      setShowDisconnectDialog(false);
     }
   };
 
@@ -137,24 +143,56 @@ function AuthStatusContent({
 
   if (isConnected) {
     return (
-      <Button
-        variant="outline"
-        onClick={handleDisconnect}
-        disabled={isActionInProgress}
-        className="text-destructive border-destructive hover:bg-destructive/10"
-      >
-        {isActionInProgress ? (
-          <>
-            <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-            Disconnecting...
-          </>
-        ) : (
-          <>
-            <Icons.X className="mr-2 h-4 w-4" />
-            Disconnect
-          </>
-        )}
-      </Button>
+      <>
+        <Button
+          variant="outline"
+          onClick={() => setShowDisconnectDialog(true)}
+          disabled={isActionInProgress}
+          className="text-destructive border-destructive hover:bg-destructive/10"
+        >
+          {isActionInProgress ? (
+            <>
+              <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+              Disconnecting...
+            </>
+          ) : (
+            <>
+              <Icons.X className="mr-2 h-4 w-4" />
+              Disconnect
+            </>
+          )}
+        </Button>
+        <Dialog
+          open={showDisconnectDialog}
+          onOpenChange={setShowDisconnectDialog}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Disconnect from {provider}?</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to disconnect from {provider}?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="destructive"
+                onClick={handleDisconnect}
+                disabled={isActionInProgress}
+              >
+                {isActionInProgress ? (
+                  <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Disconnect
+              </Button>
+              <DialogClose asChild>
+                <Button variant="outline" disabled={isActionInProgress}>
+                  Cancel
+                </Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
