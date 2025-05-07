@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
+import { getCalendarsForCredential } from "@/lib/tools/google-calendar/services/credentials-service";
+import { Prisma } from "@/lib/generated/prisma";
 
 // Google OAuth token response type
 interface GoogleOAuthTokenResponse {
@@ -198,8 +200,32 @@ export async function GET(request: Request) {
         },
       });
 
+      // Fetch calendars for this credential
+      let defaultCalendarId: string | undefined = undefined;
+      try {
+        const calendars = await getCalendarsForCredential(credentialId);
+        if (calendars && calendars.length > 0) {
+          // Prefer primary, else first
+          const primary = calendars.find((c) => c.isPrimary);
+          defaultCalendarId = (primary || calendars[0]).id;
+        }
+      } catch (err) {
+        console.error("Failed to fetch calendars for default selection:", err);
+      }
+
       if (existingBotTool) {
-        // Update existing record
+        // Merge/patch config
+        let config: Record<string, unknown> = {};
+        if (
+          existingBotTool.config &&
+          typeof existingBotTool.config === "object" &&
+          !Array.isArray(existingBotTool.config)
+        ) {
+          config = { ...existingBotTool.config };
+        }
+        if (defaultCalendarId) {
+          config.defaultCalendarId = defaultCalendarId;
+        }
         await prisma.botTool.update({
           where: {
             botId_toolId: {
@@ -209,6 +235,7 @@ export async function GET(request: Request) {
           },
           data: {
             credentialId,
+            config: config as Prisma.InputJsonValue,
           },
         });
       } else {
@@ -219,6 +246,7 @@ export async function GET(request: Request) {
             toolId,
             credentialId,
             isEnabled: true,
+            config: defaultCalendarId ? { defaultCalendarId } : {},
           },
         });
       }
