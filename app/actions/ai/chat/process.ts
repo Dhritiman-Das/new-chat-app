@@ -17,7 +17,7 @@ import { getBotDetails } from "@/lib/queries/cached-queries";
 const toolExecutionService = new ToolExecutionService();
 
 export interface ChatProcessOptions {
-  messages: Array<{ role: string; content: string }>;
+  messages: CoreMessage[];
   conversationId?: string;
   modelId: string;
   botId: string;
@@ -109,7 +109,7 @@ export async function processChatRequest(
       await addMessage({
         conversationId: currentConversationId,
         role: "USER",
-        content: userMessage.content,
+        content: userMessage.content.toString(),
         responseMessages: [],
         contextUsed: {},
         processingTime: 0,
@@ -135,7 +135,7 @@ export async function processChatRequest(
       try {
         const contextResult = await retrieveKnowledgeContext(
           botId,
-          lastUserMessage.content,
+          lastUserMessage.content.toString(),
           5
         );
 
@@ -316,11 +316,7 @@ export async function processChatRequest(
     });
 
     // Handle the completion
-    handleFinish(
-      response.text,
-      response.usage,
-      [] // For non-streaming, we don't have detailed message objects
-    );
+    handleFinish(response.text, response.usage, response.response.messages);
 
     return {
       stream: null,

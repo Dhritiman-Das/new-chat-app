@@ -10,6 +10,7 @@ import {
   GoHighLevelDeploymentConfig,
 } from "@/lib/bot-deployments/gohighlevel/types";
 import { $Enums } from "@/lib/generated/prisma";
+import { redis } from "@/lib/db/kv";
 
 const MAX_ALLOWED_TIME_DIFF_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -50,8 +51,14 @@ export async function POST(request: NextRequest) {
     const { locationId, messageType } = body;
 
     // Skip duplicate messages - we'll use the message ID from the payload for this in the future
-    // const uniqueKey = `ghl:message:${body.messageId}`;
-    // TODO: Implement cache check for duplicate messages
+    const gohighlevelMessageKey = `ghl:message:${body.messageId}`;
+    const isDuplicate = await redis.get(gohighlevelMessageKey);
+    if (isDuplicate) {
+      console.log("Duplicate GoHighLevel message, skipping:", body.messageId);
+      return NextResponse.json({ success: true });
+    }
+    // Mark this event as processed for 5 minutes
+    await redis.set(gohighlevelMessageKey, "1", { ex: 300 });
 
     // Find integration for this location
     const integration = await prisma.integration.findFirst({

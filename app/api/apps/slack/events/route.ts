@@ -1,7 +1,10 @@
 import prisma from "@/lib/db/prisma";
-import { createSlackClient } from "@/lib/bot-deployments/slack";
-import { assistantThreadMessage } from "@/lib/bot-deployments/slack/lib/events/thread";
+import {
+  assistantThreadMessage,
+  createSlackClient,
+} from "@/lib/bot-deployments/slack";
 import { NextRequest, NextResponse } from "next/server";
+import { redis } from "@/lib/db/kv";
 
 // Define interfaces for type-safe deployment config
 interface SlackChannelConfig {
@@ -40,12 +43,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Skip retries
+    // Deduplication logic using Redis
     const slackEventKey = `slack:event:${body.event_id}`;
-    if (body.event_id && body.event_id === slackEventKey) {
-      console.log("Skipping duplicate Slack event");
+    const isDuplicate = await redis.get(slackEventKey);
+    if (isDuplicate) {
+      console.log("Duplicate Slack event, skipping:", body.event_id);
       return NextResponse.json({ success: true });
     }
+    // Mark this event as processed for 5 minutes
+    await redis.set(slackEventKey, "1", { ex: 300 });
 
     // Handle app_mention event - this is the key change
     if (body.event?.type === "app_mention") {

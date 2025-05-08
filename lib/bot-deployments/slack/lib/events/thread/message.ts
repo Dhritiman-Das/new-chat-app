@@ -1,6 +1,10 @@
 import type { GenericMessageEvent, WebClient } from "@slack/web-api";
 import { processDeploymentMessage } from "../../../../processor";
-import { ChatMessage, DeploymentPlatform } from "../../../../types";
+import { DeploymentPlatform } from "../../../../types";
+import type { CoreMessage } from "ai";
+import prisma from "@/lib/db/prisma";
+import { $Enums } from "@/lib/generated/prisma";
+import { generateSlackThreadUUID } from "../../helpers";
 
 // Define a more specific type for our message events
 interface SlackMessageEvent extends GenericMessageEvent {
@@ -30,27 +34,72 @@ export async function assistantThreadMessage(
     console.warn("Could not set thread status:", error);
   }
 
-  // Get conversation history from the thread
-  const threadHistory = await client.conversations.replies({
-    channel: event.channel,
-    ts: event.thread_ts || event.ts,
-    limit: 5, // Limiting to 5 messages for context
-    inclusive: true,
+  // Create or get conversation in our system (upsert)
+  const conversation = await prisma.conversation.upsert({
+    where: {
+      id: generateSlackThreadUUID(event.channel, event.thread_ts || event.ts),
+    },
+    update: {
+      status: $Enums.ConversationStatus.ACTIVE,
+    }, // Optionally update status or metadata if needed
+    create: {
+      id: generateSlackThreadUUID(event.channel, event.thread_ts || event.ts),
+      botId: options.botId,
+      externalUserId: event.user,
+      source: "slack",
+      status: $Enums.ConversationStatus.ACTIVE,
+      metadata: {
+        channel: event.channel,
+      },
+    },
   });
 
-  if (!threadHistory.messages || threadHistory.messages.length === 0) {
-    console.warn("No messages found in the thread");
-    return;
-  }
+  // Fetch the latest 10 messages for context (oldest to newest)
+  const history = await prisma.message.findMany({
+    where: { conversationId: conversation.id },
+    orderBy: { timestamp: "desc" },
+    take: 10,
+  });
 
-  // Convert Slack messages to a format the chat processor can understand
-  const messages: ChatMessage[] = threadHistory.messages
-    .map((msg) => ({
-      role: msg.bot_id ? "assistant" : "user",
-      content: msg.text || "",
-    }))
-    .reverse()
-    .slice(0, 5); // Take only the configured number of messages
+  const messages: CoreMessage[] = [];
+  for (const msg of history.reverse()) {
+    const role =
+      msg.role === $Enums.MessageRole.ASSISTANT
+        ? "assistant"
+        : msg.role === $Enums.MessageRole.USER
+        ? "user"
+        : "system";
+    if (role === "user") {
+      messages.push({ role, content: msg.content });
+    } else if (role === "assistant") {
+      let arr: unknown[] = [];
+      if (Array.isArray(msg.responseMessages)) {
+        arr = msg.responseMessages;
+      } else if (typeof msg.responseMessages === "string") {
+        try {
+          arr = JSON.parse(msg.responseMessages);
+        } catch {}
+      }
+      if (arr.length > 0) {
+        for (const item of arr) {
+          if (
+            item &&
+            typeof item === "object" &&
+            typeof (item as CoreMessage).role === "string"
+          ) {
+            messages.push(item as CoreMessage);
+          }
+        }
+      } else {
+        messages.push({ role, content: msg.content });
+      }
+    }
+    // Ignore system messages for now
+  }
+  messages.push({
+    role: "user",
+    content: event.text || "",
+  });
 
   // Create the Slack platform adapter
   const slackPlatform: DeploymentPlatform = {
@@ -95,6 +144,7 @@ export async function assistantThreadMessage(
       deploymentType: "SLACK",
       messages,
       platform: slackPlatform,
+      conversationId: conversation.id,
     });
   } catch (error) {
     console.error("Error processing Slack message:", error);

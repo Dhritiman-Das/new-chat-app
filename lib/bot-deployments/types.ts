@@ -1,4 +1,5 @@
 import { DeploymentType } from "@/lib/generated/prisma";
+import { CoreMessage } from "ai";
 
 /**
  * Message format for chat messages
@@ -28,7 +29,7 @@ export interface ProcessMessageOptions {
   organizationId: string;
   source: string;
   deploymentType: string | DeploymentType;
-  messages: ChatMessage[];
+  messages: CoreMessage[];
   platform: DeploymentPlatform;
   conversationId?: string;
   modelId?: string;

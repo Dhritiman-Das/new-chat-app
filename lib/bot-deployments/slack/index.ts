@@ -3,7 +3,6 @@ import { slackConfig } from "./config";
 import prisma from "@/lib/db/prisma";
 import { $Enums } from "@/lib/generated/prisma";
 import { Block } from "@slack/web-api";
-import { assistantThreadMessage } from "./lib/events/thread/message";
 
 export interface SlackClientOptions {
   token: string;
@@ -101,5 +100,4 @@ export async function getActiveSlackIntegrations(botId: string) {
   return integrations;
 }
 
-// Export the message handler for reuse
-export { assistantThreadMessage };
+export * from "./lib";

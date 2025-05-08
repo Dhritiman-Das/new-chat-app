@@ -33,3 +33,5 @@ export async function handleSlackEvent(
     return;
   }
 }
+
+export * from "./thread";

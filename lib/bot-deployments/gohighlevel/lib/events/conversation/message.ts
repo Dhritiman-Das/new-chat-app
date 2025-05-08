@@ -7,7 +7,13 @@ import {
   GoHighLevelMessageType,
   GoHighLevelDeploymentConfig,
 } from "../../../types";
-import { checkContactHasKillSwitch } from "../../../index";
+import {
+  checkContactHasKillSwitch,
+  generateGHLConversationUUID,
+} from "../../../index";
+import { processDeploymentMessage } from "../../../../processor";
+import { DeploymentPlatform } from "../../../../types";
+import { CoreMessage } from "ai";
 
 interface AssistantContext {
   userId: string;
@@ -35,7 +41,7 @@ export async function assistantConversationMessage(
       return;
     }
 
-    const { botId } = context;
+    const { botId, userId, organizationId } = context;
     const { body, contactId, conversationId, messageType, locationId } =
       webhookPayload;
 
@@ -109,7 +115,7 @@ export async function assistantConversationMessage(
     // Create or get conversation in our system
     const conversation = await prisma.conversation.upsert({
       where: {
-        id: conversationId,
+        id: generateGHLConversationUUID(contactId, locationId),
       },
       update: {
         status: $Enums.ConversationStatus.ACTIVE,
@@ -127,51 +133,87 @@ export async function assistantConversationMessage(
       },
     });
 
-    // Create a message in our system
-    await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        role: $Enums.MessageRole.USER,
-        content: body,
-      },
+    // Fetch the latest 10 messages for context (oldest to newest).
+    const history = await prisma.message.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { timestamp: "desc" },
+      take: 10,
     });
 
-    // Get AI response
-    // TODO: Use your AI system to generate a response
-    const aiResponse = await getAIResponse(bot, body);
+    const messages: CoreMessage[] = [];
+    for (const msg of history.reverse()) {
+      const role =
+        msg.role === $Enums.MessageRole.ASSISTANT
+          ? "assistant"
+          : msg.role === $Enums.MessageRole.USER
+          ? "user"
+          : "system";
+      if (role === "user") {
+        messages.push({ role, content: msg.content });
+      } else if (role === "assistant") {
+        let arr: unknown[] = [];
+        if (Array.isArray(msg.responseMessages)) {
+          arr = msg.responseMessages;
+        } else if (typeof msg.responseMessages === "string") {
+          try {
+            arr = JSON.parse(msg.responseMessages);
+          } catch {}
+        }
+        if (arr.length > 0) {
+          for (const item of arr) {
+            if (
+              item &&
+              typeof item === "object" &&
+              typeof (item as CoreMessage).role === "string"
+            ) {
+              messages.push(item as CoreMessage);
+            }
+          }
+        } else {
+          messages.push({ role, content: msg.content });
+        }
+      }
+      // Ignore system messages for now
+    }
 
-    // Create a message for the AI response
-    await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        role: $Enums.MessageRole.ASSISTANT,
-        content: aiResponse,
-      },
+    messages.push({
+      role: "user",
+      content: body,
     });
 
-    // Send the response back to GoHighLevel
-    await sendGoHighLevelResponse(client, {
-      type: webhookPayload.messageType as GoHighLevelMessageType,
-      contactId: webhookPayload.contactId,
-      message: aiResponse,
-      conversationId: webhookPayload.conversationId,
+    // Create the GoHighLevel platform adapter
+    const goHighLevelPlatform: DeploymentPlatform = {
+      type: "gohighlevel",
+      supportsStreaming: false,
+      sendMessage: async (content: string) => {
+        await sendGoHighLevelResponse(client, {
+          type: webhookPayload.messageType as GoHighLevelMessageType,
+          contactId: webhookPayload.contactId,
+          message: content,
+          conversationId: webhookPayload.conversationId,
+        });
+      },
+      setStatus: async () => {
+        // No-op for now; GoHighLevel does not support status updates
+      },
+    };
+
+    // Process the message through the common processor
+    await processDeploymentMessage({
+      botId,
+      userId,
+      organizationId,
+      source: "gohighlevel",
+      deploymentType: "GOHIGHLEVEL",
+      messages: messages as CoreMessage[],
+      platform: goHighLevelPlatform,
+      conversationId: conversation.id,
     });
 
     console.log("Successfully processed GoHighLevel message");
   } catch (error) {
     console.error("Error processing GoHighLevel message:", error);
   }
-}
-
-// Temporary function - will be replaced with actual AI implementation
-async function getAIResponse(
-  bot: { systemPrompt: string; id: string },
-  message: string
-): Promise<string> {
-  // This is a placeholder. In a real implementation, you'd integrate with your
-  // AI service to generate a response based on the bot's system prompt
-  // and the message history.
-  return `[Bot ${bot.id}] This is an automated response to: "${message}"`;
 }
 
 // Send response back to GoHighLevel
