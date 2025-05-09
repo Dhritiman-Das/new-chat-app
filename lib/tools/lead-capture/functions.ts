@@ -1,10 +1,11 @@
+import prisma from "@/lib/db/prisma";
 import { ToolFunction } from "../definitions/tool-interface";
 import {
   saveLeadSchema,
   requestLeadInfoSchema,
   detectTriggerKeywordSchema,
 } from "./schema";
-import { saveLead as saveLeadAction } from "@/app/actions/lead-capture";
+import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
 
 // Extended ToolContext with the fields we need
 interface LeadCaptureToolContext {
@@ -96,31 +97,27 @@ export const saveLead: ToolFunction = {
           return acc;
         }, {} as Record<string, unknown>);
 
-        // Save to database via server action
-        const result = await saveLeadAction({
-          botId: toolContext.botId,
-          name: String(name),
-          phone: String(phone),
-          email: email ? String(email) : undefined,
-          company: company ? String(company) : undefined,
-          source: source ? String(source) : "chat",
-          triggerKeyword: triggerKeyword ? String(triggerKeyword) : undefined,
-          conversationId: conversationId,
-          properties:
-            Object.keys(properties).length > 0 ? properties : undefined,
-          metadata: {
-            capturedAt: new Date().toISOString(),
-            toolId: toolContext.toolId || "lead-capture",
+        await prisma.lead.create({
+          data: {
+            botId: toolContext.botId,
+            name: String(name) || null,
+            phone: String(phone) || null,
+            email: email ? String(email) : null,
+            company: company ? String(company) : null,
+            source: source ? String(source) : "chat",
+            triggerKeyword: triggerKeyword ? String(triggerKeyword) : null,
             conversationId: conversationId || null,
+            properties:
+              Object.keys(properties).length > 0
+                ? (properties as InputJsonValue)
+                : undefined,
+            metadata: {
+              capturedAt: new Date().toISOString(),
+              toolId: toolContext.toolId || "lead-capture",
+              conversationId: conversationId || null,
+            } as InputJsonValue,
           },
         });
-
-        if (!result?.data?.success) {
-          console.error("Error saving lead to database:", result?.data?.error);
-          throw new Error(
-            result?.data?.error?.message || "Failed to save lead to database"
-          );
-        }
 
         // Generate a unique lead ID for reference
         const leadId = `lead_${Date.now()}`;
