@@ -112,16 +112,21 @@ export async function assistantConversationMessage(
       return;
     }
 
+    const generatedConversationId = generateGHLConversationUUID(
+      contactId,
+      locationId
+    );
+
     // Create or get conversation in our system
     const conversation = await prisma.conversation.upsert({
       where: {
-        id: generateGHLConversationUUID(contactId, locationId),
+        id: generatedConversationId,
       },
       update: {
         status: $Enums.ConversationStatus.ACTIVE,
       },
       create: {
-        id: conversationId,
+        id: generatedConversationId,
         botId,
         externalUserId: contactId,
         source: "gohighlevel",
