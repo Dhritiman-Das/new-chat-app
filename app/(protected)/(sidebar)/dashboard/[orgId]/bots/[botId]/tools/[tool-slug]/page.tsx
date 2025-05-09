@@ -19,6 +19,7 @@ import InstallToolCard from "@/components/tools/install-tool-card";
 import { ToolAuthStatus } from "@/components/tools/tool-auth-status";
 import { AuthRequirement } from "@/lib/tools/definitions/tool-interface";
 import { BackButton } from "@/components/back-button";
+import ToggleToolStatus from "@/components/tools/toggle-tool-status";
 
 // Define a serializable tool interface without function references
 interface SerializableTool {
@@ -60,6 +61,7 @@ export default async function ToolDetailPage({ params }: PageProps) {
 
   // Check if the tool is installed for this bot
   const botToolResponse = await getBotTool(botId, toolSlug);
+  console.log("botToolResponse", botToolResponse);
   const botTool = botToolResponse?.data;
   const isToolInstalled = !!botTool;
 
@@ -147,6 +149,11 @@ export default async function ToolDetailPage({ params }: PageProps) {
               </div>
             </div>
           </div>
+          <ToggleToolStatus
+            botId={botId}
+            toolId={toolSlug}
+            isActive={botTool?.isEnabled ?? false}
+          />
         </div>
 
         <Alert className="mb-8">
