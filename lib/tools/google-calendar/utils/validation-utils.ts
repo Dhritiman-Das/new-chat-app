@@ -49,7 +49,7 @@ export function validateAppointmentTime(
   duration: number,
   config: CalendarConfig
 ): void {
-  const timeZone = config.timeZone || "Asia/Kolkata";
+  const timeZone = config.timeZone || "America/New_York";
 
   // Map day number to day name
   const dayNames = [

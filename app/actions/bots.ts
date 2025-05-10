@@ -367,6 +367,22 @@ export async function installTool(
           isEnabled: true,
         },
       });
+      // Check if the botTool should have a credential_id connected
+      if (toolDef.auth?.required) {
+        // Check if the bot has a credential for this provider
+        const credential = await prisma.credential.findFirst({
+          where: {
+            botId,
+            provider: toolDef.auth.provider,
+          },
+        });
+        if (credential) {
+          await prisma.botTool.update({
+            where: { id: botTool.id },
+            data: { credentialId: credential.id },
+          });
+        }
+      }
     }
 
     // Revalidate relevant tags

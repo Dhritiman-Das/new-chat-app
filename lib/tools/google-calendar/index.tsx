@@ -34,6 +34,7 @@ export const googleCalendarTool: ToolDefinition = {
   defaultConfig: {
     appointmentDuration: 30,
     availabilityWindowDays: 14,
+    timeZone: "America/New_York",
     availableTimeSlots: [
       { day: "monday", startTime: "09:00", endTime: "17:00" },
       { day: "tuesday", startTime: "09:00", endTime: "17:00" },

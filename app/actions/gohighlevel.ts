@@ -8,8 +8,12 @@ import { auth } from "@/lib/auth";
 import { v4 as uuidv4 } from "uuid";
 import { revalidatePath } from "next/cache";
 import { getGoHighLevelIntegrationForBot } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/deployments/gohighlevel/utils";
-import { GoHighLevelMessageType } from "@/lib/bot-deployments/gohighlevel/types";
+import { GoHighLevelMessageType } from "@/lib/shared/types/gohighlevel";
 import { Prisma } from "@/lib/generated/prisma";
+import type { Calendar } from "@/components/tools/gohighlevel-calendar/types";
+import { TokenContext } from "@/lib/auth/types";
+import { createClient } from "@/lib/auth/provider-registry";
+import { GoHighLevelClient } from "@/lib/auth/clients";
 
 const action = createSafeActionClient();
 
@@ -46,6 +50,11 @@ const updateChannelSettingsSchema = z.object({
 // Schema for removing a GoHighLevel integration
 const removeIntegrationSchema = z.object({
   integrationId: z.string(),
+});
+
+// Schema for fetching GoHighLevel calendars
+const fetchCalendarsSchema = z.object({
+  credentialId: z.string(),
 });
 
 // Initialize GoHighLevel connection
@@ -292,3 +301,85 @@ export const removeGoHighLevelIntegration = action
       };
     }
   });
+
+// Fetch GoHighLevel calendars using server-side code
+export const fetchGoHighLevelCalendars = action
+  .schema(fetchCalendarsSchema)
+  .action(async ({ parsedInput }): Promise<ActionResponse<Calendar[]>> => {
+    try {
+      const session = await auth();
+      const { credentialId } = parsedInput;
+
+      if (!session?.user?.id) {
+        return {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "You must be logged in to fetch calendars",
+          },
+        };
+      }
+
+      // Create token context
+      const tokenContext: TokenContext = {
+        userId: session.user.id,
+        provider: "gohighlevel",
+        credentialId,
+      };
+
+      try {
+        // Get the calendars using the auth library's calendar service
+        const ghlClient = await createClient<GoHighLevelClient>(tokenContext);
+
+        if (!ghlClient) {
+          console.error(
+            "Failed to create GoHighLevelClient - client is null or undefined"
+          );
+          return {
+            success: false,
+            error: {
+              code: "CLIENT_CREATION_FAILED",
+              message: "Failed to create GoHighLevel client",
+            },
+          };
+        }
+        const calendars = await ghlClient.calendar.getCalendars();
+
+        return {
+          success: true,
+          data: calendars,
+        };
+      } catch (clientError) {
+        console.error(
+          "Error in client creation or calendar fetching:",
+          clientError
+        );
+        return {
+          success: false,
+          error: {
+            code: "CLIENT_ERROR",
+            message: `Error with GoHighLevel client: ${
+              clientError instanceof Error
+                ? clientError.message
+                : String(clientError)
+            }`,
+          },
+        };
+      }
+    } catch (error) {
+      console.error("Error fetching GoHighLevel calendars:", error);
+      return {
+        success: false,
+        error: {
+          code: "SERVER_ERROR",
+          message: `Failed to fetch GoHighLevel calendars: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        },
+      };
+    }
+  });
+
+/**
+ * Fetch GoHighLevel
+ */

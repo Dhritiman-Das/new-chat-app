@@ -1,19 +1,20 @@
-import { AxiosInstance } from "axios";
 import prisma from "@/lib/db/prisma";
 import { $Enums } from "@/lib/generated/prisma";
 import {
   GoHighLevelWebhookPayload,
-  GoHighLevelMessage,
   GoHighLevelMessageType,
   GoHighLevelDeploymentConfig,
 } from "../../../types";
 import {
-  checkContactHasKillSwitch,
   generateGHLConversationUUID,
-} from "../../../index";
+  checkContactHasKillSwitchWithAuthClient,
+} from "../../../lib/helpers";
 import { processDeploymentMessage } from "../../../../processor";
 import { DeploymentPlatform } from "../../../../types";
 import { CoreMessage } from "ai";
+import { TokenContext } from "@/lib/auth/types";
+import { GoHighLevelClient } from "@/lib/auth/clients/gohighlevel";
+import { createClient } from "@/lib/auth/provider-registry";
 
 interface AssistantContext {
   userId: string;
@@ -26,7 +27,7 @@ interface AssistantContext {
  */
 export async function assistantConversationMessage(
   webhookPayload: GoHighLevelWebhookPayload,
-  client: AxiosInstance,
+  tokenContext: TokenContext,
   context: AssistantContext
 ) {
   try {
@@ -62,9 +63,13 @@ export async function assistantConversationMessage(
       return;
     }
 
+    // Create the GoHighLevel client using the auth module
+    const ghlClient = await createClient<GoHighLevelClient>(tokenContext);
+    const contactsClient = ghlClient.contacts;
+
     // Check if the contact has the kill_switch tag
-    const hasKillSwitch = await checkContactHasKillSwitch(
-      Promise.resolve(client),
+    const hasKillSwitch = await checkContactHasKillSwitchWithAuthClient(
+      contactsClient,
       contactId
     );
 
@@ -186,16 +191,20 @@ export async function assistantConversationMessage(
       content: body,
     });
 
+    // Get the messaging client from the auth module
+    const messagingClient = ghlClient.messaging;
+
     // Create the GoHighLevel platform adapter
     const goHighLevelPlatform: DeploymentPlatform = {
       type: "gohighlevel",
       supportsStreaming: false,
       sendMessage: async (content: string) => {
-        await sendGoHighLevelResponse(client, {
+        await messagingClient.sendMessage({
           type: webhookPayload.messageType as GoHighLevelMessageType,
           contactId: webhookPayload.contactId,
           message: content,
           conversationId: webhookPayload.conversationId,
+          locationId,
         });
       },
       setStatus: async () => {
@@ -213,24 +222,11 @@ export async function assistantConversationMessage(
       messages: messages as CoreMessage[],
       platform: goHighLevelPlatform,
       conversationId: conversation.id,
+      webhookPayload: webhookPayload as unknown as Record<string, unknown>,
     });
 
     console.log("Successfully processed GoHighLevel message");
   } catch (error) {
     console.error("Error processing GoHighLevel message:", error);
-  }
-}
-
-// Send response back to GoHighLevel
-async function sendGoHighLevelResponse(
-  client: AxiosInstance,
-  message: GoHighLevelMessage
-) {
-  try {
-    const response = await client.post("/conversations/messages", message);
-    return response.data;
-  } catch (error) {
-    console.error("Error sending GoHighLevel response:", error);
-    throw error;
   }
 }

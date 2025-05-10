@@ -8,6 +8,7 @@ export interface ToolContext {
   credentials?: Record<string, unknown>;
   config?: Record<string, unknown>;
   conversationId?: string;
+  webhookPayload?: Record<string, unknown>; // Webhook payload data for bot deployments
 }
 
 export interface ToolFunction {

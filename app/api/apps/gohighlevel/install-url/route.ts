@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/db/prisma";
-import { gohighlevelConfig } from "@/lib/bot-deployments/gohighlevel/config";
+import { getAuthUrl } from "@/lib/auth/config/providers-config";
 import { auth } from "@/lib/auth";
-
-// Required scopes for our application
-const requiredScopes = [
-  "conversations.readonly",
-  "conversations.write",
-  "conversations/message.readonly",
-  "conversations/message.write",
-  "contacts.readonly",
-  "locations.readonly",
-];
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,18 +39,11 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Set up the auth URL
-    const authUrl = new URL(
-      "https://marketplace.gohighlevel.com/oauth/chooselocation"
-    );
-    authUrl.searchParams.append("response_type", "code");
-    authUrl.searchParams.append("redirect_uri", gohighlevelConfig.redirectUri);
-    authUrl.searchParams.append("client_id", gohighlevelConfig.clientId);
-    authUrl.searchParams.append("scope", requiredScopes.join(" "));
-    authUrl.searchParams.append("state", state);
+    // Get the authorization URL from the auth module
+    const authUrl = getAuthUrl("gohighlevel", state);
 
     // Return the URL
-    return NextResponse.json({ url: authUrl.toString() });
+    return NextResponse.json({ url: authUrl });
   } catch (error) {
     console.error("Error generating GoHighLevel install URL:", error);
     return NextResponse.json(

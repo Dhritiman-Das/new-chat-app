@@ -17,7 +17,7 @@ import Link from "next/link";
 import { GoHighLevelConnectButton } from "./gohighlevel-connect-button";
 import { removeGoHighLevelIntegration } from "@/app/actions/gohighlevel";
 import { deploymentLogos } from "@/lib/bot-deployments";
-import { GoHighLevelDeploymentConfig } from "@/lib/bot-deployments/gohighlevel/types";
+import { GoHighLevelDeploymentConfig } from "@/lib/shared/types/gohighlevel";
 import { useClipboard } from "@/hooks/use-clipboard";
 
 interface GoHighLevelIntegrationProps {

@@ -48,7 +48,14 @@ export class ToolExecutionService {
 
       // Check if tool is enabled for this bot
       if (botTool && !botTool.isEnabled) {
-        throw new Error(`Tool is disabled for this bot: ${toolId}`);
+        return {
+          success: false,
+          skipped: true,
+          error: {
+            code: "TOOL_DISABLED",
+            message: `Tool is disabled for this bot. ToolId: ${toolId}, BotId: ${context.botId}`,
+          },
+        };
       }
 
       // Get tool credential if needed

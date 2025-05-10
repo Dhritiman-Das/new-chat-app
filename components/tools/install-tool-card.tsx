@@ -118,7 +118,7 @@ export default function InstallToolCard({ tool, botId }: InstallToolCardProps) {
         >
           {installing ? (
             <>
-              <Icons.RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              <Icons.Loader className="mr-2 h-4 w-4 animate-spin" />
               Installing...
             </>
           ) : (

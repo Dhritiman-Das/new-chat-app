@@ -225,7 +225,7 @@ export default function GoogleCalendarTool({
         typeof tool.defaultConfig?.timeZone === "string" &&
         tool.defaultConfig.timeZone
           ? (tool.defaultConfig.timeZone as string)
-          : "Asia/Kolkata",
+          : "America/New_York",
     },
   });
 
@@ -277,7 +277,7 @@ export default function GoogleCalendarTool({
         if (data.config.timeZone && typeof data.config.timeZone === "string") {
           form.setValue("timeZone", data.config.timeZone);
         } else {
-          form.setValue("timeZone", "Asia/Kolkata");
+          form.setValue("timeZone", "America/New_York");
         }
       }
     } catch (error) {
@@ -310,7 +310,7 @@ export default function GoogleCalendarTool({
 
         // Check for existing connection
         const response = await fetch(
-          `/api/tools/${tool.id}/credentials?provider=google&useNewCredentials=true`
+          `/api/tools/${tool.id}/credentials?provider=google&botId=${botId}&useNewCredentials=true`
         );
         if (!response.ok) {
           if (response.status !== 404) {

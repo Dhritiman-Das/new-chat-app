@@ -47,7 +47,7 @@ interface CalendarConfig {
   timeZone?: string;
 }
 
-const DEFAULT_TIME_ZONE = "Asia/Kolkata";
+const DEFAULT_TIME_ZONE = "America/New_York";
 
 export const bookAppointment: ToolFunction = {
   description: "Book a new appointment on Google Calendar",

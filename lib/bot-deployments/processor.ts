@@ -17,6 +17,7 @@ export async function processDeploymentMessage(
     organizationId,
     // deploymentType,
     modelId = "gpt-4o", // Default model
+    webhookPayload, // Extract webhookPayload for tools
   } = options;
 
   // Set thinking status if supported by the platform
@@ -35,6 +36,7 @@ export async function processDeploymentMessage(
       organizationId,
       source: source || "deployment",
       useStreaming: platform.supportsStreaming,
+      webhookPayload, // Pass the webhook payload to the processChatRequest
     });
 
     if (

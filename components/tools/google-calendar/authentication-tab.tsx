@@ -78,7 +78,7 @@ export function AuthenticationTab({
 
         // Check for existing connection
         const response = await fetch(
-          `/api/tools/${tool.id}/credentials?provider=google&useNewCredentials=true`
+          `/api/tools/${tool.id}/credentials?provider=google&botId=${botId}&useNewCredentials=true`
         );
         if (!response.ok) {
           if (response.status !== 404) {

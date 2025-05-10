@@ -1,17 +1,14 @@
-import { createGoHighLevelClient } from "./client";
+import { ContactsClient } from "@/lib/auth/clients/gohighlevel";
 
-// Check if a contact has the kill_switch tag
-export async function checkContactHasKillSwitch(
-  client: ReturnType<typeof createGoHighLevelClient>,
+// New version using the auth module's ContactsClient
+export async function checkContactHasKillSwitchWithAuthClient(
+  contactsClient: ContactsClient,
   contactId: string
 ) {
   try {
-    // Get contact's tags
-    const response = await (await client).get(`/contacts/${contactId}`);
-
-    // Check if one of the tags is kill_switch
+    const contact = await contactsClient.getContact(contactId);
     return (
-      response.data?.contact?.tags?.some(
+      contact.tags?.some(
         (tag: { name: string }) => tag.name.toLowerCase() === "kill_switch"
       ) || false
     );

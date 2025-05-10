@@ -3,21 +3,9 @@ import { auth } from "@/lib/auth";
 import { Prisma } from "@/lib/generated/prisma";
 import {
   GoHighLevelDeploymentConfig,
-  GoHighLevelMessageType,
-} from "@/lib/bot-deployments/gohighlevel/types";
-
-export interface GoHighLevelChannel {
-  type: GoHighLevelMessageType;
-  active: boolean;
-  settings?: {
-    [key: string]: unknown;
-  };
-}
-
-export interface GoHighLevelGlobalSettings {
-  defaultResponseTime?: string;
-  [key: string]: unknown;
-}
+  GoHighLevelChannel,
+  GoHighLevelGlobalSettings,
+} from "@/lib/shared/types/gohighlevel";
 
 export interface GoHighLevelIntegrationConfig {
   maxMessagesToProcess?: number;

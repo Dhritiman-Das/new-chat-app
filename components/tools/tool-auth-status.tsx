@@ -47,7 +47,7 @@ function AuthStatusContent({
       try {
         setIsLoading(true);
         const response = await fetch(
-          `/api/tools/${toolId}/credentials?provider=${provider}&useNewCredentials=true`
+          `/api/tools/${toolId}/credentials?provider=${provider}&botId=${botId}&useNewCredentials=true`
         );
 
         if (response.ok) {

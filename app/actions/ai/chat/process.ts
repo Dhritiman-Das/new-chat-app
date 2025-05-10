@@ -25,6 +25,7 @@ export interface ChatProcessOptions {
   organizationId?: string; // Optional for unauthenticated requests
   source?: string;
   useStreaming?: boolean; // Whether to use streamText or generateText
+  webhookPayload?: Record<string, unknown>; // Webhook payload data for deployments
 }
 
 export interface ChatProcessResult {
@@ -58,6 +59,7 @@ export async function processChatRequest(
     organizationId,
     source = "playground",
     useStreaming = true,
+    webhookPayload,
   } = options;
 
   let currentConversationId = initialConversationId;
@@ -184,6 +186,7 @@ export async function processChatRequest(
               botId,
               organizationId: effectiveOrgId,
               conversationId: currentConversationId,
+              webhookPayload: webhookPayload,
             }
           );
         },

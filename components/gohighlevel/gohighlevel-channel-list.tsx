@@ -15,7 +15,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icons } from "@/components/icons";
 import { updateGoHighLevelChannels } from "@/app/actions/gohighlevel";
-import { GoHighLevelMessageType } from "@/lib/bot-deployments/gohighlevel/types";
+import { GoHighLevelMessageType } from "@/lib/shared/types/gohighlevel";
 
 interface GoHighLevelChannelListProps {
   channels: Array<{

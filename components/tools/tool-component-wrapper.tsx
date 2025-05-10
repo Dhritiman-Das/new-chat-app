@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Icons } from "@/components/icons";
+import GoHighLevelCalendarTool from "./gohighlevel-calendar";
 
 // Define a serializable tool interface
 interface SerializableTool {
@@ -128,6 +129,10 @@ export default function ToolComponentWrapper({
       return <GoogleCalendarTool tool={tool} botId={botId} orgId={orgId} />;
     case "lead-capture":
       return <LeadCaptureTool tool={tool} botId={botId} orgId={orgId} />;
+    case "gohighlevel-calendar":
+      return (
+        <GoHighLevelCalendarTool tool={tool} botId={botId} orgId={orgId} />
+      );
     default:
       return <DefaultToolComponent tool={tool} botId={botId} orgId={orgId} />;
   }

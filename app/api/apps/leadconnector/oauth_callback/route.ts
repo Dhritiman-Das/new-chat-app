@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
-import { gohighlevelConfig } from "@/lib/bot-deployments/gohighlevel/config";
 import { $Enums } from "@/lib/generated/prisma";
+import { createGoHighLevelClient } from "@/lib/auth/clients/gohighlevel";
+import { TokenContext } from "@/lib/auth/types";
+import { gohighlevelConfig } from "@/lib/auth/config/providers-config";
 
 async function exchangeCodeForToken(code: string) {
   // Create form data with required parameters
@@ -83,18 +85,56 @@ export async function GET(request: NextRequest) {
         console.error("Error parsing state metadata:", e);
       }
 
-      // Get location/account info from token data
-      const locationInfo = tokenData.locationId
-        ? await fetch(
-            `${gohighlevelConfig.apiEndpoint}/locations/${tokenData.locationId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${tokenData.access_token}`,
-                Version: gohighlevelConfig.apiVersion,
-              },
-            }
-          ).then((res) => res.json())
-        : { name: "GoHighLevel Account" };
+      // Create a token context for getting location info
+      const tempCredential = await prisma.credential.create({
+        data: {
+          userId,
+          provider: "gohighlevel",
+          name: "Temporary",
+          credentials: {
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+            expires_at: tokenData.expires_at,
+            scope: tokenData.scope,
+            locationId: tokenData.locationId,
+          },
+        },
+      });
+
+      const tokenContext: TokenContext = {
+        userId,
+        provider: "gohighlevel",
+        credentialId: tempCredential.id,
+      };
+
+      // Get location/account info using the auth module client
+      const ghlClient = createGoHighLevelClient(
+        tokenContext,
+        tokenData.locationId
+      );
+
+      // Initialize the client
+      await ghlClient.initialize();
+
+      let locationInfo;
+
+      try {
+        if (tokenData.locationId) {
+          locationInfo = await ghlClient.location.getLocation(
+            tokenData.locationId
+          );
+        } else {
+          locationInfo = { name: "GoHighLevel Account", id: "" };
+        }
+      } catch (error) {
+        console.error("Error fetching location info:", error);
+        locationInfo = { name: "GoHighLevel Account", id: "" };
+      }
+
+      // Delete the temporary credential
+      await prisma.credential.delete({
+        where: { id: tempCredential.id },
+      });
 
       // Create or update credentials
       const credential = await prisma.credential.upsert({
@@ -102,7 +142,7 @@ export async function GET(request: NextRequest) {
           userId_provider_name: {
             userId,
             provider: "gohighlevel",
-            name: locationInfo.location.name || "Default",
+            name: locationInfo.name || "Default",
           },
         },
         update: {
@@ -117,7 +157,7 @@ export async function GET(request: NextRequest) {
         create: {
           userId,
           provider: "gohighlevel",
-          name: locationInfo.location.name || "Default",
+          name: locationInfo.name || "Default",
           botId,
           credentials: {
             access_token: tokenData.access_token,
@@ -150,8 +190,7 @@ export async function GET(request: NextRequest) {
             data: {
               metadata: {
                 locationId: tokenData.locationId,
-                locationName:
-                  locationInfo.location.name || "GoHighLevel Location",
+                locationName: locationInfo.name || "GoHighLevel Location",
                 companyId: tokenData.companyId,
               },
               credentialId: credential.id,
@@ -164,14 +203,13 @@ export async function GET(request: NextRequest) {
             data: {
               userId,
               botId,
-              name: `GoHighLevel - ${locationInfo.location.name || "Default"}`,
+              name: `GoHighLevel - ${locationInfo.name || "Default"}`,
               provider: "gohighlevel",
               type: $Enums.IntegrationType.CRM,
               authCredentials: {}, // Empty object for auth credentials since we're using the credential model
               metadata: {
                 locationId: tokenData.locationId,
-                locationName:
-                  locationInfo.location.name || "GoHighLevel Location",
+                locationName: locationInfo.name || "GoHighLevel Location",
                 companyId: tokenData.companyId,
               },
               credentialId: credential.id,

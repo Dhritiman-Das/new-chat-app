@@ -33,6 +33,7 @@ export interface ProcessMessageOptions {
   platform: DeploymentPlatform;
   conversationId?: string;
   modelId?: string;
+  webhookPayload?: Record<string, unknown>;
 }
 
 /**

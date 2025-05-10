@@ -1,16 +1,14 @@
 import prisma from "@/lib/db/prisma";
-import {
-  createGoHighLevelClient,
-  verifyWebhookSignature,
-  assistantConversationMessage,
-} from "@/lib/bot-deployments/gohighlevel";
+import { assistantConversationMessage } from "@/lib/bot-deployments/gohighlevel";
 import { NextRequest, NextResponse } from "next/server";
 import {
   GoHighLevelWebhookPayload,
   GoHighLevelDeploymentConfig,
-} from "@/lib/bot-deployments/gohighlevel/types";
+} from "@/lib/shared/types/gohighlevel";
 import { $Enums } from "@/lib/generated/prisma";
 import { redis } from "@/lib/db/kv";
+import { TokenContext } from "@/lib/auth/types";
+import { verifyWebhookSignature } from "@/lib/auth/services/webhook-verification";
 
 const MAX_ALLOWED_TIME_DIFF_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -24,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rawBody = await request.text();
-    const isValid = verifyWebhookSignature(rawBody, signature);
+    const isValid = verifyWebhookSignature("gohighlevel", rawBody, signature);
 
     if (!isValid) {
       console.error("Invalid webhook signature");
@@ -32,6 +30,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = JSON.parse(rawBody) as GoHighLevelWebhookPayload;
+
+    // Remove this in production
+    if (body.contactId !== "o8tiH6Hriwpyfl6pt2Vy") {
+      return NextResponse.json({ success: true });
+    }
 
     // Validate timestamp to prevent replay attacks
     if (body.timestamp) {
@@ -123,17 +126,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create client
-    const credentials = integration.credential.credentials as {
-      access_token: string;
+    // Create TokenContext for auth module
+    const tokenContext: TokenContext = {
+      userId: integration.userId,
+      provider: "gohighlevel",
+      credentialId: integration.credential.id,
     };
 
-    const ghlClient = await createGoHighLevelClient({
-      token: credentials.access_token,
-    });
-
     // Process the message with the AI implementation
-    await assistantConversationMessage(body, await ghlClient, {
+    await assistantConversationMessage(body, tokenContext, {
       userId: integration.userId,
       organizationId: bot.organizationId,
       botId: bot.id,

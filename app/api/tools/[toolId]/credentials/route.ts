@@ -16,10 +16,11 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider");
+    const botId = searchParams.get("botId");
     const useNewCredentials = searchParams.get("useNewCredentials") === "true";
     const { toolId } = await params;
 
-    if (!provider || !toolId) {
+    if (!provider || !toolId || !botId) {
       return NextResponse.json(
         { error: "Missing required parameters" },
         { status: 400 }
@@ -38,10 +39,11 @@ export async function GET(request: Request, { params }: Params) {
     if (useNewCredentials) {
       const botTool = await prisma.botTool.findFirst({
         where: {
-          botId: toolId,
-          tool: {
-            integrationType: provider,
-          },
+          botId,
+          toolId,
+          // tool: {
+          //   integrationType: provider,
+          // },
         },
         include: {
           credential: true,
