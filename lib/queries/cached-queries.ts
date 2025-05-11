@@ -19,6 +19,7 @@ import {
   getBotAppointmentsQuery,
   getUserBotsGroupedByOrgQuery,
   getBotCountsQuery,
+  getBotAllToolsQuery,
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -734,6 +735,22 @@ export const getBotCounts = async (botId: string) => {
         `bot_conversations_${botId}`,
       ],
       revalidate: 30, // Cache for 30 seconds since these counts might change frequently
+    }
+  )();
+};
+
+// Get all bot tools including disabled ones
+export const getBotAllTools = async (botId: string) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return getBotAllToolsQuery(prisma, botId);
+    },
+    ["bot_all_tools", botId],
+    {
+      tags: [`bot_${botId}`, `bot_tools_${botId}`],
+      revalidate: 30, // Cache for 30 seconds
     }
   )();
 };

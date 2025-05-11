@@ -769,3 +769,20 @@ export async function getBotCountsQuery(prisma: PrismaClient, botId: string) {
 
   return counts?._count;
 }
+
+/**
+ * Get all bot tools for a specific bot, including disabled ones
+ */
+export async function getBotAllToolsQuery(prisma: PrismaClient, botId: string) {
+  const botTools = await prisma.botTool.findMany({
+    where: { botId },
+    select: {
+      toolId: true,
+      isEnabled: true,
+    },
+  });
+
+  return {
+    data: botTools,
+  };
+}

@@ -1,5 +1,7 @@
-import { requireAuth } from "@/utils/auth";
-import { getBotById } from "@/lib/queries/cached-queries";
+import Link from "next/link";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -7,8 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -19,8 +19,10 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import Link from "next/link";
+
 import { initializeTools } from "@/lib/tools";
+import { getBotById, getBotAllTools } from "@/lib/queries/cached-queries";
+import { requireAuth } from "@/utils/auth";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -33,6 +35,15 @@ export default async function ToolsPage({ params }: PageProps) {
   // Fetch bot data
   const botResponse = await getBotById(botId);
   const bot = botResponse?.data;
+
+  // Get all bot tools including disabled ones
+  const botToolsResponse = await getBotAllTools(botId);
+  const botTools = botToolsResponse.data;
+
+  // Map tool IDs to enabled status for quick lookup
+  const enabledToolsMap = new Map(
+    botTools.map((botTool) => [botTool.toolId, botTool.isEnabled])
+  );
 
   // Initialize and get tools from registry
   const { toolRegistry } = initializeTools();
@@ -86,20 +97,24 @@ export default async function ToolsPage({ params }: PageProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tools.map((tool) => {
-            // Map tool types to their corresponding icons
-            // const iconMap: Record<string, React.ReactNode> = {
-            //   CALENDAR_BOOKING: <Icons.Calendar className="h-5 w-5" />,
-            //   CONTACT_FORM: <Icons.MessageCircle className="h-5 w-5" />,
-            //   CRM_TAG: <Icons.Database className="h-5 w-5" />,
-            //   DATA_QUERY: <Icons.Database className="h-5 w-5" />,
-            //   CUSTOM: <Icons.Settings className="h-5 w-5" />,
-            // };
+            // Check if this tool is enabled
+            const isEnabled = enabledToolsMap.get(tool.id) === true;
 
             return (
-              <Card key={tool.id} className="overflow-hidden">
+              <Card key={tool.id} className="overflow-hidden group relative">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{tool.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{tool.name}</CardTitle>
+                      {isEnabled && (
+                        <Badge
+                          variant="secondary"
+                          className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 transition-all duration-200 group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/50"
+                        >
+                          In use
+                        </Badge>
+                      )}
+                    </div>
                     <div className="p-1 rounded-md bg-muted">{tool.icon}</div>
                   </div>
                   <CardDescription className="line-clamp-2 h-10">
