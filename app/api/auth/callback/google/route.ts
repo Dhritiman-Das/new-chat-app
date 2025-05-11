@@ -115,9 +115,8 @@ export async function GET(request: Request) {
     // Check if there's an existing credential for this bot
     const existingCredential = await prisma.credential.findFirst({
       where: {
-        userId,
-        provider: "google",
         botId,
+        provider: "google",
       },
     });
 

@@ -164,9 +164,8 @@ export async function GET(request: Request) {
     // Check for existing credential for this bot
     const existingCredential = await prisma.credential.findFirst({
       where: {
-        userId: oauthState.userId,
-        provider: "slack",
         botId: metadata.botId,
+        provider: "slack",
       },
     });
 
@@ -180,6 +179,7 @@ export async function GET(request: Request) {
           id: existingCredential.id,
         },
         data: {
+          name: credentialName,
           credentials: {
             access_token: response.access_token,
             team_id: response.team?.id,

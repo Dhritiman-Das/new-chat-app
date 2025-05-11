@@ -33,8 +33,6 @@ export async function GET(request: Request, { params }: Params) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
-
     // If using new credentials, check BotTool to get credentialId
     if (useNewCredentials) {
       const botTool = await prisma.botTool.findFirst({
@@ -54,8 +52,8 @@ export async function GET(request: Request, { params }: Params) {
         // Check for direct credential
         const credential = await prisma.credential.findFirst({
           where: {
-            userId,
             provider,
+            botId,
           },
         });
 
@@ -103,8 +101,8 @@ export async function GET(request: Request, { params }: Params) {
     // Using old method (for backward compatibility)
     const credentials = await prisma.credential.findFirst({
       where: {
-        userId,
         provider,
+        botId,
       },
     });
 
@@ -172,7 +170,7 @@ export async function GET(request: Request, { params }: Params) {
  */
 export async function POST(request: Request, { params }: Params) {
   try {
-    const { provider, credentials } = await request.json();
+    const { provider, credentials, botId } = await request.json();
     const { toolId } = await params;
 
     if (!provider || !toolId || !credentials) {
@@ -192,11 +190,14 @@ export async function POST(request: Request, { params }: Params) {
 
     // Create or update credentials in database
     try {
+      // The actual botId to use - might be passed or might be the toolId parameter
+      const targetBotId = botId || toolId;
+
       // Try to find an existing credential using the new model
       const existingCredential = await prisma.credential.findFirst({
         where: {
-          userId,
           provider,
+          botId: targetBotId,
         },
       });
 
@@ -217,8 +218,9 @@ export async function POST(request: Request, { params }: Params) {
         // Create new credential
         result = await prisma.credential.create({
           data: {
-            userId,
+            userId, // We need userId for creating new credentials
             provider,
+            botId: targetBotId,
             credentials: JSON.stringify(credentials),
           },
         });
@@ -227,7 +229,7 @@ export async function POST(request: Request, { params }: Params) {
       // Update or create botTool relationship
       const existingBotTool = await prisma.botTool.findFirst({
         where: {
-          botId: toolId,
+          botId: targetBotId,
           tool: {
             integrationType: provider,
           },

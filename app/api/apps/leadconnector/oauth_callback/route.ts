@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
           userId,
           provider: "gohighlevel",
           name: "Temporary",
+          // Make sure temporary credential has no botId to avoid conflicts
           credentials: {
             access_token: tokenData.access_token,
             refresh_token: tokenData.refresh_token,
@@ -136,38 +137,47 @@ export async function GET(request: NextRequest) {
         where: { id: tempCredential.id },
       });
 
-      // Create or update credentials
-      const credential = await prisma.credential.upsert({
+      // Check if credential already exists for this bot and provider
+      let credential = await prisma.credential.findFirst({
         where: {
-          userId_provider_name: {
+          botId,
+          provider: "gohighlevel",
+        },
+      });
+
+      if (credential) {
+        // Update existing credential
+        credential = await prisma.credential.update({
+          where: { id: credential.id },
+          data: {
+            name: locationInfo.name || "Default",
+            credentials: {
+              access_token: tokenData.access_token,
+              refresh_token: tokenData.refresh_token,
+              expires_at: tokenData.expires_at,
+              scope: tokenData.scope,
+              locationId: tokenData.locationId,
+            },
+          },
+        });
+      } else {
+        // Create new credential
+        credential = await prisma.credential.create({
+          data: {
             userId,
             provider: "gohighlevel",
             name: locationInfo.name || "Default",
+            botId,
+            credentials: {
+              access_token: tokenData.access_token,
+              refresh_token: tokenData.refresh_token,
+              expires_at: tokenData.expires_at,
+              scope: tokenData.scope,
+              locationId: tokenData.locationId,
+            },
           },
-        },
-        update: {
-          credentials: {
-            access_token: tokenData.access_token,
-            refresh_token: tokenData.refresh_token,
-            expires_at: tokenData.expires_at,
-            scope: tokenData.scope,
-            locationId: tokenData.locationId,
-          },
-        },
-        create: {
-          userId,
-          provider: "gohighlevel",
-          name: locationInfo.name || "Default",
-          botId,
-          credentials: {
-            access_token: tokenData.access_token,
-            refresh_token: tokenData.refresh_token,
-            expires_at: tokenData.expires_at,
-            scope: tokenData.scope,
-            locationId: tokenData.locationId,
-          },
-        },
-      });
+        });
+      }
 
       // Only continue if a bot ID was provided
       if (botId) {

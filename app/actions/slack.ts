@@ -16,6 +16,38 @@ import { getSlackIntegrationForBot } from "@/app/(protected)/(sidebar)/dashboard
 
 const action = createSafeActionClient();
 
+/**
+ * Helper function to check if a credential is used by other resources
+ * Returns true if the credential is being used by bot tools or integrations
+ */
+async function isCredentialInUse(
+  credentialId: string,
+  excludeIntegrationId?: string
+): Promise<boolean> {
+  // Check if credential is used by any integrations (excluding the one being removed)
+  const integrationsUsingCredential = await prisma.integration.count({
+    where: {
+      credentialId,
+      ...(excludeIntegrationId
+        ? {
+            id: {
+              not: excludeIntegrationId,
+            },
+          }
+        : {}),
+    },
+  });
+
+  // Check if credential is used by any bot tools
+  const botToolsUsingCredential = await prisma.botTool.count({
+    where: {
+      credentialId,
+    },
+  });
+
+  return integrationsUsingCredential > 0 || botToolsUsingCredential > 0;
+}
+
 // Schema for Slack connection initialization
 const initiateConnectionSchema = z.object({
   botId: z.string(),
@@ -342,16 +374,16 @@ export const removeSlackIntegration = action
         where: { id: integrationId },
       });
 
-      // Optionally delete the credential if no other integration is using it
+      // Check if the credential is used by any other resources before deleting it
       if (integration.credentialId) {
-        const otherIntegrations = await prisma.integration.findFirst({
-          where: {
-            credentialId: integration.credentialId,
-            id: { not: integrationId },
-          },
-        });
+        // Check if credential is used by any other integrations or bot tools
+        const stillInUse = await isCredentialInUse(
+          integration.credentialId,
+          integrationId
+        );
 
-        if (!otherIntegrations) {
+        // Delete credential only if it's not used anywhere else
+        if (!stillInUse) {
           await prisma.credential.delete({
             where: { id: integration.credentialId },
           });

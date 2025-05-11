@@ -15,6 +15,38 @@ import {
 
 const actionClient = createSafeActionClient();
 
+/**
+ * Helper function to check if a credential is used by other resources
+ * Returns true if the credential is being used by bot tools or integrations
+ */
+async function isCredentialInUse(
+  credentialId: string,
+  excludeBotToolId?: string
+): Promise<boolean> {
+  // Check if credential is used by any bot tools (excluding the one being disconnected)
+  const botToolsUsingCredential = await prisma.botTool.count({
+    where: {
+      credentialId,
+      ...(excludeBotToolId
+        ? {
+            id: {
+              not: excludeBotToolId,
+            },
+          }
+        : {}),
+    },
+  });
+
+  // Check if credential is used by any integrations
+  const integrationsUsingCredential = await prisma.integration.count({
+    where: {
+      credentialId,
+    },
+  });
+
+  return botToolsUsingCredential > 0 || integrationsUsingCredential > 0;
+}
+
 // Define the Calendar interface here for proper typing
 interface Calendar {
   id: string;
@@ -179,124 +211,25 @@ export const disconnectGoogleCalendar = actionClient
       }
 
       const userId = session.user.id;
+      const result = await disconnectProvider(userId, toolId, "google");
 
-      // Find the bot tool first to get credential relationship
-      const botTool = await prisma.botTool.findFirst({
-        where: {
-          botId: toolId,
-          tool: {
-            integrationType: "google",
-          },
-        },
-        include: {
-          credential: true,
-        },
-      });
-
-      // If we have a related credential through bot tool
-      if (botTool?.credential) {
-        // Clear the credentialId on the bot tool
-        await prisma.botTool.update({
-          where: {
-            id: botTool.id,
-          },
-          data: {
-            credentialId: null,
-          },
-        });
-
-        // If the credential is used only by this bot tool, delete it
-        const otherBotToolsUsingCredential = await prisma.botTool.count({
-          where: {
-            credentialId: botTool.credential.id,
-            id: {
-              not: botTool.id,
-            },
-          },
-        });
-
-        if (otherBotToolsUsingCredential === 0) {
-          // No other bot tools use this credential, so we can safely delete it
-          await prisma.credential.delete({
-            where: {
-              id: botTool.credential.id,
-            },
-          });
-        }
-
+      if (result.success) {
         return {
           success: true,
           data: {
-            message: "Google Calendar disconnected successfully",
+            message:
+              result.message || "Google Calendar disconnected successfully",
           },
         };
-      }
-
-      // Check for a direct credential (legacy flow)
-      const credential = await prisma.credential.findFirst({
-        where: {
-          userId,
-          provider: "google",
-        },
-      });
-
-      if (!credential) {
-        // Last resort, check for old tool credential
-        const oldCredential = await prisma.credential.findFirst({
-          where: {
-            userId,
-            provider: "google",
-          },
-        });
-
-        if (oldCredential) {
-          // Delete the old credential
-          await prisma.credential.delete({
-            where: {
-              id: oldCredential.id,
-            },
-          });
-
-          // Update any related bot tools to remove the credential ID
-          await prisma.botTool.updateMany({
-            where: {
-              credentialId: oldCredential.id,
-            },
-            data: {
-              credentialId: null,
-            },
-          });
-
-          return {
-            success: true,
-            data: {
-              message: "Google Calendar disconnected successfully",
-            },
-          };
-        }
-
+      } else {
         return {
           success: false,
-          error: {
-            code: "GOOGLE_NOT_CONNECTED",
-            message: "Google Calendar is not connected",
+          error: result.error || {
+            code: "GOOGLE_DISCONNECT_FAILED",
+            message: "Failed to disconnect Google Calendar",
           },
         };
       }
-
-      // Delete the credential
-      await prisma.credential.delete({
-        where: {
-          id: credential.id,
-        },
-      });
-
-      return {
-        success: true,
-        data: {
-          message: "Google Calendar disconnected successfully",
-        },
-      };
     } catch (error) {
       console.error("Error disconnecting Google Calendar:", error);
       return {
@@ -406,90 +339,24 @@ export const disconnectGoHighLevel = actionClient
       }
 
       const userId = session.user.id;
+      const result = await disconnectProvider(userId, toolId, "gohighlevel");
 
-      // Find the bot tool first to get credential relationship
-      const botTool = await prisma.botTool.findFirst({
-        where: {
-          botId: toolId,
-          tool: {
-            integrationType: "gohighlevel",
-          },
-        },
-        include: {
-          credential: true,
-        },
-      });
-
-      // If we have a related credential through bot tool
-      if (botTool?.credential) {
-        // Clear the credentialId on the bot tool
-        await prisma.botTool.update({
-          where: {
-            id: botTool.id,
-          },
-          data: {
-            credentialId: null,
-          },
-        });
-
-        // If the credential is used only by this bot tool, delete it
-        const otherBotToolsUsingCredential = await prisma.botTool.count({
-          where: {
-            credentialId: botTool.credential.id,
-            id: {
-              not: botTool.id,
-            },
-          },
-        });
-
-        if (otherBotToolsUsingCredential === 0) {
-          // No other bot tools use this credential, so we can safely delete it
-          await prisma.credential.delete({
-            where: {
-              id: botTool.credential.id,
-            },
-          });
-        }
-
+      if (result.success) {
         return {
           success: true,
           data: {
-            message: "GoHighLevel disconnected successfully",
+            message: result.message || "GoHighLevel disconnected successfully",
           },
         };
-      }
-
-      // Check for a direct credential (legacy flow)
-      const credential = await prisma.credential.findFirst({
-        where: {
-          userId,
-          provider: "gohighlevel",
-        },
-      });
-
-      if (!credential) {
+      } else {
         return {
           success: false,
-          error: {
-            code: "GOHIGHLEVEL_NOT_CONNECTED",
-            message: "GoHighLevel is not connected",
+          error: result.error || {
+            code: "GOHIGHLEVEL_DISCONNECT_FAILED",
+            message: "Failed to disconnect GoHighLevel",
           },
         };
       }
-
-      // Delete the credential
-      await prisma.credential.delete({
-        where: {
-          id: credential.id,
-        },
-      });
-
-      return {
-        success: true,
-        data: {
-          message: "GoHighLevel disconnected successfully",
-        },
-      };
     } catch (error) {
       console.error("Error disconnecting GoHighLevel:", error);
       return {
@@ -501,3 +368,146 @@ export const disconnectGoHighLevel = actionClient
       };
     }
   });
+
+/**
+ * Helper function to safely disconnect a provider from a tool
+ * This will check if the credential is used elsewhere before deleting
+ */
+async function disconnectProvider(
+  userId: string,
+  toolId: string,
+  provider: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  error?: { code: string; message: string };
+}> {
+  try {
+    // Find the bot tool first to get credential relationship
+    const botTool = await prisma.botTool.findFirst({
+      where: {
+        botId: toolId,
+        tool: {
+          integrationType: provider,
+        },
+      },
+      include: {
+        credential: true,
+      },
+    });
+
+    // If we have a related credential through bot tool
+    if (botTool?.credential) {
+      const credentialId = botTool.credential.id;
+
+      // Clear the credentialId on the bot tool
+      await prisma.botTool.update({
+        where: {
+          id: botTool.id,
+        },
+        data: {
+          credentialId: null,
+        },
+      });
+
+      // Check if the credential is still in use by other resources
+      const stillInUse = await isCredentialInUse(credentialId, botTool.id);
+
+      // Delete credential only if it's not used anywhere else
+      if (!stillInUse) {
+        await prisma.credential.delete({
+          where: {
+            id: credentialId,
+          },
+        });
+      }
+
+      return {
+        success: true,
+        message: `${provider} disconnected successfully`,
+      };
+    }
+
+    // Check for a direct credential
+    const credential = await prisma.credential.findFirst({
+      where: {
+        provider,
+        botId: toolId,
+      },
+    });
+
+    if (credential) {
+      // Check if the credential is used by any other resources
+      const stillInUse = await isCredentialInUse(credential.id);
+
+      // Delete credential only if it's not used anywhere else
+      if (!stillInUse) {
+        await prisma.credential.delete({
+          where: {
+            id: credential.id,
+          },
+        });
+      }
+
+      return {
+        success: true,
+        message: `${provider} disconnected successfully`,
+      };
+    }
+
+    // Try to find any credential associated with this user and provider
+    // (legacy search for older credential formats)
+    const legacyCredential = await prisma.credential.findFirst({
+      where: {
+        userId,
+        provider,
+      },
+    });
+
+    if (legacyCredential) {
+      // Update any related bot tools to remove the credential ID
+      await prisma.botTool.updateMany({
+        where: {
+          credentialId: legacyCredential.id,
+        },
+        data: {
+          credentialId: null,
+        },
+      });
+
+      // Check if the credential is still in use by other resources
+      const stillInUse = await isCredentialInUse(legacyCredential.id);
+
+      // Delete credential only if it's not used anywhere else
+      if (!stillInUse) {
+        await prisma.credential.delete({
+          where: {
+            id: legacyCredential.id,
+          },
+        });
+      }
+
+      return {
+        success: true,
+        message: `${provider} disconnected successfully`,
+      };
+    }
+
+    return {
+      success: false,
+      error: {
+        code: `${provider.toUpperCase()}_NOT_CONNECTED`,
+        message: `${provider} is not connected`,
+      },
+    };
+  } catch (error) {
+    console.error(`Error disconnecting ${provider}:`, error);
+    return {
+      success: false,
+      error: {
+        code: `${provider.toUpperCase()}_DISCONNECT_FAILED`,
+        message: `Failed to disconnect ${provider}`,
+      },
+    };
+  }
+}

@@ -42,7 +42,7 @@ export class PineconeVectorDb implements VectorDbService {
       chunkOverlap: 20,
       upsertBatchSize: 100,
       topK: 5,
-      minScore: 0.6,
+      minScore: 0.5,
       ...config,
     };
 

@@ -22,6 +22,7 @@ import {
 import { SlackChannelList } from "./slack-channel-list";
 import { deploymentLogos } from "@/lib/bot-deployments";
 import { useClipboard } from "@/hooks/use-clipboard";
+import { removeSlackIntegration } from "@/app/actions/slack";
 
 interface SlackIntegrationProps {
   integration?: {
@@ -56,17 +57,32 @@ export function SlackIntegrationCard({
 
   const handleRemoveIntegration = async () => {
     try {
+      if (!integration?.id) {
+        toast.error("Integration ID is missing");
+        return;
+      }
+
       setIsRemoving(true);
-      const response = await fetch(`/api/integrations/${integration?.id}`, {
-        method: "DELETE",
+
+      // Use the server action instead of API route
+      const result = await removeSlackIntegration({
+        integrationId: integration.id,
       });
 
-      if (response.ok) {
+      if (result?.data?.success) {
         toast.success("Slack integration removed successfully");
         // Reload the page to reflect changes
         window.location.reload();
       } else {
-        throw new Error("Failed to remove integration");
+        const errorMessage =
+          result &&
+          "error" in result &&
+          result.error &&
+          typeof result.error === "object" &&
+          "message" in result.error
+            ? String(result.error.message)
+            : "Failed to remove integration";
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error("Error removing Slack integration:", error);

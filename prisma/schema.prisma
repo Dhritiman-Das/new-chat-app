@@ -163,7 +163,7 @@ model Credential {
   botTools     BotTool[]
   integrations Integration[]
 
-  @@unique([userId, provider, name])
+  @@unique([botId, provider])
   @@index([userId])
   @@index([provider])
   @@index([botId])
