@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
-import { getCalendarsForCredential } from "@/lib/tools/google-calendar/services/credentials-service";
+import { getCalendarsForCredential } from "@/lib/auth/services";
 
 type Params = {
   params: Promise<{

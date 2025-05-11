@@ -16,6 +16,15 @@ export {
   ContactsClient as GoHighLevelContactsClient,
 } from "./gohighlevel";
 
+// Export Google-specific clients
+// Main client
+export { GoogleClient, createGoogleClient } from "./google";
+// Service-specific clients
+export {
+  CalendarClient as GoogleCalendarClient,
+  createGoogleCalendarClient,
+} from "./google/calendar";
+
 /**
  * Create a client for any provider
  * This is a generic function that creates a raw client instance
@@ -54,8 +63,14 @@ export async function createServiceClient(
     }
 
     case "google": {
-      // Google services will be added here
-      throw new Error("Google services not yet implemented");
+      if (service === "calendar") {
+        const { createGoogleCalendarClient } = await import(
+          "./google/calendar"
+        );
+        return createGoogleCalendarClient(context);
+      }
+
+      throw new Error(`Google service ${service} not supported`);
     }
 
     default:

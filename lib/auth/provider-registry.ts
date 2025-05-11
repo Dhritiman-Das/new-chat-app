@@ -9,12 +9,14 @@ import {
   GoHighLevelCredentials,
 } from "./types";
 import { GoHighLevelProvider } from "./providers/gohighlevel";
+import { GoogleProvider } from "./providers/google";
 import { ProviderError } from "./errors";
 import { getCredentials as getCredentialsFromStore } from "./utils/store";
 
 // Map of provider types to their implementation classes
 const providers: Record<string, OAuthProvider<BaseOAuthCredentials>> = {
   gohighlevel: new GoHighLevelProvider(),
+  google: new GoogleProvider(),
 };
 
 /**
@@ -60,6 +62,18 @@ export async function createClient<T>(context: TokenContext): Promise<T> {
       ) as unknown as T;
     } catch (error) {
       console.error("Error creating GoHighLevel client:", error);
+      throw error;
+    }
+  } else if (context.provider === "google") {
+    // Handle Google specially to create the appropriate client
+    try {
+      // Dynamically import the Google client
+      const { createGoogleCalendarClient } = await import(
+        "./clients/google/calendar"
+      );
+      return createGoogleCalendarClient(context) as unknown as T;
+    } catch (error) {
+      console.error("Error creating Google client:", error);
       throw error;
     }
   }

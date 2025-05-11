@@ -6,7 +6,7 @@ import {
   listAppointmentsSchema,
   listAvailableSlotsSchema,
 } from "./schema";
-import { getGoogleCalendarClient } from "./services/credentials-service";
+import { getGoogleCalendarClient } from "@/lib/auth/services/google-calendar-service";
 import {
   getDateRange,
   getDateTimeRangeInUserTimeZone,
@@ -158,10 +158,10 @@ export const bookAppointment: ToolFunction = {
       });
 
       // Insert the event into the calendar
-      const response = await calendarClient.events.insert({
-        calendarId: defaultCalendarId,
-        requestBody: event,
-      });
+      const response = await calendarClient.createEvent(
+        defaultCalendarId,
+        event
+      );
 
       if (!response || !response.data || !response.data.id) {
         throw new Error("Failed to create calendar event");
@@ -305,10 +305,10 @@ export const rescheduleAppointment: ToolFunction = {
       }
 
       // First, get the existing event to determine current parameters
-      const existingEvent = await calendarClient.events.get({
-        calendarId: defaultCalendarId,
-        eventId: appointmentId,
-      });
+      const existingEvent = await calendarClient.getEvent(
+        defaultCalendarId,
+        appointmentId
+      );
 
       if (!existingEvent || !existingEvent.data) {
         throw new Error(
@@ -383,11 +383,11 @@ export const rescheduleAppointment: ToolFunction = {
       };
 
       // Update the event in the calendar
-      const response = await calendarClient.events.update({
-        calendarId: defaultCalendarId,
-        eventId: appointmentId,
-        requestBody: updatedEvent,
-      });
+      const response = await calendarClient.updateEvent(
+        defaultCalendarId,
+        appointmentId,
+        updatedEvent
+      );
 
       if (!response || !response.data) {
         throw new Error("Failed to update calendar event");
@@ -592,10 +592,10 @@ export const cancelAppointment: ToolFunction = {
       // First, get the event to store information for the response
       let existingEvent;
       try {
-        existingEvent = await calendarClient.events.get({
-          calendarId: defaultCalendarId,
-          eventId: appointmentId,
-        });
+        existingEvent = await calendarClient.getEvent(
+          defaultCalendarId,
+          appointmentId
+        );
       } catch (err: unknown) {
         // Handle case when event doesn't exist
         const error = err as { response?: { status?: number } };
@@ -632,9 +632,7 @@ export const cancelAppointment: ToolFunction = {
       });
 
       // Cancel the event
-      await calendarClient.events.delete({
-        calendarId: defaultCalendarId,
-        eventId: appointmentId,
+      await calendarClient.deleteEvent(defaultCalendarId, appointmentId, {
         sendUpdates: "all", // Send cancellation emails to attendees
       });
 
@@ -754,8 +752,7 @@ export const listAppointments: ToolFunction = {
       });
 
       // Get events
-      const response = await calendarClient.events.list({
-        calendarId: defaultCalendarId,
+      const response = await calendarClient.listEvents(defaultCalendarId, {
         timeMin: dateRange.start,
         timeMax: dateRange.end,
         maxResults,
@@ -929,8 +926,7 @@ export const listAvailableSlots: ToolFunction = {
       });
 
       // Fetch existing events for the date range
-      const response = await calendarClient.events.list({
-        calendarId: defaultCalendarId,
+      const response = await calendarClient.listEvents(defaultCalendarId, {
         timeMin: dateTimeRangeInUserTimeZone.start,
         timeMax: dateTimeRangeInUserTimeZone.end,
         singleEvents: true,

@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
-import { getCalendarsForCredential as getGoogleCalendars } from "@/lib/tools/google-calendar/services/credentials-service";
+import { getCalendarsForCredential as getGoogleCalendars } from "@/lib/auth/services";
 import { ActionResponse, appErrors } from "./types";
 import {
   getAuthUrl,
@@ -134,33 +134,13 @@ export const connectGoogleCalendar = actionClient
           }
         );
 
-        // Define the scopes needed for calendar access
-        const scopes = [
-          "https://www.googleapis.com/auth/calendar",
-          "https://www.googleapis.com/auth/calendar.events",
-          "https://www.googleapis.com/auth/calendar.readonly",
-        ];
-
-        // Create the authorization URL with the proper parameters
-        const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-        authUrl.searchParams.append(
-          "client_id",
-          process.env.GOOGLE_CLIENT_ID || ""
-        );
-        authUrl.searchParams.append(
-          "redirect_uri",
-          `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/google`
-        );
-        authUrl.searchParams.append("response_type", "code");
-        authUrl.searchParams.append("scope", scopes.join(" "));
-        authUrl.searchParams.append("access_type", "offline");
-        authUrl.searchParams.append("prompt", "consent"); // Always prompt for consent to get a refresh token
-        authUrl.searchParams.append("state", stateToken);
+        // Use the auth system to generate the authorization URL
+        const authUrl = getAuthUrl("google", stateToken);
 
         return {
           success: true,
           data: {
-            authUrl: authUrl.toString(),
+            authUrl,
           },
         };
       } catch (error) {

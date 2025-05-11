@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db/prisma";
-import { getCalendarsForCredential } from "@/lib/tools/google-calendar/services/credentials-service";
+import { getCalendarsForCredential } from "@/lib/auth/services/google-calendar-service";
 import { Prisma } from "@/lib/generated/prisma";
+import { googleConfig } from "@/lib/auth/config/providers-config";
 
 // Google OAuth token response type
 interface GoogleOAuthTokenResponse {
@@ -84,16 +85,16 @@ export async function GET(request: Request) {
     }
 
     // Exchange the authorization code for tokens
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    const tokenResponse = await fetch(googleConfig.tokenEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
         code,
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/google`,
+        client_id: googleConfig.clientId,
+        client_secret: googleConfig.clientSecret,
+        redirect_uri: googleConfig.redirectUri,
         grant_type: "authorization_code",
       }).toString(),
     });

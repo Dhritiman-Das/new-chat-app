@@ -20,6 +20,7 @@ export {
 
 // Export provider classes
 export { GoHighLevelProvider } from "./providers/gohighlevel";
+export { GoogleProvider } from "./providers/google";
 
 // Export credential utilities
 export { getCredentials, updateCredentials } from "./utils/store";
@@ -61,3 +62,6 @@ export function createTokenContext(
     botId: options?.botId,
   };
 }
+
+// Re-export services
+export * from "./services";
