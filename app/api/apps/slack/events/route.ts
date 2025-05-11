@@ -1,7 +1,7 @@
 import prisma from "@/lib/db/prisma";
 import {
   assistantThreadMessage,
-  createSlackClient,
+  createSlackClientFromAuth,
 } from "@/lib/bot-deployments/slack";
 import { NextRequest, NextResponse } from "next/server";
 import { redis } from "@/lib/db/kv";
@@ -112,15 +112,14 @@ export async function POST(request: NextRequest) {
       }
 
       // Create client
-      const credentials = integration.credential.credentials as {
-        access_token: string;
-      };
-      const slackClient = await createSlackClient({
-        token: credentials.access_token,
-      });
+      const slackClient = await createSlackClientFromAuth(
+        integration.bot.userId,
+        integration.credentialId || undefined,
+        integration.botId
+      );
 
       // Process the mention with the AI implementation
-      await assistantThreadMessage(body.event, slackClient.client, {
+      await assistantThreadMessage(body.event, slackClient, {
         userId: integration.userId,
         organizationId: bot.organizationId,
         botId: bot.id,

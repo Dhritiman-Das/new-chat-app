@@ -21,6 +21,7 @@ export {
 // Export provider classes
 export { GoHighLevelProvider } from "./providers/gohighlevel";
 export { GoogleProvider } from "./providers/google";
+export { SlackProvider } from "./providers/slack";
 
 // Export credential utilities
 export { getCredentials, updateCredentials } from "./utils/store";
@@ -47,6 +48,7 @@ export {
   getAuthUrl,
   gohighlevelConfig,
   googleConfig,
+  slackConfig,
 } from "./config/providers-config";
 
 // Convenience function to create a token context

@@ -7,9 +7,11 @@ import {
   TokenContext,
   BaseOAuthCredentials,
   GoHighLevelCredentials,
+  SlackCredentials,
 } from "./types";
 import { GoHighLevelProvider } from "./providers/gohighlevel";
 import { GoogleProvider } from "./providers/google";
+import { SlackProvider } from "./providers/slack";
 import { ProviderError } from "./errors";
 import { getCredentials as getCredentialsFromStore } from "./utils/store";
 
@@ -17,6 +19,7 @@ import { getCredentials as getCredentialsFromStore } from "./utils/store";
 const providers: Record<string, OAuthProvider<BaseOAuthCredentials>> = {
   gohighlevel: new GoHighLevelProvider(),
   google: new GoogleProvider(),
+  slack: new SlackProvider(),
 };
 
 /**
@@ -74,6 +77,16 @@ export async function createClient<T>(context: TokenContext): Promise<T> {
       return createGoogleCalendarClient(context) as unknown as T;
     } catch (error) {
       console.error("Error creating Google client:", error);
+      throw error;
+    }
+  } else if (context.provider === "slack") {
+    // Handle Slack specially
+    try {
+      const credentials = (await getCredentials(context)) as SlackCredentials;
+      const provider = getProvider<SlackCredentials>("slack");
+      return provider.createClient(credentials) as unknown as T;
+    } catch (error) {
+      console.error("Error creating Slack client:", error);
       throw error;
     }
   }

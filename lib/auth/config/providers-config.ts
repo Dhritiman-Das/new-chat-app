@@ -54,6 +54,25 @@ export const googleConfig = {
   ],
 };
 
+// Slack configuration
+export const slackConfig = {
+  clientId: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID!,
+  clientSecret: process.env.SLACK_CLIENT_SECRET!,
+  redirectUri: process.env.NEXT_PUBLIC_SLACK_OAUTH_REDIRECT_URL!,
+  signingSecret: process.env.SLACK_SIGNING_SECRET!,
+  stateSecret: process.env.SLACK_STATE_SECRET!,
+  appId: process.env.NEXT_PUBLIC_SLACK_APP_ID!,
+  authEndpoint: "https://slack.com/oauth/v2/authorize",
+  tokenEndpoint: "https://slack.com/api/oauth.v2.access",
+  scopes: [
+    "chat:write",
+    "channels:read",
+    "incoming-webhook",
+    "users:read",
+    "assistant:write",
+  ],
+};
+
 // Provider-specific authentication URLs
 export function getAuthUrl(provider: string, state: string): string {
   switch (provider) {
@@ -74,6 +93,15 @@ export function getAuthUrl(provider: string, state: string): string {
       url.searchParams.append("scope", googleConfig.calendarScopes.join(" "));
       url.searchParams.append("access_type", "offline");
       url.searchParams.append("prompt", "consent"); // Always prompt for consent to get a refresh token
+      url.searchParams.append("state", state);
+      return url.toString();
+    }
+    case "slack": {
+      const url = new URL(slackConfig.authEndpoint);
+      url.searchParams.append("client_id", slackConfig.clientId);
+      url.searchParams.append("redirect_uri", slackConfig.redirectUri);
+      url.searchParams.append("response_type", "code");
+      url.searchParams.append("scope", slackConfig.scopes.join(" "));
       url.searchParams.append("state", state);
       return url.toString();
     }

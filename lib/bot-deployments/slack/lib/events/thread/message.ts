@@ -5,6 +5,7 @@ import type { CoreMessage } from "ai";
 import prisma from "@/lib/db/prisma";
 import { $Enums } from "@/lib/generated/prisma";
 import { generateSlackThreadUUID } from "../../helpers";
+import { SlackClient } from "@/lib/auth/clients/slack";
 
 // Define a more specific type for our message events
 interface SlackMessageEvent extends GenericMessageEvent {
@@ -16,16 +17,22 @@ interface SlackMessageEvent extends GenericMessageEvent {
 
 export async function assistantThreadMessage(
   event: SlackMessageEvent,
-  client: WebClient,
+  client: WebClient | SlackClient,
   options: {
     userId: string;
     organizationId: string;
     botId: string;
   }
 ) {
+  // Get the webclient regardless of the client type
+  const webClient: WebClient =
+    client instanceof SlackClient
+      ? client.client || (await client.getWebClient())
+      : client;
+
   // Update the status of the thread
   try {
-    await client.assistant.threads.setStatus({
+    await webClient.assistant.threads.setStatus({
       channel_id: event.channel,
       thread_ts: event.thread_ts || event.ts,
       status: "Is thinking...",
@@ -107,7 +114,7 @@ export async function assistantThreadMessage(
     supportsStreaming: false,
     sendMessage: async (content: string) => {
       // Send the message to the thread
-      await client.chat.postMessage({
+      await webClient.chat.postMessage({
         channel: event.channel,
         thread_ts: event.thread_ts || event.ts,
         blocks: [
@@ -123,7 +130,7 @@ export async function assistantThreadMessage(
     },
     setStatus: async (status: string = "") => {
       try {
-        await client.assistant.threads.setStatus({
+        await webClient.assistant.threads.setStatus({
           channel_id: event.channel,
           thread_ts: event.thread_ts || event.ts,
           status,
@@ -150,7 +157,7 @@ export async function assistantThreadMessage(
     console.error("Error processing Slack message:", error);
 
     // Send error message to thread
-    await client.chat.postMessage({
+    await webClient.chat.postMessage({
       channel: event.channel,
       thread_ts: event.thread_ts || event.ts,
       text: "Sorry, I encountered an error processing your request.",
@@ -158,7 +165,7 @@ export async function assistantThreadMessage(
 
     // Clear status
     try {
-      await client.assistant.threads.setStatus({
+      await webClient.assistant.threads.setStatus({
         channel_id: event.channel,
         thread_ts: event.thread_ts || event.ts,
         status: "",

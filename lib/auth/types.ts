@@ -19,6 +19,19 @@ export interface GoHighLevelCredentials extends BaseOAuthCredentials {
   locationId?: string;
 }
 
+export interface SlackCredentials extends BaseOAuthCredentials {
+  team_id?: string;
+  team_name?: string;
+  bot_id?: string;
+  bot_user_id?: string;
+  incoming_webhook?: {
+    channel?: string;
+    channel_id?: string;
+    configuration_url?: string;
+    url?: string;
+  };
+}
+
 // Context for token operations
 export interface TokenContext {
   userId: string;

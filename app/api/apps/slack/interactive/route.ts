@@ -1,4 +1,4 @@
-import { createSlackClient } from "@/lib/bot-deployments/slack";
+import { createSlackClientFromAuth } from "@/lib/bot-deployments/slack";
 import prisma from "@/lib/db/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -41,12 +41,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Create client
-    const credentials = integration.credential.credentials as {
-      access_token: string;
-    };
-    const slackClient = await createSlackClient({
-      token: credentials.access_token,
-    });
+    const slackClient = await createSlackClientFromAuth(
+      integration.bot.userId,
+      integration.credentialId || undefined,
+      integration.botId
+    );
 
     // Handle different interaction types
     if (type === "block_actions") {
@@ -62,10 +61,10 @@ export async function POST(request: NextRequest) {
           // Handle different button actions
           if (actionId === "example_button") {
             // Process the button click
-            await slackClient.client.chat.postMessage({
-              channel: channel.id,
-              text: `You clicked a button with value: ${value}`,
-            });
+            await slackClient.sendMessage(
+              channel.id,
+              `You clicked a button with value: ${value}`
+            );
           }
         }
       }

@@ -5,7 +5,10 @@ import { z } from "zod";
 import type { ActionResponse } from "@/app/actions/types";
 import prisma from "@/lib/db/prisma";
 import { auth } from "@/lib/auth";
-import { sendMessage, createSlackClient } from "@/lib/bot-deployments/slack";
+import {
+  sendMessage,
+  createSlackClientFromAuth,
+} from "@/lib/bot-deployments/slack";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
 import { v4 as uuidv4 } from "uuid";
@@ -178,12 +181,12 @@ export const sendSlackMessage = action
         };
       }
 
-      const credentials = integration.credential.credentials as {
-        access_token: string;
-      };
-      const slackClient = await createSlackClient({
-        token: credentials.access_token,
-      });
+      // Create a Slack client using the new auth system
+      const slackClient = await createSlackClientFromAuth(
+        session.user.id,
+        integration.credentialId || undefined,
+        integration.botId || undefined
+      );
 
       // Get channel ID to send to
       const targetChannel =

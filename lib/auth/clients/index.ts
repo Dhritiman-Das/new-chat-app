@@ -25,6 +25,9 @@ export {
   createGoogleCalendarClient,
 } from "./google/calendar";
 
+// Export Slack-specific clients
+export { SlackClient, createSlackClient } from "./slack";
+
 /**
  * Create a client for any provider
  * This is a generic function that creates a raw client instance
@@ -71,6 +74,15 @@ export async function createServiceClient(
       }
 
       throw new Error(`Google service ${service} not supported`);
+    }
+
+    case "slack": {
+      const { createSlackClient } = await import("./slack");
+      return createSlackClient({
+        userId: context.userId,
+        credentialId: context.credentialId,
+        botId: context.botId,
+      });
     }
 
     default:

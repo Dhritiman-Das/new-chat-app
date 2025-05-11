@@ -1,42 +1,46 @@
 import { App } from "@slack/bolt";
-import { slackConfig } from "./config";
 import prisma from "@/lib/db/prisma";
 import { $Enums } from "@/lib/generated/prisma";
 import { Block } from "@slack/web-api";
+import {
+  SlackClient,
+  createSlackClient as createAuthSlackClient,
+} from "@/lib/auth/clients/slack";
 
 export interface SlackClientOptions {
   token: string;
   signingSecret?: string;
 }
 
-export interface SlackCredentials {
-  access_token: string;
-  refresh_token?: string;
-  expires_at?: number;
-  scope?: string;
-  team_id?: string;
-  team_name?: string;
-}
-
-export async function createSlackClient(options: SlackClientOptions) {
-  const slackApp = new App({
-    token: options.token,
-    signingSecret: options.signingSecret || slackConfig.signingSecret,
+/**
+ * Create a Slack client using the auth system
+ */
+export async function createSlackClientFromAuth(
+  userId: string,
+  credentialId?: string,
+  botId?: string
+): Promise<SlackClient> {
+  return createAuthSlackClient({
+    userId,
+    credentialId,
+    botId,
   });
-
-  return slackApp;
 }
 
 export async function sendMessage(
-  slackClient: App,
+  slackClient: App | SlackClient,
   channelId: string,
   message: string
 ) {
   try {
-    await slackClient.client.chat.postMessage({
-      channel: channelId,
-      text: message,
-    });
+    if (slackClient instanceof SlackClient) {
+      await slackClient.sendMessage(channelId, message);
+    } else {
+      await slackClient.client.chat.postMessage({
+        channel: channelId,
+        text: message,
+      });
+    }
     return true;
   } catch (error) {
     console.error("Error sending Slack message:", error);
@@ -45,39 +49,28 @@ export async function sendMessage(
 }
 
 export async function sendBlockMessage(
-  slackClient: App,
+  slackClient: App | SlackClient,
   channelId: string,
   blocks: Block[] // Slack blocks
 ) {
   try {
-    await slackClient.client.chat.postMessage({
-      channel: channelId,
-      blocks,
-    });
+    if (slackClient instanceof SlackClient) {
+      const app = await slackClient.getApp();
+      await app.client.chat.postMessage({
+        channel: channelId,
+        blocks,
+      });
+    } else {
+      await slackClient.client.chat.postMessage({
+        channel: channelId,
+        blocks,
+      });
+    }
     return true;
   } catch (error) {
     console.error("Error sending Slack block message:", error);
     return false;
   }
-}
-
-export async function getSlackClient(userId: string) {
-  const credential = await prisma.credential.findFirst({
-    where: {
-      userId,
-      provider: "slack",
-    },
-  });
-
-  if (!credential) {
-    throw new Error("Slack credentials not found");
-  }
-
-  const credentials = credential.credentials as unknown as SlackCredentials;
-
-  return createSlackClient({
-    token: credentials.access_token,
-  });
 }
 
 export async function getActiveSlackIntegrations(botId: string) {
