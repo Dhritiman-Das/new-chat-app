@@ -25,6 +25,12 @@ import {
   disconnectGoHighLevel,
 } from "@/app/actions/tool-credentials";
 import { fetchGoHighLevelCalendars } from "@/app/actions/gohighlevel";
+import {
+  getProviderCredentials,
+  getToolCredentials,
+  removeCredential,
+  reconnectToolCredential,
+} from "@/app/actions/credentials";
 import { Calendar, SerializableTool } from "./types";
 import {
   Dialog,
@@ -35,6 +41,17 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+
+// Define a Credential type
+interface Credential {
+  id: string;
+  provider: string;
+  name: string;
+  botId?: string;
+  credentials: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface AuthenticationTabProps {
   tool: SerializableTool;
@@ -53,6 +70,12 @@ export function AuthenticationTab({
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [selectedCalendar, setSelectedCalendar] = useState<string | null>(null);
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
+  const [showRemoveCredentialDialog, setShowRemoveCredentialDialog] =
+    useState(false);
+  const [providerCredential, setProviderCredential] =
+    useState<Credential | null>(null);
+  const [toolHasCredential, setToolHasCredential] = useState(false);
+  const [credentialId, setCredentialId] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -64,10 +87,10 @@ export function AuthenticationTab({
         // Check if we just returned from OAuth flow
         const connected = searchParams.get("connected");
         const toolId = searchParams.get("toolId");
-        console.log("connected", connected);
-        console.log("toolId", toolId);
+
         if (connected === "true" && toolId === tool.id) {
           setIsConnected(true);
+          setToolHasCredential(true);
           toast.success("Successfully connected to GoHighLevel");
           // Remove the query params to prevent confusion on page refresh
           const url = new URL(window.location.href);
@@ -76,54 +99,61 @@ export function AuthenticationTab({
           router.replace(url.pathname + url.search);
         }
 
-        // Check for existing connection
-        const response = await fetch(
-          `/api/tools/${tool.id}/credentials?provider=gohighlevel&botId=${botId}&useNewCredentials=true`
-        );
+        // Step 1: Check if the tool has credentials
+        const toolResponse = await getToolCredentials({
+          toolId: tool.id,
+          botId,
+        });
 
-        if (!response.ok) {
-          if (response.status !== 404) {
-            // Only show error for unexpected failures, not for "not found"
-            console.error(
-              "Error checking GoHighLevel connection:",
-              response.statusText
-            );
-            toast.error("Failed to check GoHighLevel connection status");
-          }
-          return;
-        }
-
-        const data = await response.json();
-
-        console.log("data", data);
-
-        if (data.success && data.data) {
+        let toolCredential = null;
+        if (toolResponse?.data?.success && toolResponse.data.data?.credential) {
+          toolCredential = toolResponse.data.data.credential;
+          const toolData = toolResponse.data.data.botTool;
+          setToolHasCredential(true);
           setIsConnected(true);
+          setCredentialId(toolCredential.id);
 
-          // Fetch calendars if a credentialId is available
-          if (data.data?.credentialId) {
+          // Only fetch calendars if the tool has a credential
+          if (toolCredential.id) {
             try {
-              // Use the server action instead of direct function call
               const result = await fetchGoHighLevelCalendars({
-                credentialId: data.data.credentialId,
+                credentialId: toolCredential.id,
               });
-              console.log("result", result);
+
               if (result?.data?.success) {
                 setCalendars(result.data.data || []);
 
                 // If there's a default calendar in the bot tool config, select it
-                if (data.data.defaultCalendarId) {
-                  setSelectedCalendar(data.data.defaultCalendarId);
+                if (
+                  toolData?.config &&
+                  typeof toolData.config === "object" &&
+                  "defaultCalendarId" in toolData.config
+                ) {
+                  setSelectedCalendar(
+                    toolData.config.defaultCalendarId as string
+                  );
                 }
               } else {
                 console.error("Error fetching calendars:", result?.data?.error);
-                toast.error(
-                  result?.data?.error?.message || "Failed to fetch calendars"
-                );
               }
             } catch (calendarError) {
               console.error("Error fetching calendars:", calendarError);
             }
+          }
+        }
+
+        // Step 2: If no tool credentials, check if the provider has credentials for that bot
+        if (!toolCredential) {
+          const providerResponse = await getProviderCredentials({
+            provider: "gohighlevel",
+            botId,
+          });
+
+          if (providerResponse?.data?.success && providerResponse.data.data) {
+            const credentialData = providerResponse.data.data as Credential;
+            setProviderCredential(credentialData);
+            setCredentialId(credentialData.id);
+            // We found provider credentials, but they're not linked to this tool
           }
         }
       } catch (error) {
@@ -135,7 +165,7 @@ export function AuthenticationTab({
     };
 
     checkConnection();
-  }, [tool.id, searchParams, router]);
+  }, [tool.id, botId, searchParams, router]);
 
   // Handle connecting to GoHighLevel
   const handleConnectGoHighLevel = async () => {
@@ -174,6 +204,7 @@ export function AuthenticationTab({
       if (result && result.data && result.data.success) {
         // Reset states
         setIsConnected(false);
+        setToolHasCredential(false);
         setCalendars([]);
         setSelectedCalendar(null);
         toast.success("Successfully disconnected from GoHighLevel");
@@ -189,11 +220,72 @@ export function AuthenticationTab({
     }
   };
 
+  // Handle removing credential from database
+  const handleRemoveCredential = async () => {
+    if (!credentialId) return;
+
+    setIsConnecting(true);
+    try {
+      const response = await removeCredential({
+        credentialId,
+      });
+
+      if (response?.data?.success) {
+        setProviderCredential(null);
+        setCredentialId(null);
+        toast.success("Successfully removed GoHighLevel credential");
+      } else {
+        toast.error("Failed to remove GoHighLevel credential");
+      }
+    } catch (error) {
+      console.error("Error removing GoHighLevel credential:", error);
+      toast.error("Failed to remove GoHighLevel credential");
+    } finally {
+      setIsConnecting(false);
+      setShowRemoveCredentialDialog(false);
+    }
+  };
+
+  // Handle reconnecting a credential to the tool
+  const handleReconnectCredential = async () => {
+    if (!providerCredential) return;
+
+    setIsConnecting(true);
+    try {
+      const response = await reconnectToolCredential({
+        toolId: tool.id,
+        botId,
+        provider: "gohighlevel",
+      });
+
+      if (response?.data?.success) {
+        setToolHasCredential(true);
+        setIsConnected(true);
+
+        // Refresh the page to update the UI with the reconnected credential
+        window.location.reload();
+
+        toast.success("Successfully reconnected GoHighLevel account");
+      } else {
+        toast.error("Failed to reconnect GoHighLevel account");
+      }
+    } catch (error) {
+      console.error("Error reconnecting GoHighLevel account:", error);
+      toast.error("Failed to reconnect GoHighLevel account");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   // Toggle connection (connect or disconnect based on current state)
   const handleToggleConnection = async () => {
     if (isConnected) {
       setShowDisconnectDialog(true);
+    } else if (providerCredential) {
+      // If there is an existing provider credential, use reconnect
+      await handleReconnectCredential();
     } else {
+      // Otherwise go through normal connection flow
       await handleConnectGoHighLevel();
     }
   };
@@ -228,6 +320,42 @@ export function AuthenticationTab({
     }
   };
 
+  const getConnectionButtonContent = () => {
+    if (isConnecting) {
+      return (
+        <>
+          <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+          {isConnected ? "Disconnecting..." : "Connecting..."}
+        </>
+      );
+    }
+
+    if (isConnected) {
+      return (
+        <>
+          <Icons.X className="mr-2 h-4 w-4" />
+          Disconnect Account
+        </>
+      );
+    }
+
+    if (providerCredential) {
+      return (
+        <>
+          <Icons.RefreshCw className="mr-2 h-4 w-4" />
+          Reconnect Existing Account
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Icons.Building className="mr-2 h-4 w-4" />
+        Connect Account
+      </>
+    );
+  };
+
   return (
     <>
       <Card>
@@ -252,35 +380,45 @@ export function AuthenticationTab({
                   Loading...
                 </Button>
               ) : (
-                <Button
-                  onClick={handleToggleConnection}
-                  disabled={isConnecting}
-                  variant={isConnected ? "outline" : "default"}
-                  className={
-                    isConnected
-                      ? "text-destructive border-destructive hover:bg-destructive/10"
-                      : ""
-                  }
-                >
-                  {isConnecting ? (
-                    <>
-                      <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-                      {isConnected ? "Disconnecting..." : "Connecting..."}
-                    </>
-                  ) : isConnected ? (
-                    <>
-                      <Icons.X className="mr-2 h-4 w-4" />
-                      Disconnect Account
-                    </>
-                  ) : (
-                    <>
-                      <Icons.Building className="mr-2 h-4 w-4" />
-                      Connect Account
-                    </>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleToggleConnection}
+                    disabled={isConnecting}
+                    variant={isConnected ? "outline" : "default"}
+                    className={
+                      isConnected
+                        ? "text-destructive border-destructive hover:bg-destructive/10"
+                        : ""
+                    }
+                  >
+                    {getConnectionButtonContent()}
+                  </Button>
+
+                  {providerCredential && !isConnected && (
+                    <Button
+                      variant="outline"
+                      className="text-destructive border-destructive hover:bg-destructive/10"
+                      onClick={() => setShowRemoveCredentialDialog(true)}
+                      disabled={isConnecting}
+                    >
+                      <Icons.Trash className="mr-2 h-4 w-4" />
+                      Remove
+                    </Button>
                   )}
-                </Button>
+                </div>
               )}
             </div>
+
+            {providerCredential && !toolHasCredential && (
+              <div className="flex items-center p-3 text-sm bg-amber-50 border border-amber-200 rounded-md">
+                <Icons.Info className="w-4 h-4 text-amber-500 mr-2 flex-shrink-0" />
+                <p className="text-amber-700">
+                  A GoHighLevel connection exists for this bot but is not linked
+                  to this tool. You can reconnect to link it or remove it
+                  completely.
+                </p>
+              </div>
+            )}
 
             <Separator />
 
@@ -297,14 +435,14 @@ export function AuthenticationTab({
                 </div>
               ) : (
                 <Select
-                  disabled={!isConnected || calendars.length === 0}
+                  disabled={!toolHasCredential || calendars.length === 0}
                   value={selectedCalendar || undefined}
                   onValueChange={handleCalendarSelection}
                 >
                   <SelectTrigger className="w-[200px]">
                     <SelectValue
                       placeholder={
-                        !isConnected
+                        !toolHasCredential
                           ? "Connect account first"
                           : calendars.length === 0
                           ? "No calendars available"
@@ -356,6 +494,40 @@ export function AuthenticationTab({
                 <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
               Disconnect
+            </Button>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isConnecting}>
+                Cancel
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Credential Confirmation Dialog */}
+      <Dialog
+        open={showRemoveCredentialDialog}
+        onOpenChange={setShowRemoveCredentialDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove GoHighLevel Credential?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove this GoHighLevel credential from
+              the database? This will remove the credential completely from your
+              bot.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="destructive"
+              onClick={handleRemoveCredential}
+              disabled={isConnecting}
+            >
+              {isConnecting ? (
+                <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Remove Credential
             </Button>
             <DialogClose asChild>
               <Button variant="outline" disabled={isConnecting}>

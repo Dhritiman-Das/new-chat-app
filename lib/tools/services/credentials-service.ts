@@ -168,7 +168,6 @@ export class ToolCredentialsService {
   ) {
     const credential = await prisma.credential.findFirst({
       where: {
-        userId,
         provider,
         botId,
       },
