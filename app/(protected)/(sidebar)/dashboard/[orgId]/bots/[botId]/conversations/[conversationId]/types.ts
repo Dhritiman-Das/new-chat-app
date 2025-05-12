@@ -2,6 +2,8 @@ import {
   Conversation,
   Message,
   KnowledgeFile,
+  Lead,
+  Appointment,
 } from "@/lib/generated/prisma/client";
 
 export type MessageWithResponse = Message & {
@@ -11,6 +13,8 @@ export type MessageWithResponse = Message & {
 export interface ConversationWithMessages
   extends Omit<Conversation, "messages"> {
   messages: MessageWithResponse[];
+  leads?: Lead[];
+  appointments?: Appointment[];
   bot?: {
     knowledgeBases?: Array<{
       files: KnowledgeFile[];

@@ -258,6 +258,9 @@ export const getConversationById = async (conversationId: string) => {
               },
             },
           },
+          // Include leads and appointments
+          leads: true,
+          appointments: true,
         },
       });
 

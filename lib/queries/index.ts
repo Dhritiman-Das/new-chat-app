@@ -297,6 +297,9 @@ export async function getConversationByIdQuery(
         },
         // Get tool executions at conversation level instead
         toolExecutions: true,
+        // Include leads and appointments
+        leads: true,
+        appointments: true,
       },
     });
 
