@@ -6,12 +6,27 @@ import {
   listAppointmentsSchema,
   listAvailableSlotsSchema,
 } from "./schema";
-import { format, parseISO, addMinutes } from "date-fns";
+import {
+  format,
+  parseISO,
+  addMinutes,
+  eachDayOfInterval,
+  areIntervalsOverlapping,
+  formatISO,
+} from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import prisma from "@/lib/db/prisma";
 import { createClient } from "@/lib/auth/provider-registry";
 import { GoHighLevelClient } from "@/lib/auth/clients/gohighlevel";
 import { GoHighLevelWebhookPayload } from "@/lib/shared/types/gohighlevel";
+import {
+  getDateRange,
+  getDateTimeRangeInUserTimeZone,
+} from "../google-calendar/utils/date-utils";
+import {
+  AppointmentValidationError,
+  validateAppointmentTime,
+} from "../google-calendar/utils/validation-utils";
 
 // Type for GoHighLevel API errors
 interface GHLApiError {
@@ -26,6 +41,7 @@ interface CalendarConfig {
   defaultCalendarId?: string;
   appointmentDuration?: number;
   availabilityWindowDays?: number;
+  bufferTimeBetweenMeetings?: number;
   availableTimeSlots?: Array<{
     day: string;
     startTime: string;
@@ -37,7 +53,7 @@ interface CalendarConfig {
 const DEFAULT_TIME_ZONE = "America/New_York";
 
 export const bookAppointment: ToolFunction = {
-  description: "Book a new appointment on GoHighLevel Calendar",
+  description: "Book a new appointment on Google Calendar",
   parameters: bookAppointmentSchema,
   execute: async (params, context) => {
     try {
@@ -52,57 +68,107 @@ export const bookAppointment: ToolFunction = {
       // Get the GoHighLevel client
       const ghlClient = await createClient<GoHighLevelClient>(tokenContext);
 
-      // Get config from context
+      // Get config from context and type it correctly
       const config = (context.config || {}) as CalendarConfig;
       const appointmentDuration = config.appointmentDuration || 30;
+      const defaultCalendarId = config.defaultCalendarId || "primary";
+      const bufferTimeBetweenMeetings = config.bufferTimeBetweenMeetings || 0;
 
-      // Get locationId from webhook payload first, then from config
-      const webhookPayload = context.webhookPayload as
-        | GoHighLevelWebhookPayload
-        | undefined;
-      const locationId = webhookPayload?.locationId || config.locationId;
-
-      const calendarId = config.defaultCalendarId;
-
-      if (!locationId) {
-        return {
-          success: false,
-          error: {
-            code: "MISSING_LOCATION_ID",
-            message: "Location ID is required in tool configuration",
-          },
-        };
-      }
-
-      if (!calendarId) {
-        return {
-          success: false,
-          error: {
-            code: "MISSING_CALENDAR_ID",
-            message: "Calendar ID is required in tool configuration",
-          },
-        };
-      }
-
-      // Extract parameters
+      // Extract parameters with defaults
       const {
         title,
         description = "",
         startTime,
-        contactId: paramContactId,
         userTimeZone,
       } = params as {
         title: string;
         description?: string;
-        startTime: string;
-        contactId?: string;
+        startTime?: string;
         userTimeZone?: string;
       };
 
-      // Use contactId from webhook payload if available, otherwise use param contactId
-      const contactId = webhookPayload?.contactId || paramContactId;
+      if (!startTime) {
+        return {
+          success: false,
+          error: {
+            code: "MISSING_START_TIME",
+            message: "Start time is required to book an appointment",
+          },
+        };
+      }
 
-      if (!contactId) {
+      // Validate that the appointment time adheres to calendar configuration
+      try {
+        validateAppointmentTime(startTime, appointmentDuration, config);
+      } catch (validationError) {
+        if (validationError instanceof AppointmentValidationError) {
+          return {
+            success: false,
+            error: {
+              code: validationError.code,
+              message: validationError.message,
+            },
+          };
+        }
+        throw validationError; // Re-throw if it's not our expected error type
+      }
+
+      // Parse the start time
+      const parsedStartTime = parseISO(startTime);
+
+      // Format dates in RFC3339 format (required by Google Calendar API)
+      const formattedStartTime = formatISO(parsedStartTime);
+
+      // Calculate end time from start time and duration (including buffer)
+      const totalDuration =
+        appointmentDuration + Number(bufferTimeBetweenMeetings);
+      const actualMeetingEndTime = addMinutes(
+        parsedStartTime,
+        appointmentDuration
+      );
+      const bufferEndTime = addMinutes(parsedStartTime, totalDuration);
+
+      // Format end times
+      const formattedActualEndTime = formatISO(actualMeetingEndTime);
+      const formattedBufferEndTime = formatISO(bufferEndTime);
+
+      // Use userTimeZone if provided, otherwise fall back to config.timeZone or default
+      const timeZone = userTimeZone || config.timeZone || DEFAULT_TIME_ZONE;
+
+      // Create the event - if there's a buffer, include it in the event's end time
+      // but note the actual meeting end time in the description
+      const meetingEndTimeFormatted = format(actualMeetingEndTime, "h:mm a");
+      const enhancedDescription =
+        bufferTimeBetweenMeetings > 0
+          ? `${description}\n\nActual meeting end time: ${meetingEndTimeFormatted}\nBuffer time: ${bufferTimeBetweenMeetings} minutes after meeting`
+          : description;
+
+      const event = {
+        summary: title,
+        description: enhancedDescription,
+        start: {
+          dateTime: formattedStartTime,
+          timeZone: timeZone,
+        },
+        end: {
+          dateTime:
+            Number(bufferTimeBetweenMeetings) > 0
+              ? formattedBufferEndTime
+              : formattedActualEndTime,
+          timeZone: timeZone,
+        },
+        reminders: {
+          useDefault: true,
+        },
+      };
+
+      console.log("Creating event with:", {
+        start: event.start,
+        end: event.end,
+        calendar: defaultCalendarId,
+      });
+
+      if (!context.webhookPayload?.contactId) {
         return {
           success: false,
           error: {
@@ -111,105 +177,106 @@ export const bookAppointment: ToolFunction = {
           },
         };
       }
-
-      // Parse the start time
-      const parsedStartTime = parseISO(startTime);
-
-      // Calculate end time from start time and duration
-      const endTime = addMinutes(parsedStartTime, appointmentDuration);
-
-      // Use userTimeZone if provided, otherwise fall back to config.timeZone or default
-      const timeZone = userTimeZone || config.timeZone || DEFAULT_TIME_ZONE;
-
-      // Format dates for API
-      const startTimeFormatted = format(
-        parsedStartTime,
-        "yyyy-MM-dd'T'HH:mm:ssxxx"
-      );
-      const endTimeFormatted = format(endTime, "yyyy-MM-dd'T'HH:mm:ssxxx");
-
-      // Create appointment using the calendar client
-      const appointmentPayload = {
-        calendarId,
+      // Insert the event into the calendar
+      const response = await ghlClient.calendar.createAppointment({
+        calendarId: defaultCalendarId,
+        startTime: formattedStartTime,
+        endTime:
+          Number(bufferTimeBetweenMeetings) > 0
+            ? formattedBufferEndTime
+            : formattedActualEndTime,
         title,
-        startTime: startTimeFormatted,
-        endTime: endTimeFormatted,
-        contactId,
-        locationId,
-        meetingLocationType: "custom" as const,
-        address: description || "Appointment via Chat Assistant",
-        appointmentStatus: "confirmed" as const,
-      };
+        description: enhancedDescription,
+        appointmentStatus: "confirmed",
+        contactId: context.webhookPayload?.contactId as string,
+      });
 
-      const response = await ghlClient.calendar.createAppointment(
-        appointmentPayload
-      );
-
-      if (!response || !response.id) {
-        throw new Error("Failed to create calendar appointment");
+      if (!response) {
+        throw new Error("Failed to create calendar event");
       }
 
-      // Format start time for response
+      // Format start and end times for response
       const formalDate = format(parsedStartTime, "EEEE, MMMM d, yyyy");
       const formalTime = format(parsedStartTime, "h:mm a");
 
-      // Store appointment in database
+      // Extract event details for storage
+      const appointmentDetails = {
+        id: response.id,
+        title: response.summary || title,
+        date: format(parsedStartTime, "yyyy-MM-dd"),
+        time: format(parsedStartTime, "HH:mm"),
+        duration: appointmentDuration,
+        bufferTime: Number(bufferTimeBetweenMeetings),
+        link: response.htmlLink || "",
+        calendarId: defaultCalendarId,
+      };
+
+      // Store appointment in our database
       try {
         // Dynamic import to avoid circular dependencies
         const { storeCalendarAppointment } = await import(
           "../appointment-core/appointment-integration"
         );
 
+        // Process organizer data
+        // TODO: Get the organizer's name and email from the GoHighLevel API using the response.assignedUserId
+        // let organizerData = undefined;
+        // if (response.assignedUserId) {
+        //   organizerData = {
+        //     assignedUserId: response.assignedUserId,
+        //   };
+        // }
+
         await storeCalendarAppointment({
           botId: context.botId,
           conversationId: context.conversationId,
-          calendarId,
-          externalEventId: response.id,
-          calendarProvider: "gohighlevel",
+          calendarProvider: "google",
+          calendarId: defaultCalendarId,
+          externalEventId: response.id || undefined,
           title,
-          description: description || "",
+          description,
           startTime: parsedStartTime,
-          endTime,
-          timeZone,
-          organizer: {
-            name: "GoHighLevel Calendar",
-            email: "noreply@gohighlevel.com",
-          },
+          endTime: actualMeetingEndTime,
+          timeZone: timeZone,
+          organizer: undefined,
           attendees: [],
+          meetingLink: "",
+          status: "confirmed",
+          properties: {
+            eventId: response.id,
+            iCalUID: undefined,
+            appointmentDuration,
+            bufferTime: bufferTimeBetweenMeetings,
+          },
           metadata: {
-            source: "chat",
-            locationId,
-            contactId,
+            source: "google-calendar-tool",
+            created: new Date().toISOString(),
           },
         });
-      } catch (dbError) {
-        console.error("Failed to store appointment in database:", dbError);
-        // Continue execution as this is not critical
+      } catch (storageError) {
+        // Log error but don't fail the appointment booking
+        console.error("Error storing appointment in database:", storageError);
       }
 
       return {
         success: true,
-        data: {
-          appointmentId: response.id,
-          title,
-          date: formalDate,
-          time: formalTime,
-          duration: appointmentDuration,
-          status: "confirmed",
-          message: `Appointment booked successfully for ${formalDate} at ${formalTime}.`,
-        },
+        appointmentId: response.id,
+        appointmentDetails,
+        message: `Successfully booked appointment: ${title} on ${formalDate} at ${formalTime}`,
       };
     } catch (error) {
-      console.error("Error booking GoHighLevel appointment:", error);
+      console.error("Error booking appointment:", error);
+      // Extract the Google API error details if available
       const apiError = error as GHLApiError;
+      const errorMessage =
+        apiError.message ||
+        (error instanceof Error ? error.message : String(error));
+
       return {
         success: false,
         error: {
           code: "BOOKING_FAILED",
-          message:
-            apiError.message ||
-            "Failed to book appointment on GoHighLevel Calendar",
-          details: apiError.details || "",
+          message: `Failed to book appointment: ${errorMessage}`,
         },
       };
     }
@@ -287,7 +354,24 @@ export const cancelAppointment: ToolFunction = {
       };
 
       // Make API request to update appointment using the calendar client
-      await ghlClient.calendar.updateAppointment(eventId, updatePayload);
+      try {
+        const response = await ghlClient.calendar.updateAppointment(
+          eventId,
+          updatePayload
+        );
+        if (!response) {
+          throw new Error("Failed to update appointment");
+        }
+      } catch (error) {
+        console.error("Error updating appointment:", error);
+        return {
+          success: false,
+          error: {
+            code: "UPDATE_FAILED",
+            message: `Failed to update appointment: ${error}`,
+          },
+        };
+      }
 
       // Update appointment in database
       try {
@@ -339,7 +423,7 @@ export const cancelAppointment: ToolFunction = {
 };
 
 export const listAppointments: ToolFunction = {
-  description: "List upcoming appointments from GoHighLevel Calendar",
+  description: "List upcoming appointments on GoHighLevel Calendar",
   parameters: listAppointmentsSchema,
   execute: async (params, context) => {
     try {
@@ -350,129 +434,142 @@ export const listAppointments: ToolFunction = {
         credentialId: context.credentialId,
         botId: context.botId,
       };
-
-      // Get the GoHighLevel client
+      // Get the calendar API client
       const ghlClient = await createClient<GoHighLevelClient>(tokenContext);
 
       // Get config from context
       const config = (context.config || {}) as CalendarConfig;
+      const defaultCalendarId = config.defaultCalendarId || "primary";
+      const availabilityWindowDays = config.availabilityWindowDays || 14;
 
-      // Get locationId from webhook payload first, then from config
-      const webhookPayload = context.webhookPayload as
-        | GoHighLevelWebhookPayload
-        | undefined;
-      const locationId = webhookPayload?.locationId || config.locationId;
-
-      const calendarId = config.defaultCalendarId;
-
-      if (!locationId) {
-        return {
-          success: false,
-          error: {
-            code: "MISSING_LOCATION_ID",
-            message: "Location ID is required in tool configuration",
-          },
-        };
-      }
-
-      // Extract parameters with defaults
+      // Extract and validate parameters
       const {
         startDate,
         endDate,
         maxResults = 10,
-        userTimeZone,
-        contactId: paramContactId,
+        userTimeZone, // eslint-disable-line @typescript-eslint/no-unused-vars
       } = params as {
         startDate?: string;
         endDate?: string;
         maxResults?: number;
         userTimeZone?: string;
-        contactId?: string;
       };
 
-      // Use contactId from webhook payload if available, otherwise use param contactId
-      const contactId = webhookPayload?.contactId || paramContactId;
+      // Note: userTimeZone is included for schema consistency but not used in this function
+      // since we're only retrieving events from the calendar
 
-      // Use userTimeZone if provided, otherwise fall back to config.timeZone or default
-      const timeZone = userTimeZone || config.timeZone || DEFAULT_TIME_ZONE;
-
-      // Convert start and end dates to timestamps if provided
-      const now = Date.now();
-      const startTimestamp = startDate ? parseInt(startDate) : now;
-      const endTimestamp = endDate
-        ? parseInt(endDate)
-        : now + 7 * 24 * 60 * 60 * 1000; // Default to 7 days in the future
-
-      // Fetch events from the API using the calendar client
-      const events = await ghlClient.calendar.getCalendarEvents(
-        startTimestamp,
-        endTimestamp,
-        { calendarId }
+      // Calculate date range (use configured availability window if not specified)
+      const dateRange = getDateRange(
+        startDate,
+        endDate,
+        availabilityWindowDays
       );
 
-      // Filter events by contactId if provided
-      const filteredEvents = contactId
-        ? events.filter((event) => event.contactId === contactId)
-        : events;
+      console.log("Listing events:", {
+        timeMin: dateRange.start,
+        timeMax: dateRange.end,
+        maxResults,
+        calendar: defaultCalendarId,
+      });
 
-      // Filter and format appointments
-      const relevantEvents = filteredEvents
-        .filter((event) => event.appointmentStatus !== "cancelled")
-        .slice(0, maxResults);
+      // Get events. Convert to epoch (ms)
+      const response = await ghlClient.calendar.getCalendarEvents(
+        new Date(dateRange.start).getTime(),
+        new Date(dateRange.end).getTime(),
+        {
+          calendarId: defaultCalendarId,
+        }
+      );
 
-      if (relevantEvents.length === 0) {
+      if (!response) {
         return {
           success: true,
-          data: {
-            appointments: [],
-            message: "No upcoming appointments found",
-          },
+          appointments: [],
+          message: "No appointments found in the specified date range",
         };
       }
 
-      // Format appointments
-      const formattedAppointments = relevantEvents.map((event) => {
-        // Parse event date for formatting
-        const eventDate = new Date(event.startTime);
+      // Format the events for the response
+      const appointments = response
+        .map((event) => {
+          // Handle all-day events (date only) or regular events with dateTime
+          const startTime = event.startTime;
+          const endTime = event.endTime;
 
-        const formattedDate = formatInTimeZone(
-          eventDate,
-          timeZone,
-          "EEEE, MMMM d, yyyy"
-        );
-        const formattedTime = formatInTimeZone(eventDate, timeZone, "h:mm a");
+          if (!startTime) {
+            return null; // Skip events with no start time
+          }
 
-        return {
-          id: event.id,
-          title: event.title || "Appointment",
-          date: formattedDate,
-          time: formattedTime,
-          status: event.appointmentStatus || "confirmed",
-          contactId: event.contactId,
-          address: event.address,
-          isRecurring: event.isRecurring || false,
-          notes: event.notes,
-        };
-      });
+          // Calculate duration in minutes if we have both start and end times
+          let duration = 0;
+          if (startTime && endTime) {
+            const start = parseISO(startTime as string);
+            const end = parseISO(endTime as string);
+            duration = Math.round(
+              (end.getTime() - start.getTime()) / (1000 * 60)
+            );
+          }
+
+          // Parse the start date
+          const startDate = parseISO(startTime as string);
+
+          // Extract buffer time information if present in description
+          let bufferTime = 0;
+          const bufferMatch = event.notes?.match(/Buffer time: (\d+) minutes/);
+          if (bufferMatch && bufferMatch[1]) {
+            bufferTime = parseInt(bufferMatch[1], 10);
+          }
+
+          // Adjust duration if buffer time is found
+          if (bufferTime > 0 && duration > bufferTime) {
+            duration -= bufferTime;
+          }
+
+          return {
+            id: event.id || "",
+            title: event.title || "Untitled Event",
+            date: format(startDate, "yyyy-MM-dd"),
+            time: event.startTime ? format(startDate, "HH:mm") : "All day",
+            duration,
+            bufferTime,
+            link: "",
+            description: event.notes || "",
+            location: event.address || "",
+          };
+        })
+        .filter(Boolean) as Array<{
+        id: string;
+        title: string;
+        date: string;
+        time: string;
+        duration: number;
+        bufferTime: number;
+        link: string;
+        description: string;
+        location: string;
+      }>; // Remove null entries and specify return type
 
       return {
         success: true,
-        data: {
-          appointments: formattedAppointments,
-          message: `Found ${formattedAppointments.length} appointment(s)`,
-        },
+        appointments,
+        message:
+          appointments.length > 0
+            ? `Found ${appointments.length} appointment(s)`
+            : "No appointments found in the specified date range",
       };
     } catch (error) {
-      console.error("Error listing GoHighLevel appointments:", error);
+      console.error("Error listing appointments:", error);
+      // Extract the Google API error details if available
       const apiError = error as GHLApiError;
+      const errorMessage =
+        apiError.message ||
+        (error instanceof Error ? error.message : String(error));
+
       return {
         success: false,
         error: {
-          code: "LISTING_FAILED",
-          message:
-            apiError.message ||
-            "Failed to list appointments from GoHighLevel Calendar",
-          details: apiError.details || "",
+          code: "LIST_FAILED",
+          message: `Failed to list appointments: ${errorMessage}`,
         },
       };
     }
@@ -480,7 +577,8 @@ export const listAppointments: ToolFunction = {
 };
 
 export const listAvailableSlots: ToolFunction = {
-  description: "List available time slots on GoHighLevel Calendar",
+  description:
+    "List available time slots for scheduling appointments based on calendar availability and configured time slots",
   parameters: listAvailableSlotsSchema,
   execute: async (params, context) => {
     try {
@@ -497,165 +595,209 @@ export const listAvailableSlots: ToolFunction = {
 
       // Get config from context
       const config = (context.config || {}) as CalendarConfig;
+      const defaultCalendarId = config.defaultCalendarId || "primary";
+      const appointmentDuration = config.appointmentDuration || 30;
+      const bufferTimeBetweenMeetings = config.bufferTimeBetweenMeetings || 0;
+      const availabilityWindowDays = config.availabilityWindowDays || 14;
 
-      // Get locationId from webhook payload first, then from config
-      const webhookPayload = context.webhookPayload as
-        | GoHighLevelWebhookPayload
-        | undefined;
-      console.log("webhookPayload", webhookPayload);
-      const locationId = webhookPayload?.locationId || config.locationId;
+      // Use configured availableTimeSlots to determine which days and times are available
+      // Only days with a configuration in availableTimeSlots will be considered
+      const availableTimeSlots = config.availableTimeSlots || [
+        { day: "monday", startTime: "09:00", endTime: "17:00" },
+        { day: "tuesday", startTime: "09:00", endTime: "17:00" },
+        { day: "wednesday", startTime: "09:00", endTime: "17:00" },
+        { day: "thursday", startTime: "09:00", endTime: "17:00" },
+        { day: "friday", startTime: "09:00", endTime: "17:00" },
+      ];
 
-      const calendarId = config.defaultCalendarId;
-
-      if (!locationId) {
-        return {
-          success: false,
-          error: {
-            code: "MISSING_LOCATION_ID",
-            message: "Location ID is required in tool configuration",
-          },
-        };
-      }
-
-      if (!calendarId) {
-        return {
-          success: false,
-          error: {
-            code: "MISSING_CALENDAR_ID",
-            message: "Calendar ID is required in tool configuration",
-          },
-        };
-      }
-
-      // Extract parameters
+      // Extract parameters for listAvailableSlots
       const {
         startDate,
         endDate,
-        timezone,
-        userId,
-        enableLookBusy = false,
+        interval = 30,
+        userTimeZone,
       } = params as {
         startDate?: string;
         endDate?: string;
-        timezone?: string;
-        userId?: string;
-        enableLookBusy?: boolean;
+        interval?: number;
+        userTimeZone?: string;
       };
 
+      console.log("Listing available slots params:", {
+        startDate,
+        endDate,
+        interval,
+        appointmentDuration, // Log configured duration
+      });
+
       // Use userTimeZone if provided, otherwise fall back to config.timeZone or default
-      const timeZone = timezone || config.timeZone || DEFAULT_TIME_ZONE;
+      const timeZoneOfUser =
+        userTimeZone || config.timeZone || DEFAULT_TIME_ZONE;
 
-      // Calculate date range based on startDate/endDate strings or defaults
-      const availabilityWindowDays = config.availabilityWindowDays || 14;
-      const now = new Date();
+      // Calculate date range
+      const dateTimeRangeInUserTimeZone = getDateTimeRangeInUserTimeZone({
+        startDate,
+        endDate,
+        userTimeZone: timeZoneOfUser,
+        availabilityWindowDays,
+      });
+      const startDateTime = parseISO(dateTimeRangeInUserTimeZone.start);
+      const endDateTime = parseISO(dateTimeRangeInUserTimeZone.end);
 
-      // Parse start date or use current date
-      let startDateObj = now;
-      if (startDate) {
-        startDateObj = parseISO(startDate);
-      }
+      // Get all days in the range
+      const daysInRange = eachDayOfInterval({
+        start: startDateTime,
+        end: endDateTime,
+      });
 
-      // Parse end date or use start date + availability window
-      let endDateObj = addMinutes(
-        startDateObj,
-        availabilityWindowDays * 24 * 60
-      );
-      if (endDate) {
-        endDateObj = parseISO(endDate);
-      }
+      // Fetch existing events for the date range
 
-      // Convert dates to timestamps for API
-      const startTimestamp = startDateObj.getTime();
-      const endTimestamp = endDateObj.getTime();
-
-      // Get available slots using the calendar client
-      const slotsResponse = await ghlClient.calendar.getAvailableSlots(
-        calendarId,
-        startTimestamp,
-        endTimestamp,
+      const response = await ghlClient.calendar.getCalendarEvents(
+        new Date(dateTimeRangeInUserTimeZone.start).getTime(),
+        new Date(dateTimeRangeInUserTimeZone.end).getTime(),
         {
-          enableLookBusy,
-          timezone: timeZone,
-          userId,
+          calendarId: defaultCalendarId,
         }
       );
 
-      // Process the response which might be in the form of an object with dates as keys
-      let availableSlots: string[] = [];
+      // Convert existing events to time ranges
+      const existingEvents =
+        response
+          ?.map((event) => {
+            if (!event) return null;
 
-      // Check if response is an object with date keys (as shown in the example)
-      if (
-        slotsResponse &&
-        typeof slotsResponse === "object" &&
-        !Array.isArray(slotsResponse)
-      ) {
-        // Extract all slots from all dates
-        Object.keys(slotsResponse).forEach((date) => {
-          const dateValue = slotsResponse[date];
-          // Make sure it's an object with slots property
-          if (
-            date !== "traceId" &&
-            dateValue &&
-            typeof dateValue === "object" &&
-            "slots" in dateValue &&
-            Array.isArray(dateValue.slots)
-          ) {
-            availableSlots = [
-              ...availableSlots,
-              ...(dateValue.slots as string[]),
-            ];
-          }
-        });
-      } else if (Array.isArray(slotsResponse)) {
-        // If response is already an array of slots
-        availableSlots = slotsResponse;
-      }
+            const start = event.startTime
+              ? parseISO(event.startTime as string)
+              : null;
+            const end = event.endTime
+              ? parseISO(event.endTime as string)
+              : null;
 
-      if (availableSlots.length === 0) {
-        return {
-          success: true,
-          data: {
-            slots: [],
-            timeZone,
-            message: "No available time slots found",
-          },
+            // Skip events without proper start/end times
+            if (!start || !end) {
+              return null;
+            }
+
+            return { start, end };
+          })
+          .filter(
+            (event): event is { start: Date; end: Date } => event !== null
+          ) || [];
+
+      // Helper function to check if a time slot overlaps with existing events
+      const isTimeSlotFree = (slotStart: Date, slotEnd: Date) => {
+        // Account for buffer time before and after
+        const slotWithBuffer = {
+          start: addMinutes(slotStart, -bufferTimeBetweenMeetings),
+          end: addMinutes(slotEnd, bufferTimeBetweenMeetings),
         };
-      }
 
-      // Format slots for more friendly display
-      const formattedSlots = availableSlots.map((slot: string) => {
-        const slotDate = new Date(slot);
-        return {
-          iso: slot,
-          date: formatInTimeZone(slotDate, timeZone, "EEEE, MMMM d, yyyy"),
-          time: formatInTimeZone(slotDate, timeZone, "h:mm a"),
-          formatted: formatInTimeZone(
-            slotDate,
-            timeZone,
-            "EEEE, MMMM d, yyyy 'at' h:mm a"
-          ),
-        };
+        // Check against all existing events
+        return !existingEvents.some((event) =>
+          areIntervalsOverlapping(
+            { start: event.start, end: event.end },
+            slotWithBuffer
+          )
+        );
+      };
+
+      // Generate available time slots
+      const availableSlots: {
+        date: string;
+        day: string;
+        startTime: string;
+        endTime: string;
+        iso8601: string;
+        durationMinutes: number;
+        timeZone: string;
+      }[] = [];
+
+      // Calculate the current time plus 1 hour to avoid suggesting slots in the very near future
+      const minimumStartTime = addMinutes(new Date(), 60);
+
+      console.log({
+        existingEvents,
       });
+
+      // Generate available time slots
+      for (const day of daysInRange) {
+        // Get the day name in config.timeZone
+        const configDay = formatInTimeZone(
+          day,
+          config.timeZone || DEFAULT_TIME_ZONE,
+          "EEEE"
+        ).toLowerCase();
+        const slotConfig = availableTimeSlots.find(
+          (slot) => slot.day.toLowerCase() === configDay
+        );
+        if (!slotConfig) continue;
+
+        // Parse slot start and end in config.timeZone
+        const slotStartConfig = formatInTimeZone(
+          day,
+          config.timeZone || DEFAULT_TIME_ZONE,
+          `yyyy-MM-dd'T'${slotConfig.startTime}:00XXX`
+        );
+        const slotEndConfig = formatInTimeZone(
+          day,
+          config.timeZone || DEFAULT_TIME_ZONE,
+          `yyyy-MM-dd'T'${slotConfig.endTime}:00XXX`
+        );
+        const slotStart = parseISO(slotStartConfig);
+        const slotEnd = parseISO(slotEndConfig);
+
+        // Convert slot start/end to user's timezone for display
+        let current = slotStart;
+        while (addMinutes(current, appointmentDuration) <= slotEnd) {
+          const slotEndTime = addMinutes(current, appointmentDuration);
+          // Only show slots in the future (with 1 hour buffer)
+          if (current < minimumStartTime) {
+            current = addMinutes(current, interval);
+            continue;
+          }
+          // Check for overlap
+          if (isTimeSlotFree(current, slotEndTime)) {
+            // Format for user timezone
+            const userSlotStart = formatInTimeZone(
+              current,
+              timeZoneOfUser,
+              "yyyy-MM-dd'T'HH:mm:ssXXX"
+            );
+            availableSlots.push({
+              date: formatInTimeZone(current, timeZoneOfUser, "yyyy-MM-dd"),
+              day: formatInTimeZone(current, timeZoneOfUser, "EEEE"),
+              startTime: formatInTimeZone(current, timeZoneOfUser, "HH:mm"),
+              endTime: formatInTimeZone(slotEndTime, timeZoneOfUser, "HH:mm"),
+              iso8601: userSlotStart,
+              durationMinutes: appointmentDuration,
+              timeZone: timeZoneOfUser,
+            });
+          }
+          current = addMinutes(current, interval);
+        }
+      }
 
       return {
         success: true,
-        data: {
-          slots: formattedSlots,
-          timeZone,
-          message: `Found ${formattedSlots.length} available time slot(s)`,
-        },
+        availableSlots,
+        message:
+          availableSlots.length > 0
+            ? `Found ${availableSlots.length} available time slots`
+            : "No available time slots found for the specified criteria",
       };
     } catch (error) {
-      console.error("Error listing GoHighLevel available slots:", error);
+      console.error("Error listing available slots:", error);
+      // Extract the Google API error details if available
       const apiError = error as GHLApiError;
+      const errorMessage =
+        apiError.message ||
+        (error instanceof Error ? error.message : String(error));
+
       return {
         success: false,
         error: {
-          code: "SLOTS_LISTING_FAILED",
-          message:
-            apiError.message ||
-            "Failed to list available slots from GoHighLevel Calendar",
-          details: apiError.details || "",
+          code: "LIST_SLOTS_FAILED",
+          message: `Failed to list available time slots: ${errorMessage}`,
         },
       };
     }

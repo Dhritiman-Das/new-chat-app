@@ -8,6 +8,7 @@ import { AuthRequirement } from "@/lib/tools/definitions/tool-interface";
 import { useRouter } from "next/navigation";
 import {
   connectGoogleCalendar,
+  disconnectGoHighLevel,
   disconnectGoogleCalendar,
 } from "@/app/actions/tool-credentials";
 import {
@@ -119,6 +120,16 @@ function AuthStatusContent({
           toast.error(result.data.error.message || "Disconnection failed");
         } else {
           toast.error(`Failed to disconnect`);
+        }
+      } else if (provider === "gohighlevel") {
+        const result = await disconnectGoHighLevel({
+          toolId,
+        });
+
+        if (result?.data?.success) {
+          setIsConnected(false);
+          toast.success(`Successfully disconnected`);
+          router.refresh();
         }
       } else {
         toast.error("Disconnect function not available for this tool");

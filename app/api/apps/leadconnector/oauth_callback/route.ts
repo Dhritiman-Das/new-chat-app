@@ -162,21 +162,47 @@ export async function GET(request: NextRequest) {
         });
       } else {
         // Create new credential
-        credential = await prisma.credential.create({
-          data: {
-            userId,
-            provider: "gohighlevel",
-            name: locationInfo.name || "Default",
-            botId,
-            credentials: {
-              access_token: tokenData.access_token,
-              refresh_token: tokenData.refresh_token,
-              expires_at: tokenData.expires_at,
-              scope: tokenData.scope,
-              locationId: tokenData.locationId,
+        try {
+          // First check if the bot exists
+          if (botId) {
+            const botExists = await prisma.bot.findUnique({
+              where: { id: botId },
+            });
+
+            if (!botExists) {
+              console.error(
+                `Bot with ID ${botId} does not exist in the database`
+              );
+              return NextResponse.redirect(
+                new URL("/integrations/error?error=invalid_bot", request.url)
+              );
+            }
+          }
+
+          credential = await prisma.credential.create({
+            data: {
+              userId,
+              provider: "gohighlevel",
+              name: locationInfo.name || "Default",
+              botId,
+              credentials: {
+                access_token: tokenData.access_token,
+                refresh_token: tokenData.refresh_token,
+                expires_at: tokenData.expires_at,
+                scope: tokenData.scope,
+                locationId: tokenData.locationId,
+              },
             },
-          },
-        });
+          });
+        } catch (error) {
+          console.error("Error creating credential:", error);
+          return NextResponse.redirect(
+            new URL(
+              "/integrations/error?error=credential_creation_failed",
+              request.url
+            )
+          );
+        }
       }
 
       // Only continue if a bot ID was provided

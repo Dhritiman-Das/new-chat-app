@@ -6,7 +6,7 @@
 
 import { Calendar } from "@/components/tools/gohighlevel-calendar/types";
 import { ProviderError } from "../../errors";
-import { GoHighLevelClient } from "./index";
+import { GoHighLevelClient } from "../..";
 
 /**
  * Represents a calendar event/appointment in the GoHighLevel system
@@ -432,9 +432,6 @@ export class CalendarClient {
     rrule?: string; // Recurrence rule for creating recurring appointments
     [key: string]: unknown; // Other properties as needed
   }): Promise<{
-    appointment?: CalendarEvent;
-    success?: boolean;
-    message?: string;
     id?: string; // The created appointment ID
     calendarId?: string; // Calendar ID
     locationId?: string; // Location ID
@@ -442,6 +439,7 @@ export class CalendarClient {
     startTime?: string; // Start time of appointment
     endTime?: string; // End time of appointment
     title?: string; // Title of the appointment
+    assignedUserId?: string; // User ID of the assigned user
     [key: string]: unknown;
   }> {
     try {
@@ -463,7 +461,9 @@ export class CalendarClient {
       console.error("Error creating GoHighLevel appointment:", error);
       throw new ProviderError(
         `Failed to create appointment: ${
-          error instanceof Error ? error.message : String(error)
+          (error as unknown as { response: { data: { message: string } } })
+            ?.response?.data?.message ||
+          (error instanceof Error ? error.message : String(error))
         }`,
         "gohighlevel",
         "APPOINTMENT_CREATE_ERROR"

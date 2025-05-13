@@ -14,6 +14,7 @@ import { GoogleProvider } from "./providers/google";
 import { SlackProvider } from "./providers/slack";
 import { ProviderError } from "./errors";
 import { getCredentials as getCredentialsFromStore } from "./utils/store";
+import { needsRefresh } from "./utils/validate";
 
 // Map of provider types to their implementation classes
 const providers: Record<string, OAuthProvider<BaseOAuthCredentials>> = {
@@ -48,15 +49,53 @@ export async function getToken(context: TokenContext): Promise<string> {
 }
 
 /**
+ * Helper method to refresh token if needed
+ */
+async function refreshTokenIfNeeded<T extends BaseOAuthCredentials>(
+  context: TokenContext,
+  credentials: T,
+  provider: OAuthProvider<T>
+): Promise<T> {
+  if (credentials.refresh_token && needsRefresh(credentials)) {
+    const refreshedCredentials = await provider.refreshToken(
+      credentials.refresh_token
+    );
+
+    // Update stored credentials
+    const { updateCredentials } = await import("./utils/store");
+    await updateCredentials(context, {
+      ...credentials,
+      ...refreshedCredentials,
+    });
+
+    // Return the refreshed credentials
+    return {
+      ...credentials,
+      ...refreshedCredentials,
+    };
+  }
+
+  return credentials;
+}
+
+/**
  * Helper method to create an authenticated client
  */
 export async function createClient<T>(context: TokenContext): Promise<T> {
   if (context.provider === "gohighlevel") {
     // Handle GoHighLevel specially using dynamic import to avoid circular dependencies
     try {
-      const credentials = (await getCredentials(
+      // First get the provider to handle token refresh
+      const provider = getProvider<GoHighLevelCredentials>("gohighlevel");
+
+      // Get credentials first - we don't use getValidCredentials directly to avoid circular dependencies
+      let credentials = (await getCredentials(
         context
       )) as GoHighLevelCredentials;
+
+      // Check if token needs refresh and refresh if necessary
+      credentials = await refreshTokenIfNeeded(context, credentials, provider);
+
       // Dynamically import the GoHighLevel client
       const { createGoHighLevelClient } = await import("./clients/gohighlevel");
       return createGoHighLevelClient(
@@ -70,7 +109,8 @@ export async function createClient<T>(context: TokenContext): Promise<T> {
   } else if (context.provider === "google") {
     // Handle Google specially to create the appropriate client
     try {
-      // Dynamically import the Google client
+      // For Google, we don't need to handle credentials directly
+      // Just use getToken which already handles token refresh
       const { createGoogleCalendarClient } = await import(
         "./clients/google/calendar"
       );
@@ -82,8 +122,12 @@ export async function createClient<T>(context: TokenContext): Promise<T> {
   } else if (context.provider === "slack") {
     // Handle Slack specially
     try {
-      const credentials = (await getCredentials(context)) as SlackCredentials;
       const provider = getProvider<SlackCredentials>("slack");
+      let credentials = (await getCredentials(context)) as SlackCredentials;
+
+      // Refresh token if needed
+      credentials = await refreshTokenIfNeeded(context, credentials, provider);
+
       return provider.createClient(credentials) as unknown as T;
     } catch (error) {
       console.error("Error creating Slack client:", error);
@@ -93,7 +137,11 @@ export async function createClient<T>(context: TokenContext): Promise<T> {
 
   // For other providers, use the standard approach
   const provider = getProvider<BaseOAuthCredentials>(context.provider);
-  const credentials = await getCredentials(context);
+  let credentials = await getCredentials(context);
+
+  // Refresh token if needed
+  credentials = await refreshTokenIfNeeded(context, credentials, provider);
+
   return provider.createClient(credentials) as unknown as T;
 }
 
