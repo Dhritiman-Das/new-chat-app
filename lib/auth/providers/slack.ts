@@ -121,3 +121,6 @@ export class SlackProvider implements OAuthProvider<SlackCredentials> {
     return credentials;
   }
 }
+
+// Export an instance as the default export for dynamic importing
+export default SlackProvider;

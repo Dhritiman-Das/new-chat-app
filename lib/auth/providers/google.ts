@@ -130,3 +130,6 @@ export class GoogleProvider implements OAuthProvider<GoogleCredentials> {
     return credentials;
   }
 }
+
+// Export an instance as the default export for dynamic importing
+export default GoogleProvider;

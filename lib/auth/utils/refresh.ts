@@ -22,7 +22,7 @@ export async function refreshToken<T extends BaseOAuthCredentials>(
     if (credentials.refresh_token && needsRefresh(credentials)) {
       try {
         // Get the provider instance
-        const provider = getProvider(context.provider);
+        const provider = await getProvider(context.provider);
 
         // Get refreshed credentials
         const refreshedCredentials = await provider.refreshToken(

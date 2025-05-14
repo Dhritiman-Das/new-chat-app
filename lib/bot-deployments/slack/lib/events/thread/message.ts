@@ -5,7 +5,7 @@ import type { CoreMessage } from "ai";
 import prisma from "@/lib/db/prisma";
 import { $Enums } from "@/lib/generated/prisma";
 import { generateSlackThreadUUID } from "../../helpers";
-import { SlackClient } from "@/lib/auth/clients/slack";
+import { SlackClient } from "@/lib/auth/clients";
 
 // Define a more specific type for our message events
 interface SlackMessageEvent extends GenericMessageEvent {

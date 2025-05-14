@@ -251,11 +251,34 @@ export const connectGoHighLevel = actionClient
   .action(
     async ({ parsedInput }): Promise<ActionResponse<{ authUrl: string }>> => {
       try {
+        const session = await auth();
+        if (!session?.user?.id) {
+          return {
+            success: false,
+            error: appErrors.UNAUTHORIZED,
+          };
+        }
+
         // Extract the tool ID and bot ID from the parsed input
         const { toolId, botId, orgId } = parsedInput;
 
         // Generate a secure state token to prevent CSRF attacks
         const stateToken = randomBytes(32).toString("hex");
+
+        await prisma.oAuthState.create({
+          data: {
+            state: stateToken,
+            userId: session.user.id,
+            metadata: JSON.stringify({
+              botId,
+              orgId,
+              provider: "gohighlevel",
+              isAddingChannel: false,
+              integrationId: null,
+            }),
+            expiresAt: new Date(Date.now() + 1000 * 60 * 15), // 15 minutes
+          },
+        });
 
         // Store the state token in a cookie for verification when the user returns
         const cookieStore = await cookies();

@@ -5,7 +5,8 @@ import { Block } from "@slack/web-api";
 import {
   SlackClient,
   createSlackClient as createAuthSlackClient,
-} from "@/lib/auth/clients/slack";
+  type SlackClientOptions as AuthSlackClientOptions,
+} from "@/lib/auth/clients";
 
 export interface SlackClientOptions {
   token: string;
@@ -24,7 +25,7 @@ export async function createSlackClientFromAuth(
     userId,
     credentialId,
     botId,
-  });
+  } satisfies AuthSlackClientOptions);
 }
 
 export async function sendMessage(

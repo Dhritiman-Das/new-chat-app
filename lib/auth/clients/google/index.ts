@@ -54,7 +54,7 @@ export async function createGoogleClient(
   context: TokenContext
 ): Promise<GoogleClient> {
   try {
-    const provider = getProvider("google");
+    const provider = await getProvider("google");
     const token = await provider.getToken(context);
 
     // Use the token to create an OAuth2 client

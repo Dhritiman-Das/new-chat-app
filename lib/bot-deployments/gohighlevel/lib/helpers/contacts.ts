@@ -1,12 +1,12 @@
-import { ContactsClient } from "@/lib/auth/clients/gohighlevel";
+import { GoHighLevelClient } from "@/lib/auth/clients";
 
 // New version using the auth module's ContactsClient
 export async function checkContactHasKillSwitchWithAuthClient(
-  contactsClient: ContactsClient,
+  contactsClient: GoHighLevelClient,
   contactId: string
 ) {
   try {
-    const contact = await contactsClient.getContact(contactId);
+    const contact = await contactsClient.contacts.getContact(contactId);
     return (
       contact.tags?.some(
         (tag: { name: string }) => tag.name.toLowerCase() === "kill_switch"

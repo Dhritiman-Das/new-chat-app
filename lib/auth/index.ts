@@ -4,6 +4,9 @@
  * This module provides a unified interface for authentication and OAuth operations.
  */
 
+// Initialize the auth module (registers common providers)
+import "./initialize";
+
 // Re-export error classes
 export * from "./errors";
 
@@ -36,12 +39,16 @@ export { refreshToken } from "./utils/refresh";
 export {
   createClient as createRawClient,
   createServiceClient,
-  GoHighLevelClient,
-  createGoHighLevelClient,
-  GoHighLevelCalendarClient,
-  GoHighLevelMessagingClient,
-  GoHighLevelContactsClient,
 } from "./clients";
+
+// Export client types
+export type { GoHighLevelClient } from "./clients";
+export type { GoHighLevelCalendarClient } from "./clients";
+export type { GoHighLevelMessagingClient } from "./clients";
+export type { GoHighLevelContactsClient } from "./clients";
+
+// Re-export functions
+export { createGoHighLevelClient } from "./clients";
 
 // Export provider configuration utilities
 export {
@@ -50,6 +57,9 @@ export {
   googleConfig,
   slackConfig,
 } from "./config/providers-config";
+
+// Export initialization function
+export { initializeAuth } from "./initialize";
 
 // Convenience function to create a token context
 export function createTokenContext(

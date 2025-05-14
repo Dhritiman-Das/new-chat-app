@@ -13,8 +13,8 @@ import { processDeploymentMessage } from "../../../../processor";
 import { DeploymentPlatform } from "../../../../types";
 import { CoreMessage } from "ai";
 import { TokenContext } from "@/lib/auth/types";
-import { GoHighLevelClient } from "@/lib/auth/clients/gohighlevel";
 import { createClient } from "@/lib/auth/provider-registry";
+import { GoHighLevelClient } from "@/lib/auth/clients";
 
 interface AssistantContext {
   userId: string;
@@ -65,11 +65,10 @@ export async function assistantConversationMessage(
 
     // Create the GoHighLevel client using the auth module
     const ghlClient = await createClient<GoHighLevelClient>(tokenContext);
-    const contactsClient = ghlClient.contacts;
 
     // Check if the contact has the kill_switch tag
     const hasKillSwitch = await checkContactHasKillSwitchWithAuthClient(
-      contactsClient,
+      ghlClient,
       contactId
     );
 

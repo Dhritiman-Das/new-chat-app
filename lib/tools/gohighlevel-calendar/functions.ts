@@ -17,7 +17,8 @@ import {
 import { formatInTimeZone } from "date-fns-tz";
 import prisma from "@/lib/db/prisma";
 import { createClient } from "@/lib/auth/provider-registry";
-import { GoHighLevelClient } from "@/lib/auth/clients/gohighlevel";
+import type { GoHighLevelClient } from "@/lib/auth/clients/gohighlevel/index";
+import type { CalendarEvent } from "@/lib/auth/clients/gohighlevel/calendar";
 import { GoHighLevelWebhookPayload } from "@/lib/shared/types/gohighlevel";
 import {
   getDateRange,
@@ -491,7 +492,7 @@ export const listAppointments: ToolFunction = {
 
       // Format the events for the response
       const appointments = response
-        .map((event) => {
+        .map((event: CalendarEvent) => {
           // Handle all-day events (date only) or regular events with dateTime
           const startTime = event.startTime;
           const endTime = event.endTime;
@@ -663,14 +664,18 @@ export const listAvailableSlots: ToolFunction = {
       // Convert existing events to time ranges
       const existingEvents =
         response
-          ?.map((event) => {
+          ?.map((event: CalendarEvent) => {
             if (!event) return null;
 
             const start = event.startTime
-              ? parseISO(event.startTime as string)
+              ? typeof event.startTime === "string"
+                ? parseISO(event.startTime)
+                : event.startTime
               : null;
             const end = event.endTime
-              ? parseISO(event.endTime as string)
+              ? typeof event.endTime === "string"
+                ? parseISO(event.endTime)
+                : event.endTime
               : null;
 
             // Skip events without proper start/end times
@@ -693,7 +698,7 @@ export const listAvailableSlots: ToolFunction = {
         };
 
         // Check against all existing events
-        return !existingEvents.some((event) =>
+        return !existingEvents.some((event: { start: Date; end: Date }) =>
           areIntervalsOverlapping(
             { start: event.start, end: event.end },
             slotWithBuffer

@@ -8,25 +8,22 @@ import { TokenContext } from "../types";
 import { createClient as createBaseClient } from "../provider-registry";
 
 // Export GoHighLevel-specific clients
-export {
-  GoHighLevelClient,
-  createGoHighLevelClient,
-  CalendarClient as GoHighLevelCalendarClient,
-  MessagingClient as GoHighLevelMessagingClient,
-  ContactsClient as GoHighLevelContactsClient,
-} from "./gohighlevel";
+export type { GoHighLevelClient } from "./gohighlevel/index";
+export { createGoHighLevelClient } from "./gohighlevel/index";
 
-// Export Google-specific clients
-// Main client
-export { GoogleClient, createGoogleClient } from "./google";
-// Service-specific clients
+export type { CalendarClient as GoHighLevelCalendarClient } from "./gohighlevel/calendar";
+export type { MessagingClient as GoHighLevelMessagingClient } from "./gohighlevel/messaging";
+export type { ContactsClient as GoHighLevelContactsClient } from "./gohighlevel/contacts";
+
+// Google calendar client
 export {
   CalendarClient as GoogleCalendarClient,
   createGoogleCalendarClient,
 } from "./google/calendar";
 
-// Export Slack-specific clients
-export { SlackClient, createSlackClient } from "./slack";
+// Export Slack client
+export { SlackClient, createSlackClient } from "./slack/index";
+export type { SlackClientOptions } from "./slack/index";
 
 /**
  * Create a client for any provider
@@ -48,18 +45,18 @@ export async function createServiceClient(
 
   switch (provider) {
     case "gohighlevel": {
-      const { createGoHighLevelClient } = await import("./gohighlevel");
+      const { createGoHighLevelClient } = await import("./gohighlevel/index");
       const client = createGoHighLevelClient(
         context,
         options?.locationId as string
       );
 
       if (service === "calendar") {
-        return client.calendar;
+        return (await client).calendar;
       } else if (service === "messaging") {
-        return client.messaging;
+        return (await client).messaging;
       } else if (service === "contacts") {
-        return client.contacts;
+        return (await client).contacts;
       }
 
       return client;
@@ -73,15 +70,15 @@ export async function createServiceClient(
         return createGoogleCalendarClient(context);
       }
 
-      throw new Error(`Google service ${service} not supported`);
+      // Default to using the provider registry
+      return createBaseClient(context);
     }
 
     case "slack": {
-      const { createSlackClient } = await import("./slack");
-      return createSlackClient({
-        userId: context.userId,
-        credentialId: context.credentialId,
-        botId: context.botId,
+      // Use the provider registry for slack clients
+      return createBaseClient({
+        ...context,
+        provider: "slack",
       });
     }
 

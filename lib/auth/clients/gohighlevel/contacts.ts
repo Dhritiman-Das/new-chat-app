@@ -3,7 +3,7 @@
  */
 
 import { ProviderError } from "../../errors";
-import { GoHighLevelClient } from "./index";
+import { GoHighLevelClient } from "../index";
 
 export interface ContactFields {
   email?: string;

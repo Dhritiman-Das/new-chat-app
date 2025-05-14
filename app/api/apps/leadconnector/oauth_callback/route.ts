@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
 import { $Enums } from "@/lib/generated/prisma";
-import { createGoHighLevelClient } from "@/lib/auth/clients/gohighlevel";
+import { createGoHighLevelClient } from "@/lib/auth/clients/gohighlevel/index";
 import { TokenContext } from "@/lib/auth/types";
 import { gohighlevelConfig } from "@/lib/auth/config/providers-config";
 
@@ -109,13 +109,13 @@ export async function GET(request: NextRequest) {
       };
 
       // Get location/account info using the auth module client
-      const ghlClient = createGoHighLevelClient(
+      const ghlClientPromise = createGoHighLevelClient(
         tokenContext,
         tokenData.locationId
       );
 
-      // Initialize the client
-      await ghlClient.initialize();
+      // Await the client
+      const ghlClient = await ghlClientPromise;
 
       let locationInfo;
 
