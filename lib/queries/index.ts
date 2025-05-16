@@ -1,6 +1,48 @@
 import { PrismaClient } from "@/lib/generated/prisma";
 import { Prisma as PrismaTypes } from "@/lib/generated/prisma";
 
+// Analytics data types
+export interface ConversationVolumeData {
+  date: string;
+  count: number;
+}
+
+export interface ConversationStatusData {
+  status: string;
+  count: number;
+}
+
+export interface ResponseTimeData {
+  date: string;
+  avgResponseTime: number;
+}
+
+export interface ToolUsageData {
+  tool: string;
+  count: number;
+}
+
+export interface LeadGenerationData {
+  currentRate: number;
+  timeSeriesData: { date: string; rate: number }[];
+}
+
+export interface AppointmentsData {
+  date: string;
+  count: number;
+}
+
+export interface HistogramData {
+  bucket: string;
+  count: number;
+}
+
+export interface PeakUsageData {
+  day: string;
+  hour: number;
+  value: number;
+}
+
 export async function getMeQuery(prisma: PrismaClient, userId: string) {
   const user = await prisma.user.findUnique({
     where: {
