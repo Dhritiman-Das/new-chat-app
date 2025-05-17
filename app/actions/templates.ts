@@ -64,6 +64,50 @@ export const createTemplate = action
           defaultValue: "",
         })),
       };
+      console.log(
+        JSON.stringify({
+          name,
+          description: description || null,
+          content,
+          isPublic,
+          organizationId,
+          createdBy: user.id,
+          placeholderSchema: placeholderSchema,
+          categories: {
+            connect: categories.map((id) => ({ id })),
+          },
+        })
+      );
+
+      // Check if categories exist, create them if they don't
+      const categoryPromises = categories.map(async (categorySlug) => {
+        const existingCategory = await prisma.templateCategory.findUnique({
+          where: { slug: categorySlug },
+        });
+
+        if (!existingCategory) {
+          // If the category doesn't exist, create it with the slug
+          console.log(`Category ${categorySlug} not found, creating it...`);
+          await prisma.templateCategory.create({
+            data: {
+              name: categorySlug
+                .split("-")
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" "),
+              slug: categorySlug,
+            },
+          });
+        }
+      });
+
+      await Promise.all(categoryPromises);
+
+      // Get fresh category IDs using the slugs
+      const categoryEntities = await prisma.templateCategory.findMany({
+        where: {
+          slug: { in: categories },
+        },
+      });
 
       // Create template with categories
       const template = await prisma.template.create({
@@ -76,7 +120,7 @@ export const createTemplate = action
           createdBy: user.id,
           placeholderSchema: placeholderSchema,
           categories: {
-            connect: categories.map((id) => ({ id })),
+            connect: categoryEntities.map((category) => ({ id: category.id })),
           },
         },
       });

@@ -239,7 +239,9 @@ export default function CreateTemplateDialog({
           New Template
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[800px]">
+      <DialogContent
+        className={"lg:max-w-screen-lg overflow-y-scroll max-h-screen"}
+      >
         <DialogHeader>
           <DialogTitle>Create New Template</DialogTitle>
           <DialogDescription>
