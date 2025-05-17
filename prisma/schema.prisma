@@ -238,8 +238,9 @@ model KnowledgeBase {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  bot   Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
-  files KnowledgeFile[]
+  bot            Bot             @relation(fields: [botId], references: [id], onDelete: Cascade)
+  files          KnowledgeFile[]
+  websiteSources WebsiteSource[] // New relation for website sources
 
   @@index([botId])
   @@map("knowledge_bases")
@@ -263,6 +264,31 @@ model KnowledgeFile {
 
   @@index([knowledgeBaseId])
   @@map("knowledge_files")
+}
+
+// Website Source model - represents scraped website content in a knowledge base
+model WebsiteSource {
+  id              String          @id @default(uuid())
+  knowledgeBaseId String          @map("knowledge_base_id")
+  url             String          // URL of the website or specific page
+  isDomain        Boolean         @default(false) @map("is_domain") // Whether this is a domain-wide scrape or specific page
+  title           String?         // Title of the webpage
+  description     String?         // Meta description if available
+  scrapingStatus  ScrapingStatus  @default(PENDING) @map("scraping_status")
+  embeddingStatus EmbeddingStatus @default(PENDING) @map("embedding_status")
+  lastScrapedAt   DateTime?       @map("last_scraped_at")
+  metadata        Json?           // Additional metadata about the website
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@index([knowledgeBaseId])
+  @@index([url])
+  @@index([scrapingStatus])
+  @@index([embeddingStatus])
+  @@map("website_sources")
 }
 
 // Integration model - external service connections per user
@@ -607,4 +633,12 @@ enum ExecutionStatus {
   COMPLETED
   FAILED
   TIMEOUT
+}
+
+enum ScrapingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  RATE_LIMITED
 }

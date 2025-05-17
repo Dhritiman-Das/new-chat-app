@@ -83,6 +83,7 @@ import {
   TextQuote,
   Minimize,
   Maximize,
+  Globe,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
 import {
@@ -265,6 +266,7 @@ export const Icons = {
   Minimize,
   Maximize,
   Anthropic: RiAnthropicFill,
+  Globe,
 };
 
 // Export individual icons for direct imports

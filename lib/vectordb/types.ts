@@ -21,6 +21,10 @@ export const AdditionalMetadataSchema = z
     accountId: z.string().optional(),
     namespace: z.string().optional(),
     timestamp: z.string().optional(),
+    // Website source related fields
+    sourceUrl: z.string().optional(),
+    sourceType: z.string().optional(),
+    pageTitle: z.string().optional(),
     // Add more fields as needed
   })
   .partial();

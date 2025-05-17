@@ -17,10 +17,17 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUploader } from "@/components/knowledge/file-uploader";
+import { WebsiteSourceForm } from "@/components/knowledge/website-source-form";
 import { prisma } from "@/lib/db/prisma";
 import { KnowledgeFileList } from "@/components/knowledge/knowledge-file-list";
-import { KnowledgeBase, KnowledgeFile } from "@/lib/types/prisma";
+import { WebsiteSourceList } from "@/components/knowledge/website-source-list";
+import {
+  KnowledgeBase,
+  KnowledgeFile,
+  WebsiteSource,
+} from "@/lib/types/prisma";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -39,13 +46,19 @@ export default async function KnowledgePage({ params }: PageProps) {
     where: { botId },
     include: {
       files: true,
+      websiteSources: true,
     },
   });
 
   // Find or create a default knowledge base
   let defaultKnowledgeBase = knowledgeBases.find(
     (kb) => kb.name === "Default Knowledge Base"
-  ) as KnowledgeBase | undefined;
+  ) as
+    | (KnowledgeBase & {
+        files: KnowledgeFile[];
+        websiteSources: WebsiteSource[];
+      })
+    | undefined;
 
   if (!defaultKnowledgeBase) {
     // For server-side rendering, we don't want to create here
@@ -58,6 +71,7 @@ export default async function KnowledgePage({ params }: PageProps) {
       createdAt: new Date(),
       updatedAt: new Date(),
       files: [] as KnowledgeFile[],
+      websiteSources: [] as WebsiteSource[],
     };
   }
 
@@ -104,40 +118,82 @@ export default async function KnowledgePage({ params }: PageProps) {
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Knowledge Management</h1>
 
-        <div className="grid grid-cols-1 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Knowledge Files</CardTitle>
-              <CardDescription>
-                Upload files to provide knowledge to your bot. Supported
-                formats: PDF, TXT, DOC, DOCX, XLS, XLSX
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FileUploader
-                botId={botId}
-                orgId={orgId}
-                knowledgeBaseId={defaultKnowledgeBase.id}
-              />
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="files" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="files">Files</TabsTrigger>
+            <TabsTrigger value="websites">Websites</TabsTrigger>
+          </TabsList>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Knowledge Files</CardTitle>
-              <CardDescription>
-                Files that have been uploaded and processed
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <KnowledgeFileList
-                botId={botId}
-                orgId={orgId}
-                knowledgeBase={defaultKnowledgeBase}
-              />
-            </CardContent>
-          </Card>
-        </div>
+          <TabsContent value="files" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Upload Knowledge Files</CardTitle>
+                <CardDescription>
+                  Upload files to provide knowledge to your bot. Supported
+                  formats: PDF, TXT, DOC, DOCX, XLS, XLSX
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FileUploader
+                  botId={botId}
+                  orgId={orgId}
+                  knowledgeBaseId={defaultKnowledgeBase.id}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Knowledge Files</CardTitle>
+                <CardDescription>
+                  Files that have been uploaded and processed
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <KnowledgeFileList
+                  botId={botId}
+                  orgId={orgId}
+                  knowledgeBase={defaultKnowledgeBase}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="websites" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Add Website Source</CardTitle>
+                <CardDescription>
+                  Add websites to your knowledge base by entering a URL. You can
+                  choose to crawl an entire domain or just scrape a single page.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <WebsiteSourceForm
+                  botId={botId}
+                  orgId={orgId}
+                  knowledgeBaseId={defaultKnowledgeBase.id}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Website Sources</CardTitle>
+                <CardDescription>
+                  Websites that have been added to your knowledge base
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <WebsiteSourceList
+                  botId={botId}
+                  orgId={orgId}
+                  knowledgeBase={defaultKnowledgeBase}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
