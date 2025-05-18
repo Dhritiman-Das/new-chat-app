@@ -54,6 +54,13 @@ export interface VectorDbService {
    * @param filter - Filter to apply for deletion
    */
   deleteByFilter(filter: VectorDbFilter): Promise<VectorDbResponse>;
+
+  /**
+   * Fetch vector records directly by their IDs
+   * @param ids - Array of record IDs to retrieve
+   * @returns A promise that resolves to the fetched records
+   */
+  fetchRecordsByIds(ids: string[]): Promise<VectorDbResponse>;
 }
 
 /**

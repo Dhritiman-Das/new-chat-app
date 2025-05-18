@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Message, KnowledgeFile } from "@/lib/generated/prisma/client";
+import {
+  Message,
+  KnowledgeFile,
+  WebsiteSource,
+} from "@/lib/generated/prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Icons } from "@/components/icons";
@@ -18,15 +22,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { VectorChunkTooltip } from "@/components/vector-chunk-tooltip";
 
 interface ConversationMessagesProps {
   messages: Message[];
   knowledgeFiles?: KnowledgeFile[];
+  websiteSources?: WebsiteSource[];
 }
 
 export default function ConversationMessages({
   messages,
   knowledgeFiles = [],
+  websiteSources = [],
 }: ConversationMessagesProps) {
   const [viewMode, setViewMode] = useState<"normal" | "debug">("normal");
 
@@ -52,6 +59,7 @@ export default function ConversationMessages({
             message={message}
             viewMode={viewMode}
             knowledgeFiles={knowledgeFiles}
+            websiteSources={websiteSources}
           />
         ))}
       </div>
@@ -63,12 +71,14 @@ interface MessageCardProps {
   message: Message;
   viewMode: "normal" | "debug";
   knowledgeFiles?: KnowledgeFile[];
+  websiteSources?: WebsiteSource[];
 }
 
 function MessageCard({
   message,
   viewMode,
   knowledgeFiles = [],
+  websiteSources = [],
 }: MessageCardProps) {
   const isUser = message.role === "USER";
   let responseMessages: ResponseMessage[] = [];
@@ -196,30 +206,28 @@ function MessageCard({
                 <div className="pl-3 flex flex-wrap gap-2">
                   {knowledgeContext.documents.map((doc, idx) => {
                     // Find the file matching this document ID
-                    const file = knowledgeFiles.find(
-                      (f) => f.id === doc.documentId
-                    );
-
+                    const file =
+                      knowledgeFiles.find((f) => f.id === doc.documentId) ||
+                      websiteSources.find((f) => f.id === doc.documentId);
+                    console.log({ file, doc });
                     return (
-                      <TooltipProvider key={idx}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center space-x-2 text-sm p-1 rounded hover:bg-muted cursor-default inline-flex w-auto">
-                              {getFileIcon(file?.fileType || "")}
-                              <span className="truncate max-w-sm">
-                                {file?.fileName ||
-                                  doc.filename ||
-                                  doc.documentId}
-                              </span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>
-                              Confidence Score: {(doc.score * 100).toFixed(2)}%
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <VectorChunkTooltip
+                        key={idx}
+                        id={doc.id}
+                        score={doc.score}
+                      >
+                        <div className="flex items-center space-x-2 text-sm p-1 rounded hover:bg-muted cursor-default w-auto">
+                          {getFileIcon((file as KnowledgeFile)?.fileType) || (
+                            <Icons.Globe className="h-4 w-4 text-blue-500" />
+                          )}
+                          <span className="truncate max-w-sm">
+                            {(file as KnowledgeFile)?.fileName ||
+                              (file as WebsiteSource)?.url ||
+                              doc.filename ||
+                              doc.documentId}
+                          </span>
+                        </div>
+                      </VectorChunkTooltip>
                     );
                   })}
                 </div>
@@ -313,6 +321,9 @@ function DebugView({ responseMessages }: ResponseViewProps) {
 
 // Function to get file icon based on file type (copied from KnowledgeFileList)
 function getFileIcon(fileType: string) {
+  if (!fileType) {
+    return null;
+  }
   if (fileType.includes("pdf")) {
     return <Icons.Pdf className="h-4 w-4 text-red-500" />;
   } else if (fileType.includes("spreadsheet") || fileType.includes("excel")) {

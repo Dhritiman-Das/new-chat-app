@@ -36,6 +36,7 @@ export interface ActionResponse<T = unknown> {
 
 // Knowledge context types
 export interface DocumentReference {
+  id: string; // The ID of the document in the vector database
   documentId: string;
   score?: number;
 }

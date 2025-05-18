@@ -45,7 +45,6 @@ export default async function ConversationDetailPage({ params }: PageProps) {
   const bot = botResponse?.data;
   const conversation =
     conversationResponse?.data as ConversationWithMessages | null;
-
   // Map source to icon
   const getSourceIcon = (source: string | null) => {
     switch (source) {
@@ -358,6 +357,11 @@ export default async function ConversationDetailPage({ params }: PageProps) {
                   knowledgeFiles={
                     conversation.bot?.knowledgeBases?.flatMap(
                       (kb) => kb.files
+                    ) || []
+                  }
+                  websiteSources={
+                    conversation.bot?.knowledgeBases?.flatMap(
+                      (kb) => kb.websiteSources
                     ) || []
                   }
                 />

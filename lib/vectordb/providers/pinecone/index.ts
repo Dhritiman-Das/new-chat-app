@@ -158,6 +158,7 @@ export class PineconeVectorDb implements VectorDbService {
 
       // Extract the chunks from the metadata
       return qualifyingDocs.map((match) => ({
+        id: match.id,
         chunk: match.metadata?.chunk as string,
         metadata: match.metadata as Metadata,
         score: match.score,
@@ -341,5 +342,44 @@ export class PineconeVectorDb implements VectorDbService {
       values: embedding,
       metadata: metadata as RecordMetadata,
     };
+  }
+
+  /**
+   * Fetch vector records directly by their IDs
+   * @param ids - Array of record IDs to retrieve
+   * @returns A promise that resolves to the fetched records
+   */
+  async fetchRecordsByIds(ids: string[]): Promise<VectorDbResponse> {
+    if (!this.index) {
+      await this.initialize();
+    }
+
+    try {
+      // Get the namespace-specific index
+      const namespaceIndex = this.index!.namespace(this.config.namespace);
+
+      // Fetch the records by IDs
+      const fetchResponse = await namespaceIndex.fetch(ids);
+
+      // Extract the records from the response
+      const records = fetchResponse.records || {};
+
+      return {
+        success: true,
+        data: {
+          records: Object.entries(records).map(([id, record]) => ({
+            id,
+            values: record.values,
+            metadata: record.metadata,
+          })),
+        },
+      };
+    } catch (error) {
+      console.error("Error fetching records by IDs:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
   }
 }

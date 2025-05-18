@@ -396,6 +396,7 @@ export async function retrieveKnowledgeContext(
     );
 
     const usedDocuments = vectorDbQueryResults.map((document: QueryResult) => ({
+      id: document.id || "",
       documentId: document.metadata.documentId || "",
       score: document.score,
     }));

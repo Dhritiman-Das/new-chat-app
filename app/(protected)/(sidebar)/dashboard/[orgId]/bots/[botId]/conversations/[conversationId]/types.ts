@@ -2,6 +2,7 @@ import {
   Conversation,
   Message,
   KnowledgeFile,
+  WebsiteSource,
   Lead,
   Appointment,
 } from "@/lib/generated/prisma/client";
@@ -18,6 +19,7 @@ export interface ConversationWithMessages
   bot?: {
     knowledgeBases?: Array<{
       files: KnowledgeFile[];
+      websiteSources: WebsiteSource[];
     }>;
   };
 }
@@ -53,6 +55,7 @@ export type ResponseMessageContent =
   | TextContent;
 
 export interface DocumentReference {
+  id: string;
   title?: string;
   source?: string;
   filename?: string;

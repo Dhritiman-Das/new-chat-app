@@ -254,6 +254,7 @@ export const getConversationById = async (conversationId: string) => {
               knowledgeBases: {
                 include: {
                   files: true,
+                  websiteSources: true,
                 },
               },
             },

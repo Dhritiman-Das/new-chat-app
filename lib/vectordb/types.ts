@@ -73,6 +73,7 @@ export interface VectorDbResponse {
 }
 
 export interface QueryResult {
+  id: string;
   chunk: string;
   metadata: Metadata;
   score?: number;
