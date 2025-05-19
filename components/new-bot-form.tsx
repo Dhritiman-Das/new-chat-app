@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -36,6 +36,7 @@ import { Building } from "@/components/icons";
 import Link from "next/link";
 import { createBot } from "@/app/actions/bots";
 import { ActionResponse } from "@/app/actions/types";
+import { TemplateDialog } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/settings/template-dialog";
 
 const formSchema = z.object({
   name: z.string().min(2, "Bot name must be at least 2 characters"),
@@ -65,8 +66,11 @@ interface NewBotFormProps {
 export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isLoading, setIsLoading] = useState(false);
   const orgIdFromQuery = searchParams.get("org");
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(
+    orgId || orgIdFromQuery || ""
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -77,6 +81,22 @@ export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
       organizationId: orgId || orgIdFromQuery || "",
     },
   });
+
+  // Update selectedOrgId when form value changes
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "organizationId" && value.organizationId) {
+        setSelectedOrgId(value.organizationId as string);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // Function to handle system prompt update from template
+  const handleApplyTemplate = (newSystemPrompt: string) => {
+    form.setValue("systemPrompt", newSystemPrompt);
+  };
 
   async function onSubmit(data: FormValues) {
     setIsLoading(true);
@@ -190,7 +210,15 @@ export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
               name="systemPrompt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>System Prompt</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>System Prompt</FormLabel>
+                    {selectedOrgId && (
+                      <TemplateDialog
+                        orgId={selectedOrgId}
+                        onApplyTemplate={handleApplyTemplate}
+                      />
+                    )}
+                  </div>
                   <FormControl>
                     <Textarea
                       placeholder="You are a helpful AI assistant..."
