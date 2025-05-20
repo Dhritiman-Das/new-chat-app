@@ -1,4 +1,9 @@
-export type ModelProvider = "xai" | "openai" | "anthropic";
+export type ModelProvider =
+  | "xai"
+  | "openai"
+  | "anthropic"
+  | "gemini"
+  | "perplexity";
 
 export type ModelAttribute = "Pro" | "New" | "Intelligent" | "Fast";
 
@@ -18,39 +23,42 @@ export interface Model {
 }
 
 export const models: Model[] = [
+  // xAI
   {
-    id: "grok-3-mini-beta",
-    name: "Grok 3 Mini Beta",
+    id: "grok-3",
+    name: "Grok 3",
     provider: "xai",
     providerName: "xAI",
     description:
-      "A fast and efficient AI model created by xAI to be super helpful and straightforward.",
-    contextWindow: 128000,
-    attributes: ["New"],
+      "xAI's flagship model for 2025, excelling at reasoning, math, science, and real-time information with a massive context window.",
+    contextWindow: 1000000,
+    attributes: ["Pro", "Intelligent", "New"],
     isAvailable: true,
-    modelPageUrl: "https://xai.com/models/grok-3-mini-beta",
+    modelPageUrl: "https://xai.com/models/grok-3",
     modelPriceUrl: "https://xai.com/pricing",
   },
   {
-    id: "grok-3-beta",
-    name: "Grok 3 Beta",
+    id: "grok-3-mini",
+    name: "Grok 3 Mini",
     provider: "xai",
     providerName: "xAI",
     description:
-      "A powerful AI model created by xAI with advanced reasoning capabilities.",
+      "A lightweight, fast, and efficient version of Grok 3, suitable for high-volume or lower-latency tasks.",
     contextWindow: 128000,
-    attributes: ["Pro", "Intelligent"],
+    attributes: ["Fast", "New"],
     isAvailable: true,
-    modelPageUrl: "https://xai.com/models/grok-3-beta",
+    modelPageUrl: "https://xai.com/models/grok-3-mini",
     modelPriceUrl: "https://xai.com/pricing",
   },
+
+  // OpenAI
   {
     id: "gpt-4o",
     name: "GPT-4o",
     provider: "openai",
     providerName: "OpenAI",
     description:
-      "GPT-4o from OpenAI has broad general knowledge and domain expertise allowing it to follow complex instructions in natural language and solve difficult problems accurately.",
+      "OpenAI’s GPT-4o is a top-tier general-purpose model with broad knowledge, strong reasoning, and a large context window.",
     contextWindow: 128000,
     inputPricing: "$2.50 / million tokens",
     outputPricing: "$10.00 / million tokens",
@@ -60,19 +68,32 @@ export const models: Model[] = [
     modelPriceUrl: "https://openai.com/api/pricing",
   },
   {
-    id: "gpt-4o-mini",
-    name: "GPT-4o Mini",
+    id: "gpt-o3-mini",
+    name: "GPT-o3 Mini",
     provider: "openai",
     providerName: "OpenAI",
     description:
-      "GPT-4o Mini from OpenAI is a smaller, faster version of GPT-4o with reduced context window.",
+      "OpenAI’s latest reasoning-optimized model for STEM and code, offering lower cost and fast responses.",
     contextWindow: 128000,
-    inputPricing: "$0.15 / million tokens",
-    outputPricing: "$0.60 / million tokens",
-    attributes: ["Pro"],
+    attributes: ["Fast", "New"],
     isAvailable: true,
-    modelPageUrl: "https://openai.com/api/models/gpt-4o-mini",
+    modelPageUrl: "https://openai.com/api/models/gpt-o3-mini",
     modelPriceUrl: "https://openai.com/api/pricing",
+  },
+
+  // Anthropic
+  {
+    id: "claude-3-7-sonnet",
+    name: "Claude 3.7 Sonnet",
+    provider: "anthropic",
+    providerName: "Anthropic",
+    description:
+      "Anthropic’s most advanced 2025 model, with exceptional reasoning and instruction-following capabilities.",
+    contextWindow: 200000,
+    attributes: ["Pro", "Intelligent", "New"],
+    isAvailable: true,
+    modelPageUrl: "https://anthropic.com/models/claude-3-7-sonnet",
+    modelPriceUrl: "https://anthropic.com/pricing",
   },
   {
     id: "claude-3-5-sonnet",
@@ -80,25 +101,68 @@ export const models: Model[] = [
     provider: "anthropic",
     providerName: "Anthropic",
     description:
-      "A powerful model that excels at a wide range of tasks from sophisticated dialogue and creative content generation to detailed instruction.",
+      "A powerful model excelling at sophisticated dialogue and creative content generation.",
     contextWindow: 200000,
     attributes: ["Pro", "New"],
-    isAvailable: false,
+    isAvailable: true,
     modelPageUrl: "https://anthropic.com/models/claude-3-5-sonnet",
     modelPriceUrl: "https://anthropic.com/pricing",
   },
+
+  // Gemini (Google)
   {
-    id: "claude-3-7-sonnet",
-    name: "Claude 3.7 Sonnet",
-    provider: "anthropic",
-    providerName: "Anthropic",
+    id: "gemini-2-5-pro",
+    name: "Gemini 2.5 Pro",
+    provider: "gemini",
+    providerName: "Google",
     description:
-      "Anthropic's most advanced model with exceptional reasoning and instruction-following capabilities.",
-    contextWindow: 200000,
-    attributes: ["Pro", "New", "Intelligent"],
-    isAvailable: false,
-    modelPageUrl: "https://anthropic.com/models/claude-3-7-sonnet",
-    modelPriceUrl: "https://anthropic.com/pricing",
+      "Google’s Gemini 2.5 Pro is a flagship model for enterprise-grade tasks, with advanced multimodal and coding capabilities.",
+    contextWindow: 2000000,
+    attributes: ["Pro", "Intelligent", "New"],
+    isAvailable: true,
+    modelPageUrl: "https://ai.google/discover/gemini-2-5-pro",
+    modelPriceUrl: "https://ai.google/pricing",
+  },
+  {
+    id: "gemini-2-0-flash",
+    name: "Gemini 2.0 Flash",
+    provider: "gemini",
+    providerName: "Google",
+    description:
+      "A fast, lightweight version of Gemini 2.0, optimized for speed and efficiency.",
+    contextWindow: 128000,
+    attributes: ["Fast", "New"],
+    isAvailable: true,
+    modelPageUrl: "https://ai.google/discover/gemini-2-0-flash",
+    modelPriceUrl: "https://ai.google/pricing",
+  },
+
+  // Perplexity
+  {
+    id: "perplexity-llama-3",
+    name: "Perplexity Llama-3",
+    provider: "perplexity",
+    providerName: "Perplexity",
+    description:
+      "Perplexity’s integration of Meta’s Llama-3, optimized for research and conversational accuracy.",
+    contextWindow: 128000,
+    attributes: ["Pro", "New"],
+    isAvailable: true,
+    modelPageUrl: "https://www.perplexity.ai/models/llama-3",
+    modelPriceUrl: "https://www.perplexity.ai/pricing",
+  },
+  {
+    id: "perplexity-mistral-large-2",
+    name: "Perplexity Mistral Large 2",
+    provider: "perplexity",
+    providerName: "Perplexity",
+    description:
+      "A high-performance model based on Mistral Large 2, known for multilingual and coding capabilities.",
+    contextWindow: 128000,
+    attributes: ["Pro", "Intelligent", "New"],
+    isAvailable: true,
+    modelPageUrl: "https://www.perplexity.ai/models/mistral-large-2",
+    modelPriceUrl: "https://www.perplexity.ai/pricing",
   },
 ];
 

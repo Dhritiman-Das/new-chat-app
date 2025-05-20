@@ -12,11 +12,10 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ArrowUpRight,
-  XAI,
-  OpenAI,
   ArrowUpRight as ExternalLink,
   PlusCircle,
 } from "@/components/icons";
+import { Icons } from "@/components/icons";
 import { useChat } from "@ai-sdk/react";
 import { type Model } from "@/lib/models";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +82,20 @@ export default function ChatInterface({
   }, [messages, isLoading]);
 
   const getProviderIcon = (provider: string) => {
-    return provider === "xai" ? XAI : provider === "openai" ? OpenAI : null;
+    switch (provider) {
+      case "xai":
+        return Icons.X;
+      case "openai":
+        return Icons.OpenAI;
+      case "anthropic":
+        return Icons.Anthropic;
+      case "gemini":
+        return Icons.Gemini;
+      case "perplexity":
+        return Icons.Perplexity;
+      default:
+        return null;
+    }
   };
 
   const ProviderIcon = getProviderIcon(model.provider);

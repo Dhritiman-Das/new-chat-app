@@ -97,7 +97,11 @@ import { FaXTwitter } from "react-icons/fa6";
 import { SiGooglecalendar, SiSlack } from "react-icons/si";
 import { TiContacts } from "react-icons/ti";
 import { PiTargetDuotone } from "react-icons/pi";
-import { RiAnthropicFill } from "react-icons/ri";
+import {
+  RiAnthropicFill,
+  RiGeminiFill,
+  RiPerplexityFill,
+} from "react-icons/ri";
 
 // Create an Icons object that contains all icons
 export const Icons = {
@@ -266,6 +270,8 @@ export const Icons = {
   Minimize,
   Maximize,
   Anthropic: RiAnthropicFill,
+  Gemini: RiGeminiFill,
+  Perplexity: RiPerplexityFill,
   Globe,
 };
 
