@@ -20,16 +20,22 @@ model Organization {
   id        String   @id @default(uuid())
   name      String
   slug      String   @unique
-  plan      PlanType @default(FREE)
+  plan      PlanType @default(HOBBY)
   logoUrl   String?  @map("logo_url")
   settings  Json?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  users     UserOrganization[]
-  bots      Bot[]
-  templates Template[]
+  users               UserOrganization[]
+  bots                Bot[]
+  templates           Template[]
+  subscription        Subscription?
+  addOnSubscriptions  AddOnSubscription[]
+  usageRecords        UsageRecord[]
+  invoices            Invoice[]
+  creditBalances      CreditBalance[]
+  paymentCustomers    PaymentCustomer[]
 
   @@map("organizations")
 }
@@ -527,10 +533,10 @@ enum UserRole {
 }
 
 enum PlanType {
-  FREE
-  STARTER
+  HOBBY
+  STANDARD
   PRO
-  ENTERPRISE
+  CUSTOM
 }
 
 // Survey model - stores user onboarding survey responses
@@ -641,4 +647,236 @@ enum ScrapingStatus {
   COMPLETED
   FAILED
   RATE_LIMITED
+}
+
+// Simplified BillingCycle enum
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+// New PlanFeature model to define what each plan includes
+model PlanFeature {
+  id                String   @id @default(uuid())
+  name              String   // e.g., "agents", "message_credits", "analytics", "links"
+  displayName       String   @map("display_name") // Human-readable name
+  description       String?
+  unitLabel         String?  @map("unit_label") // e.g., "agents", "credits", "links"
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  planLimits        PlanLimit[]
+  addOns            AddOn[]
+  usageRecords      UsageRecord[]
+  creditBalances    CreditBalance[]
+  
+  @@map("plan_features")
+}
+
+// New model for defining limits per plan and feature
+model PlanLimit {
+  id              String    @id @default(uuid())
+  planType        PlanType
+  featureId       String    @map("feature_id")
+  value           Int       // The limit for this feature in this plan
+  isUnlimited     Boolean   @default(false) @map("is_unlimited")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  feature         PlanFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  
+  @@unique([planType, featureId])
+  @@index([featureId])
+  @@map("plan_limits")
+}
+
+// Add-ons that can be purchased separately
+model AddOn {
+  id              String   @id @default(uuid())
+  name            String
+  description     String?
+  externalId      String   @map("external_id") // ID from payment provider (Dodo/Stripe)
+  featureId       String   @map("feature_id")
+  unitPrice       Float    @map("unit_price") // Price per unit
+  minQuantity     Int      @default(1) @map("min_quantity")
+  maxQuantity     Int?     @map("max_quantity")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  feature         PlanFeature @relation(fields: [featureId], references: [id])
+  subscriptions   AddOnSubscription[]
+  
+  @@index([featureId])
+  @@map("add_ons")
+}
+
+// Track organization's add-on subscriptions
+model AddOnSubscription {
+  id              String    @id @default(uuid())
+  organizationId  String    @map("organization_id")
+  addOnId         String    @map("add_on_id")
+  quantity        Int       @default(1)
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime? @map("end_date")
+  status          String    @default("active") // active, cancelled, expired
+  externalId      String?   @map("external_id") // ID from payment provider
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  addOn           AddOn        @relation(fields: [addOnId], references: [id])
+  
+  @@index([organizationId])
+  @@index([addOnId])
+  @@map("add_on_subscriptions")
+}
+
+// Track organization's current subscription
+model Subscription {
+  id                String       @id @default(uuid())
+  organizationId    String       @unique @map("organization_id")
+  planType          PlanType
+  status            String       @default("active") // active, past_due, canceled, etc.
+  billingCycle      BillingCycle @default(MONTHLY)
+  currentPeriodStart DateTime    @map("current_period_start")
+  currentPeriodEnd  DateTime     @map("current_period_end")
+  cancelAtPeriodEnd Boolean      @default(false) @map("cancel_at_period_end")
+  externalId        String?      @map("external_id") // ID from payment provider
+  metadata          Json?        // Extra info about the subscription
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  
+  // Relations
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoices          Invoice[]
+  
+  @@index([organizationId])
+  @@map("subscriptions")
+}
+
+// Track usage of metered features
+model UsageRecord {
+  id              String   @id @default(uuid())
+  organizationId  String   @map("organization_id")
+  featureId       String   @map("feature_id")
+  quantity        Int
+  timestamp       DateTime @default(now())
+  metadata        Json?    // Additional metadata about usage
+  
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feature         PlanFeature  @relation(fields: [featureId], references: [id])
+  
+  @@index([organizationId])
+  @@index([featureId])
+  @@index([timestamp])
+  @@map("usage_records")
+}
+
+// Track invoices
+model Invoice {
+  id              String    @id @default(uuid())
+  organizationId  String    @map("organization_id")
+  subscriptionId  String?   @map("subscription_id")
+  amount          Float
+  currency        String    @default("USD")
+  status          String    // paid, open, void, etc.
+  dueDate         DateTime  @map("due_date")
+  paidAt          DateTime? @map("paid_at")
+  invoiceUrl      String?   @map("invoice_url")
+  invoiceNumber   String?   @map("invoice_number")
+  paymentIntent   String?   @map("payment_intent")
+  externalId      String?   @map("external_id") // ID from payment provider
+  description     String?
+  metadata        Json?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  
+  @@index([organizationId])
+  @@index([subscriptionId])
+  @@map("invoices")
+}
+
+// Credit Balances for message credits
+model CreditBalance {
+  id              String   @id @default(uuid())
+  organizationId  String   @map("organization_id")
+  featureId       String   @map("feature_id") // Points to the message_credits feature
+  balance         Int      @default(0)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feature         PlanFeature  @relation(fields: [featureId], references: [id])
+  transactions    CreditTransaction[]
+  
+  @@unique([organizationId, featureId])
+  @@index([organizationId])
+  @@map("credit_balances")
+}
+
+// Credit Transactions for tracking purchases and usage
+model CreditTransaction {
+  id              String             @id @default(uuid())
+  balanceId       String             @map("balance_id")
+  amount          Int                // Positive for purchases, negative for usage
+  type            TransactionType
+  description     String?
+  metadata        Json?
+  createdAt       DateTime           @default(now()) @map("created_at")
+  
+  // Relations
+  creditBalance   CreditBalance      @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+  
+  @@index([balanceId])
+  @@index([createdAt])
+  @@map("credit_transactions")
+}
+
+enum TransactionType {
+  PURCHASE
+  USAGE
+  ADJUSTMENT
+  EXPIRATION
+  PLAN_GRANT
+}
+
+// Add model credits cost configuration
+model ModelCreditCost {
+  id              String   @id @default(uuid())
+  modelName       String   @unique @map("model_name") // e.g., "gpt-4o-mini", "gpt-4o"
+  creditsPerQuery Int      @map("credits_per_query")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@map("model_credit_costs")
+}
+
+// New model for storing payment provider customer IDs
+model PaymentCustomer {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  provider       String   // e.g., "dodo", "stripe", "paddle"
+  customerId     String   @map("customer_id")
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at") 
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+  @@index([customerId])
+  @@index([organizationId])
+  @@map("payment_customers")
 }

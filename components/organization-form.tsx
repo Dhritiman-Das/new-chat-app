@@ -208,7 +208,7 @@ export default function OrganizationForm({
       }
 
       if (result?.success) {
-        // Redirect to appropriate page
+        // Redirect to appropriate page without resetting loading state
         if (isOnboarding) {
           if (redirectPath) {
             router.push(redirectPath);
@@ -219,6 +219,8 @@ export default function OrganizationForm({
           router.push("/organizations");
         }
         router.refresh();
+        // Don't set loading to false here, maintain loading state during navigation
+        return;
       } else {
         console.error("Error with organization:", result?.error);
 
@@ -242,9 +244,10 @@ export default function OrganizationForm({
       form.setError("root", {
         message: "An unexpected error occurred",
       });
-    } finally {
-      setIsLoading(false);
     }
+
+    // Only reset loading state if there was an error
+    setIsLoading(false);
   }
 
   return (

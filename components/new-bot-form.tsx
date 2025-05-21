@@ -105,9 +105,12 @@ export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
         id: string;
       }>;
       if (result && result.success) {
+        // Keep loading state active during redirection
         router.push(
           `/dashboard/${data.organizationId}/bots/${result.data!.id}/overview`
         );
+        // Don't set loading to false here, as we want to maintain loading state during navigation
+        return;
       } else {
         console.error("Error creating bot:", result?.error);
         form.setError("root", {
@@ -121,9 +124,10 @@ export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
       form.setError("root", {
         message: "An unexpected error occurred",
       });
-    } finally {
-      setIsLoading(false);
     }
+
+    // Only reset loading state if there was an error
+    setIsLoading(false);
   }
 
   return (
@@ -241,7 +245,7 @@ export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
             )}
           </CardContent>
           <CardFooter className="flex justify-between">
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild disabled={isLoading}>
               <Link href={orgId ? `/dashboard/${orgId}/bots` : "/bots"}>
                 Cancel
               </Link>

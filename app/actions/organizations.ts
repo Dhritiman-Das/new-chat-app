@@ -121,7 +121,7 @@ export async function createOrganization(
         data: {
           name: data.name,
           slug: data.slug,
-          plan: (data.plan as PlanType) || "FREE",
+          plan: (data.plan as PlanType) || PlanType.HOBBY,
           logoUrl: data.logoUrl,
         },
       });

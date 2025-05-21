@@ -29,7 +29,11 @@ interface OrgSidebarProps {
   userOrganizations: UserOrganization[];
 }
 
-export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
+export function OrgSidebar({
+  orgId,
+  user,
+  userOrganizations,
+}: OrgSidebarProps) {
   const pathname = usePathname();
 
   // Bot level
@@ -55,18 +59,18 @@ export function OrgSidebar({ user, userOrganizations }: OrgSidebarProps) {
   const accountItems = useMemo(
     () => [
       {
-        title: "My account",
-        url: `/dashboard/account/me`,
-        icon: Icons.User,
+        title: "Billing",
+        url: `/dashboard/${orgId}/billing`,
+        icon: Icons.Billing,
       },
       {
         title: "Access tokens",
-        url: `/dashboard/access-tokens`,
+        url: `/dashboard/${orgId}/access-tokens`,
         icon: Icons.Key,
       },
       {
         title: "Notifications",
-        url: `/dashboard/notifications`,
+        url: `/dashboard/${orgId}/notifications`,
         icon: Icons.Bell,
       },
     ],

@@ -5,11 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Formats a date object into a string representation.
+ * @param date - The date to format
+ * @returns A formatted date string (e.g., "January 15, 2023")
+ */
 export function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    month: "short",
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
     day: "numeric",
-  });
+    year: "numeric",
+  }).format(date);
 }
 
 export function formatNumber(num: number): string {

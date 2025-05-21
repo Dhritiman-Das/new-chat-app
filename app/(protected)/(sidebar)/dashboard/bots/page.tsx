@@ -5,7 +5,7 @@ import {
 } from "@/lib/queries/cached-queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Icons } from "@/components/icons";
+import { Icons } from "@/components/icons";
 import { Organization } from "@/lib/generated/prisma";
 import {
   Breadcrumb,
@@ -156,7 +156,7 @@ function EmptyState({
     <Card className="border-dashed border-2 p-8">
       <div className="flex flex-col items-center justify-center text-center space-y-6">
         <div className="rounded-full bg-primary/10 p-6">
-          <MessageCircle className="h-10 w-10 text-primary" />
+          <Icons.Bot className="h-10 w-10 text-primary" />
         </div>
         <div className="space-y-2">
           <h3 className="text-xl font-semibold">No bots yet</h3>

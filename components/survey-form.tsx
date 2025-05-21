@@ -135,6 +135,7 @@ export default function SurveyForm({
             description: "Thanks for your feedback!",
           });
           router.push(redirectPath);
+          return;
         } else {
           toast.error("Error submitting survey", {
             description: "Please try again later",
@@ -145,9 +146,9 @@ export default function SurveyForm({
         toast.error("Error submitting survey", {
           description: "Please try again later",
         });
-      } finally {
-        setIsLoading(false);
       }
+
+      setIsLoading(false);
     },
     [setIsLoading, router, redirectPath]
   );
