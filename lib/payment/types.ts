@@ -63,6 +63,10 @@ export interface CancelSubscriptionOptions {
   atPeriodEnd?: boolean;
 }
 
+export interface ActivateSubscriptionOptions {
+  subscriptionId: string;
+}
+
 export interface AddOnInfo {
   id: string;
   name: string;
@@ -240,6 +244,12 @@ export interface PaymentProvider {
   cancelSubscription(options: CancelSubscriptionOptions): Promise<{
     subscriptionId: string;
     status: SubscriptionStatus;
+  }>;
+
+  activateSubscription(options: ActivateSubscriptionOptions): Promise<{
+    subscriptionId: string;
+    status: SubscriptionStatus;
+    newSubscription?: boolean;
   }>;
 
   // Add-on methods

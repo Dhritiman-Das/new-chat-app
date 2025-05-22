@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CancelSubscriptionDialog } from "./cancel-subscription-dialog";
+import { ReactivateSubscriptionDialog } from "./reactivate-subscription-dialog";
 
 interface CurrentSubscriptionCardProps {
   subscription: {
@@ -19,65 +22,117 @@ interface CurrentSubscriptionCardProps {
     billingCycle: string;
     currentPeriodEnd: Date;
   };
-  onCancelSubscription: () => void;
+  onCancelSubscription: () => Promise<void>;
+  onReactivateSubscription?: () => Promise<void>;
+  onChangePlan: () => void;
   loading: boolean;
 }
 
 export function CurrentSubscriptionCard({
   subscription,
   onCancelSubscription,
+  onReactivateSubscription,
+  onChangePlan,
   loading,
 }: CurrentSubscriptionCardProps) {
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showReactivateDialog, setShowReactivateDialog] = useState(false);
+
+  const isCanceled =
+    subscription.status === "canceled" || subscription.status === "canceling";
+  const isActive = subscription.status === "active";
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Current Subscription</CardTitle>
-        <CardDescription>
-          Manage your subscription plan and billing cycle
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4">
-          <div className="flex justify-between items-center">
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Current Subscription</CardTitle>
+          <CardDescription>
+            Manage your subscription plan and billing cycle
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-medium">Plan</p>
+                <p className="text-sm text-muted-foreground">
+                  {subscription.planType}
+                </p>
+              </div>
+              <Badge variant={isActive ? "default" : "destructive"}>
+                {subscription.status}
+              </Badge>
+            </div>
+
             <div>
-              <p className="font-medium">Plan</p>
+              <p className="font-medium">Billing Cycle</p>
               <p className="text-sm text-muted-foreground">
-                {subscription.planType}
+                {subscription.billingCycle === "MONTHLY" ? "Monthly" : "Yearly"}
               </p>
             </div>
-            <Badge
-              variant={
-                subscription.status === "active" ? "default" : "destructive"
-              }
+
+            <div>
+              <p className="font-medium">Current Period Ends</p>
+              <p className="text-sm text-muted-foreground">
+                {new Date(subscription.currentPeriodEnd).toLocaleDateString(
+                  "en-US",
+                  {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  }
+                )}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={onChangePlan}
+          >
+            Change Plan
+          </Button>
+
+          {isActive && (
+            <Button
+              variant="destructive"
+              className="w-full sm:w-auto"
+              onClick={() => setShowCancelDialog(true)}
+              disabled={loading}
             >
-              {subscription.status}
-            </Badge>
-          </div>
+              Cancel Subscription
+            </Button>
+          )}
 
-          <div>
-            <p className="font-medium">Billing Cycle</p>
-            <p className="text-sm text-muted-foreground">
-              {subscription.billingCycle === "MONTHLY" ? "Monthly" : "Yearly"}
-            </p>
-          </div>
+          {isCanceled && onReactivateSubscription && (
+            <Button
+              variant="default"
+              className="w-full sm:w-auto"
+              onClick={() => setShowReactivateDialog(true)}
+              disabled={loading}
+            >
+              Reactivate Subscription
+            </Button>
+          )}
+        </CardFooter>
+      </Card>
 
-          <div>
-            <p className="font-medium">Current Period Ends</p>
-            <p className="text-sm text-muted-foreground">
-              {subscription.currentPeriodEnd.toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Button
-          variant="destructive"
-          onClick={onCancelSubscription}
-          disabled={loading || subscription.status !== "active"}
-        >
-          Cancel Subscription
-        </Button>
-      </CardFooter>
-    </Card>
+      <CancelSubscriptionDialog
+        open={showCancelDialog}
+        onOpenChange={setShowCancelDialog}
+        onConfirm={onCancelSubscription}
+      />
+
+      {onReactivateSubscription && (
+        <ReactivateSubscriptionDialog
+          open={showReactivateDialog}
+          onOpenChange={setShowReactivateDialog}
+          onConfirm={onReactivateSubscription}
+        />
+      )}
+    </>
   );
 }

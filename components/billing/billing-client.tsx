@@ -7,10 +7,11 @@ import { useQueryState } from "nuqs";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { CurrentSubscriptionCard } from "@/components/billing/current-subscription-card";
-import { PlansGrid, type Plan } from "@/components/billing/plans-grid";
+import { type Plan } from "@/components/billing/plans-grid";
 import { UsageTab } from "@/components/billing/usage-tab";
 import { AddOnsTab } from "@/components/billing/addons-tab";
 import { InvoicesTab } from "@/components/billing/invoices-tab";
+import { PlansDialog } from "@/components/billing/plans-dialog";
 import { BillingCycle, SubscriptionStatus } from "@/lib/payment/types";
 import {
   ClientInvoice,
@@ -18,6 +19,7 @@ import {
 } from "@/components/billing/invoice-types";
 
 import {
+  activateOrganizationSubscription,
   addAddOnToOrganizationSubscription,
   cancelOrganizationSubscription,
   removeAddOnFromSubscription,
@@ -107,6 +109,7 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
     defaultValue: "monthly",
   });
   const [tab, setTab] = useQueryState("tab", { defaultValue: "subscription" });
+  const [showPlansDialog, setShowPlansDialog] = useState(false);
 
   // State initialized with server data
   const [subscription, setSubscription] = useState({
@@ -201,10 +204,6 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
 
   // Function to handle cancellation
   const handleCancelSubscription = async () => {
-    if (!confirm("Are you sure you want to cancel your subscription?")) {
-      return;
-    }
-
     try {
       setLoading(true);
       await cancelOrganizationSubscription(orgId, true);
@@ -222,6 +221,58 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
     } catch (error) {
       console.error("Error canceling subscription:", error);
       toast.error("Failed to cancel subscription. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to handle reactivation
+  const handleReactivateSubscription = async () => {
+    try {
+      setLoading(true);
+
+      // Update subscription status back to active
+      const result = await activateOrganizationSubscription(orgId);
+
+      // Check if this is a new subscription
+      if (result && result.newSubscription) {
+        toast.success(
+          "Your subscription has been reactivated with a new subscription ID"
+        );
+      } else {
+        toast.success("Your subscription has been reactivated");
+      }
+
+      // Update local state
+      setSubscription({
+        ...subscription,
+        status: "active",
+        // If we have a new subscription ID, update it
+        ...(result && result.newSubscription
+          ? { id: result.subscriptionId }
+          : {}),
+      });
+
+      // Refresh the page to get the latest subscription data
+      router.refresh();
+    } catch (error) {
+      console.error("Error reactivating subscription:", error);
+
+      // Show a more helpful error message
+      if (
+        error instanceof Error &&
+        error.message.includes("create a new subscription")
+      ) {
+        toast.error(
+          "This subscription cannot be reactivated because the billing period has ended. Please select a new plan."
+        );
+        // Open the plans dialog to help the user select a new plan
+        setShowPlansDialog(true);
+      } else {
+        toast.error(
+          "Failed to reactivate subscription. Please try again or contact support."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -320,15 +371,8 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
           <CurrentSubscriptionCard
             subscription={subscription}
             onCancelSubscription={handleCancelSubscription}
-            loading={loading}
-          />
-
-          <PlansGrid
-            plans={plans}
-            currentPlanType={subscription.planType}
-            billingCycle={billingCycle as "monthly" | "yearly"}
-            onBillingCycleChange={setBillingCycle}
-            onPlanChange={handlePlanChange}
+            onReactivateSubscription={handleReactivateSubscription}
+            onChangePlan={() => setShowPlansDialog(true)}
             loading={loading}
           />
         </TabsContent>
@@ -357,6 +401,18 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
           />
         </TabsContent>
       </Tabs>
+
+      {/* Plans Selection Dialog */}
+      <PlansDialog
+        open={showPlansDialog}
+        onOpenChange={setShowPlansDialog}
+        plans={plans}
+        currentPlanType={subscription.planType}
+        billingCycle={billingCycle as "monthly" | "yearly"}
+        onBillingCycleChange={setBillingCycle}
+        onPlanChange={handlePlanChange}
+        loading={loading}
+      />
     </div>
   );
 }

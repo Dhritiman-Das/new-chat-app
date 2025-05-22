@@ -560,6 +560,62 @@ export async function cancelOrganizationSubscription(
   }
 }
 
+export async function activateOrganizationSubscription(organizationId: string) {
+  try {
+    // Get current subscription
+    const subscription = await prisma.subscription.findUnique({
+      where: { organizationId },
+    });
+
+    if (!subscription) {
+      throw new Error(
+        `No subscription found for organization: ${organizationId}`
+      );
+    }
+
+    // Activate subscription with payment provider
+    const paymentProvider = getActivePaymentProvider();
+    const result = await paymentProvider.activateSubscription({
+      subscriptionId: subscription.externalId || subscription.id,
+    });
+
+    // Check if this is a new subscription (was created as part of reactivation)
+    if (result.newSubscription) {
+      // Update the existing subscription record with the new subscription ID
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: result.status,
+          externalId: result.subscriptionId, // Update with the new subscription ID
+          cancelAtPeriodEnd: false,
+          updatedAt: new Date(),
+          metadata: {
+            ...((subscription.metadata as Record<string, unknown>) || {}),
+            reactivated: true,
+            previousSubscriptionId: subscription.externalId,
+            reactivatedAt: new Date().toISOString(),
+          },
+        },
+      });
+    } else {
+      // Just update the status for a regular reactivation
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: result.status,
+          cancelAtPeriodEnd: false,
+        },
+      });
+    }
+
+    revalidatePath("/dashboard/billing");
+    return result;
+  } catch (error) {
+    console.error("Error activating subscription:", error);
+    throw error;
+  }
+}
+
 export async function addAddOnToOrganizationSubscription(
   organizationId: string,
   addOnId: string,

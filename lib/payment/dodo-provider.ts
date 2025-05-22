@@ -9,6 +9,7 @@ import {
   CreatePaymentLinkOptions,
   WebhookEvent,
   SubscriptionStatus,
+  ActivateSubscriptionOptions,
 } from "./types";
 import { CountryCode } from "dodopayments/resources/misc.mjs";
 import { PaymentCreateParams } from "dodopayments/resources/payments.mjs";
@@ -188,6 +189,73 @@ export class DodoPaymentsProvider implements PaymentProvider {
       };
     } catch (error) {
       console.error("Error canceling subscription:", error);
+      throw error;
+    }
+  }
+
+  async activateSubscription(options: ActivateSubscriptionOptions) {
+    try {
+      // First, retrieve the current subscription to get its details
+      const subscription = await this.client.subscriptions.retrieve(
+        options.subscriptionId
+      );
+
+      // We need to get the product ID and customer ID to create a new subscription
+      const productId = subscription.product_id;
+      const customerId = subscription.customer?.customer_id;
+
+      if (!productId || !customerId) {
+        throw new Error(
+          "Cannot reactivate subscription: missing product or customer information"
+        );
+      }
+
+      // Step 1: Cancel the current subscription if it's not already cancelled
+      if (subscription.status !== "cancelled") {
+        await this.client.subscriptions.update(options.subscriptionId, {
+          status: "cancelled",
+        });
+        console.log(
+          `Cancelled subscription ${options.subscriptionId} as part of reactivation process`
+        );
+      }
+
+      // Step 2: Create a new subscription with the same details
+
+      // Extract metadata from the old subscription
+      const oldMetadata = subscription.metadata || {};
+
+      // Create new metadata that links to the old subscription
+      const newMetadata = {
+        ...oldMetadata,
+        previous_subscription_id: options.subscriptionId,
+        reactivated: "true",
+        reactivated_at: new Date().toISOString(),
+      };
+
+      // Create a new subscription
+      const newSubscription = await this.client.subscriptions.create({
+        product_id: productId,
+        customer: {
+          customer_id: customerId,
+        },
+        billing: subscription.billing,
+        quantity: subscription.quantity || 1,
+        metadata: newMetadata,
+      });
+
+      console.log(
+        `Created new subscription ${newSubscription.subscription_id} to replace ${options.subscriptionId}`
+      );
+
+      // Return the new subscription details
+      return {
+        subscriptionId: newSubscription.subscription_id,
+        status: "active" as SubscriptionStatus,
+        newSubscription: true, // Flag to indicate this is a new subscription
+      };
+    } catch (error) {
+      console.error("Error reactivating subscription:", error);
       throw error;
     }
   }
