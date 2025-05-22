@@ -1,3 +1,4 @@
+import React from "react";
 import { BillingClient } from "@/components/billing/billing-client";
 import { BillingCycle } from "@/lib/payment/types";
 import {
@@ -108,6 +109,8 @@ export default async function BillingPage({ params }: BillingPageProps) {
     currency: invoice.currency,
     status: invoice.status,
     downloadUrl: invoice.invoiceUrl || undefined,
+    paymentIntent: invoice.paymentIntent,
+    externalId: invoice.externalId,
   }));
 
   // Prepare initial data for client component
@@ -146,7 +149,7 @@ export default async function BillingPage({ params }: BillingPageProps) {
       </header>
 
       <div className="p-6">
-        <BillingClient orgId={orgId} initialData={initialData} />
+        <BillingClient initialData={initialData} orgId={orgId} />
       </div>
     </div>
   );

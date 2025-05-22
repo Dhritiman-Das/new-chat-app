@@ -75,7 +75,7 @@ export function OrgSidebar({
         icon: Icons.Bell,
       },
     ],
-    []
+    [orgId]
   );
 
   const documentationItems = useMemo(

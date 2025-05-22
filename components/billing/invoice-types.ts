@@ -13,6 +13,8 @@ export interface ClientInvoice {
   currency: string;
   status: string;
   downloadUrl?: string;
+  paymentIntent: string | null;
+  externalId: string | null;
 }
 
 // Type to adapt between BillingClient and InvoicesTab
@@ -35,14 +37,14 @@ export function adaptClientInvoicesToInvoicesTab(
     status: invoice.status,
     createdAt: new Date(invoice.date),
     invoiceUrl: invoice.downloadUrl || null,
+    paymentIntent: invoice.paymentIntent,
+    externalId: invoice.externalId,
     // Default values for required fields
     metadata: null,
     organizationId: "",
     subscriptionId: null,
     dueDate: new Date(),
     paidAt: null,
-    paymentIntent: null,
-    externalId: null,
     description: null,
     updatedAt: new Date(),
   })) as InvoiceWithSubscription[];

@@ -30,7 +30,11 @@ import {
   DrawerClose,
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
-import { Download } from "lucide-react";
+import { Download, FileText, Loader2 } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { InvoicePDFViewer } from "./invoice-pdf-viewer";
+import { fetchInvoicePDF } from "@/app/actions/invoice";
+import { toast } from "sonner";
 
 interface InvoicesTabProps {
   invoices: (Invoice & {
@@ -212,6 +216,13 @@ function InvoiceDetailsDrawer({
   isOpen,
   onClose,
 }: InvoiceDetailsDrawerProps) {
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [pdfData, setPdfData] = useState<{
+    pdfBase64: string;
+    contentType: string;
+  } | null>(null);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+
   if (!invoice) return null;
 
   const formatCurrency = (amount: number, currency: string) => {
@@ -240,107 +251,206 @@ function InvoiceDetailsDrawer({
     }
   };
 
-  return (
-    <Drawer open={isOpen} onOpenChange={onClose}>
-      <DrawerContent className="max-w-xl mx-auto">
-        <div className="mx-auto w-full max-w-lg">
-          <DrawerHeader>
-            <DrawerTitle>Invoice {invoice.invoiceNumber}</DrawerTitle>
-            <DrawerDescription>
-              {invoice.description || "Invoice details"}
-            </DrawerDescription>
-          </DrawerHeader>
+  const handleViewPdf = async () => {
+    // If we already have the PDF data, just open the modal
+    if (pdfData) {
+      setIsPdfModalOpen(true);
+      return;
+    }
 
-          <div className="px-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Date
-                </h4>
-                <p className="text-sm">
-                  {invoice.createdAt
-                    ? format(new Date(invoice.createdAt), "MMMM d, yyyy")
-                    : "-"}
-                </p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Status
-                </h4>
-                <p className="text-sm capitalize">{invoice.status}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Amount
-                </h4>
-                <p className="text-sm font-medium">
-                  {formatCurrency(invoice.amount, invoice.currency)}
-                </p>
-              </div>
-              {invoice.subscription && (
+    // Get the payment ID from paymentIntent or externalId
+    const paymentId = invoice.paymentIntent || invoice.externalId;
+
+    if (!paymentId) {
+      toast.error("Cannot view invoice: Missing payment reference");
+      return;
+    }
+
+    setIsPdfLoading(true);
+
+    try {
+      const result = await fetchInvoicePDF({ paymentId });
+
+      // Check if the result has the expected structure
+      if (result?.data?.success) {
+        const responseData = result.data.data;
+        console.log({ responseData });
+        // Check if responseData has the expected structure
+        if (
+          responseData &&
+          typeof responseData === "object" &&
+          "pdfBase64" in responseData &&
+          "contentType" in responseData
+        ) {
+          setPdfData({
+            pdfBase64: responseData.pdfBase64 as string,
+            contentType: responseData.contentType as string,
+          });
+          setIsPdfModalOpen(true);
+        } else {
+          toast.error("Invalid PDF data format");
+        }
+      } else {
+        // Extract error message if available
+        let errorMessage = "Failed to load invoice PDF";
+        if (result?.data?.error) {
+          errorMessage = result.data.error.message;
+        }
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      toast.error("An error occurred while loading the invoice PDF");
+      console.error(error);
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <Drawer open={isOpen} onOpenChange={onClose}>
+        <DrawerContent className="max-w-xl mx-auto">
+          <div className="mx-auto w-full max-w-lg">
+            <DrawerHeader>
+              <DrawerTitle>Invoice {invoice.invoiceNumber}</DrawerTitle>
+              <DrawerDescription>
+                {invoice.description || "Invoice details"}
+              </DrawerDescription>
+            </DrawerHeader>
+
+            <div className="px-4 py-2">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">
-                    Plan
+                    Date
                   </h4>
                   <p className="text-sm">
-                    {invoice.subscription.planType.charAt(0) +
-                      invoice.subscription.planType.slice(1).toLowerCase()}{" "}
-                    (
-                    {invoice.subscription.billingCycle === "MONTHLY"
-                      ? "Monthly"
-                      : "Yearly"}
-                    )
+                    {invoice.createdAt
+                      ? format(new Date(invoice.createdAt), "MMMM d, yyyy")
+                      : "-"}
                   </p>
                 </div>
-              )}
-            </div>
-
-            <Separator className="my-4" />
-
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Invoice Details</h4>
-
-              <div className="text-sm grid grid-cols-2 gap-2">
-                {invoice.paidAt && (
-                  <>
-                    <div className="text-muted-foreground">Payment Date</div>
-                    <div>
-                      {format(new Date(invoice.paidAt), "MMMM d, yyyy")}
-                    </div>
-                  </>
-                )}
-                {invoice.paymentIntent && (
-                  <>
-                    <div className="text-muted-foreground">Payment ID</div>
-                    <div className="truncate">{invoice.paymentIntent}</div>
-                  </>
-                )}
-                {getMetadataValue("planType") && (
-                  <>
-                    <div className="text-muted-foreground">Plan Type</div>
-                    <div>
-                      {getMetadataValue("planType").charAt(0) +
-                        getMetadataValue("planType").slice(1).toLowerCase()}
-                    </div>
-                  </>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">
+                    Status
+                  </h4>
+                  <p className="text-sm capitalize">{invoice.status}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">
+                    Amount
+                  </h4>
+                  <p className="text-sm font-medium">
+                    {formatCurrency(invoice.amount, invoice.currency)}
+                  </p>
+                </div>
+                {invoice.subscription && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Plan
+                    </h4>
+                    <p className="text-sm">
+                      {invoice.subscription.planType.charAt(0) +
+                        invoice.subscription.planType
+                          .slice(1)
+                          .toLowerCase()}{" "}
+                      (
+                      {invoice.subscription.billingCycle === "MONTHLY"
+                        ? "Monthly"
+                        : "Yearly"}
+                      )
+                    </p>
+                  </div>
                 )}
               </div>
-            </div>
-          </div>
 
-          <DrawerFooter className="pt-2">
-            {invoice.invoiceUrl && (
-              <Button onClick={handleDownloadInvoice} className="w-full">
-                <Download className="mr-2 h-4 w-4" />
-                Download Invoice
+              <Separator className="my-4" />
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Invoice Details</h4>
+
+                <div className="text-sm grid grid-cols-2 gap-2">
+                  {invoice.paidAt && (
+                    <>
+                      <div className="text-muted-foreground">Payment Date</div>
+                      <div>
+                        {format(new Date(invoice.paidAt), "MMMM d, yyyy")}
+                      </div>
+                    </>
+                  )}
+                  {invoice.paymentIntent && (
+                    <>
+                      <div className="text-muted-foreground">Payment ID</div>
+                      <div className="truncate">{invoice.paymentIntent}</div>
+                    </>
+                  )}
+                  {getMetadataValue("planType") && (
+                    <>
+                      <div className="text-muted-foreground">Plan Type</div>
+                      <div>
+                        {getMetadataValue("planType").charAt(0) +
+                          getMetadataValue("planType").slice(1).toLowerCase()}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <DrawerFooter className="pt-2 space-y-2">
+              <Button
+                onClick={handleViewPdf}
+                className="w-full"
+                disabled={isPdfLoading}
+              >
+                {isPdfLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading PDF...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    View Invoice
+                  </>
+                )}
               </Button>
-            )}
-            <DrawerClose asChild>
-              <Button variant="outline">Close</Button>
-            </DrawerClose>
-          </DrawerFooter>
-        </div>
-      </DrawerContent>
-    </Drawer>
+
+              {invoice.invoiceUrl && (
+                <Button
+                  onClick={handleDownloadInvoice}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Original
+                </Button>
+              )}
+
+              <DrawerClose asChild>
+                <Button variant="outline">Close</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Dialog open={isPdfModalOpen} onOpenChange={setIsPdfModalOpen}>
+        <DialogContent className="max-w-4xl w-full">
+          {pdfData ? (
+            <InvoicePDFViewer
+              pdfBase64={pdfData.pdfBase64}
+              contentType={pdfData.contentType}
+              invoiceNumber={invoice.invoiceNumber || undefined}
+              onClose={() => setIsPdfModalOpen(false)}
+            />
+          ) : (
+            <div className="flex items-center justify-center min-h-[400px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
