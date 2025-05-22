@@ -23,12 +23,43 @@ import {
 } from "./index";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
+import { getOrganizationInvoicesQuery } from "./index";
 
 export const getMe = async () => {
   const user = await requireAuth();
   const userId = user.id;
 
   return getMeQuery(prisma, userId);
+};
+
+// Get organization invoices with caching
+export const getOrganizationInvoices = async (
+  organizationId: string,
+  page = 1,
+  pageSize = 10
+) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      return getOrganizationInvoicesQuery(
+        prisma,
+        organizationId,
+        page,
+        pageSize
+      );
+    },
+    [
+      "organization_invoices",
+      organizationId,
+      page.toString(),
+      pageSize.toString(),
+    ],
+    {
+      tags: [`organization_invoices_${organizationId}`],
+      revalidate: 60, // Cache for 1 minute
+    }
+  )();
 };
 
 // Cache user's organizations

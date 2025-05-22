@@ -433,6 +433,23 @@ export async function updateOrganizationSubscription(
           subscription.externalId || subscription.id,
           planProductId
         );
+        console.log("Result from changePlan:", result);
+        // Change the subscription in the database
+        if (result.status === "active") {
+          await prisma.subscription.update({
+            where: { id: subscription.id },
+            data: {
+              planType: options.planType as PlanType,
+            },
+          });
+        }
+        // Change the organization's plan type
+        await prisma.organization.update({
+          where: { id: organizationId },
+          data: {
+            plan: options.planType as PlanType,
+          },
+        });
       } else if (options.billingCycle) {
         // If only changing billing cycle, we need to get the product ID for current plan with new cycle
         const planProductId = await getProductId(

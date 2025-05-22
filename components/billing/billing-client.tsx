@@ -12,6 +12,10 @@ import { UsageTab } from "@/components/billing/usage-tab";
 import { AddOnsTab } from "@/components/billing/addons-tab";
 import { InvoicesTab } from "@/components/billing/invoices-tab";
 import { BillingCycle, SubscriptionStatus } from "@/lib/payment/types";
+import {
+  ClientInvoice,
+  adaptClientInvoicesToInvoicesTab,
+} from "@/components/billing/invoice-types";
 
 import {
   addAddOnToOrganizationSubscription,
@@ -70,15 +74,6 @@ const plans: Plan[] = [
   },
 ];
 
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  date: string;
-  amount: number;
-  status: string;
-  downloadUrl?: string;
-}
-
 interface BillingClientProps {
   orgId: string;
   initialData: {
@@ -101,7 +96,7 @@ interface BillingClientProps {
       quantity: number;
       unitPrice: number;
     }[];
-    invoices: Invoice[];
+    invoices: ClientInvoice[];
   };
 }
 
@@ -301,15 +296,6 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
     toast.info("This feature is coming soon!");
   };
 
-  // Handle download invoice (placeholder)
-  const handleDownloadInvoice = (invoice: Invoice) => {
-    if (invoice.downloadUrl) {
-      window.open(invoice.downloadUrl, "_blank");
-    } else {
-      toast.info("Invoice download not available");
-    }
-  };
-
   return (
     <div className="">
       <h1 className="text-2xl font-bold mb-6">Billing & Subscription</h1>
@@ -330,23 +316,21 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="subscription">
-          <div className="space-y-6">
-            <CurrentSubscriptionCard
-              subscription={subscription}
-              onCancelSubscription={handleCancelSubscription}
-              loading={loading}
-            />
+        <TabsContent value="subscription" className="space-y-4">
+          <CurrentSubscriptionCard
+            subscription={subscription}
+            onCancelSubscription={handleCancelSubscription}
+            loading={loading}
+          />
 
-            <PlansGrid
-              plans={plans}
-              billingCycle={billingCycle as "monthly" | "yearly"}
-              onBillingCycleChange={(cycle) => setBillingCycle(cycle)}
-              onPlanChange={handlePlanChange}
-              currentPlanType={subscription.planType}
-              loading={loading}
-            />
-          </div>
+          <PlansGrid
+            plans={plans}
+            currentPlanType={subscription.planType}
+            billingCycle={billingCycle as "monthly" | "yearly"}
+            onBillingCycleChange={setBillingCycle}
+            onPlanChange={handlePlanChange}
+            loading={loading}
+          />
         </TabsContent>
 
         <TabsContent value="usage">
@@ -360,16 +344,16 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
         <TabsContent value="addons">
           <AddOnsTab
             addOns={addOns}
+            onAddAddOn={handleAddAddOn}
             onUpdateAddOnQuantity={handleUpdateAddOnQuantity}
             onRemoveAddOn={handleRemoveAddOn}
-            onAddAddOn={handleAddAddOn}
           />
         </TabsContent>
 
         <TabsContent value="invoices">
           <InvoicesTab
-            invoices={invoices}
-            onDownloadInvoice={handleDownloadInvoice}
+            invoices={adaptClientInvoicesToInvoicesTab(invoices)}
+            onPageChange={() => {}}
           />
         </TabsContent>
       </Tabs>

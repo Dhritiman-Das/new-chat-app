@@ -7,7 +7,6 @@ import {
   getPlanLimits,
   getOrganizationAddOns,
 } from "@/lib/payment/billing-service";
-import { formatDate } from "@/lib/utils";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -18,6 +17,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { getOrganizationInvoices } from "@/lib/queries/cached-queries";
+import { format } from "date-fns";
 
 interface BillingPageProps {
   params: Promise<{
@@ -93,25 +94,21 @@ export default async function BillingPage({ params }: BillingPageProps) {
     unitPrice: addon.addOn.unitPrice,
   }));
 
-  // Mock invoices - in a real app, you'd fetch these from your database
-  const invoices = [
-    {
-      id: "inv_1",
-      invoiceNumber: "INV-2023-06001",
-      date: formatDate(new Date(2023, 5, 15)),
-      amount: 49.0,
-      status: "Paid",
-      downloadUrl: "#",
-    },
-    {
-      id: "inv_2",
-      invoiceNumber: "INV-2023-05001",
-      date: formatDate(new Date(2023, 4, 15)),
-      amount: 49.0,
-      status: "Paid",
-      downloadUrl: "#",
-    },
-  ];
+  // Fetch real invoices from the database
+  const { data: dbInvoices } = await getOrganizationInvoices(orgId, 1, 20);
+
+  // Map database invoices to the format expected by the client
+  const invoices = dbInvoices.map((invoice) => ({
+    id: invoice.id,
+    invoiceNumber: invoice.invoiceNumber || `INV-${invoice.id.substring(0, 6)}`,
+    date: invoice.createdAt
+      ? format(new Date(invoice.createdAt), "MMM d, yyyy")
+      : "-",
+    amount: invoice.amount / 100,
+    currency: invoice.currency,
+    status: invoice.status,
+    downloadUrl: invoice.invoiceUrl || undefined,
+  }));
 
   // Prepare initial data for client component
   const initialData = {

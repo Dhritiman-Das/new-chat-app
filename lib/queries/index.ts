@@ -831,3 +831,59 @@ export async function getBotAllToolsQuery(prisma: PrismaClient, botId: string) {
     data: botTools,
   };
 }
+
+// For subscription events, cache for 5 minutes
+// For payment events, cache for 5 minutes
+
+/**
+ * Get organization invoices with optional pagination
+ */
+export async function getOrganizationInvoicesQuery(
+  prisma: PrismaClient,
+  organizationId: string,
+  page = 1,
+  pageSize = 10
+) {
+  try {
+    const skip = (page - 1) * pageSize;
+
+    const [invoices, total] = await Promise.all([
+      prisma.invoice.findMany({
+        where: {
+          organizationId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          subscription: {
+            select: {
+              planType: true,
+              billingCycle: true,
+            },
+          },
+        },
+        skip,
+        take: pageSize,
+      }),
+      prisma.invoice.count({
+        where: {
+          organizationId,
+        },
+      }),
+    ]);
+
+    return {
+      data: invoices,
+      pagination: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching organization invoices:", error);
+    throw error;
+  }
+}

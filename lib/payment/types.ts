@@ -90,7 +90,120 @@ export interface CreatePaymentLinkOptions {
   cancelUrl?: string;
 }
 
-export interface WebhookEventData {
+// Dodo subscription webhook data
+export interface DodoSubscriptionData {
+  subscription_id: string;
+  product_id: string;
+  customer?: {
+    customer_id: string;
+    email?: string;
+    name?: string;
+  };
+  status: string;
+  currency: string;
+  quantity: number;
+  recurring_pre_tax_amount: number;
+  created_at: string;
+  previous_billing_date?: string;
+  next_billing_date?: string;
+  cancelled_at?: string;
+  trial_period_days?: number;
+  billing?: {
+    city: string;
+    country: CountryCode;
+    state: string;
+    street: string;
+    zipcode: string;
+  };
+  metadata?: Record<string, string>;
+  addons?: Array<{
+    addon_id: string;
+    quantity: number;
+  }>;
+  payment_frequency_interval?: string;
+  payment_frequency_count?: number;
+  subscription_period_interval?: string;
+  subscription_period_count?: number;
+  on_demand?: boolean;
+  tax_inclusive?: boolean;
+  discount_id?: string;
+}
+
+// Dodo dispute data
+export interface DodoDispute {
+  dispute_id: string;
+  payment_id: string;
+  business_id: string;
+  amount: string;
+  currency: string;
+  dispute_status: string;
+  dispute_stage: string;
+  remarks?: string;
+  created_at: string;
+}
+
+// Dodo refund data
+export interface DodoRefund {
+  refund_id: string;
+  payment_id: string;
+  business_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  reason?: string;
+  created_at: string;
+}
+
+// Dodo payment webhook data
+export interface DodoPaymentData {
+  payment_id: string;
+  subscription_id?: string;
+  business_id: string;
+  status: string;
+  total_amount: number;
+  currency: string;
+  tax?: number;
+  settlement_amount?: number;
+  settlement_currency?: string;
+  settlement_tax?: number;
+  customer?: {
+    customer_id: string;
+    email?: string;
+    name?: string;
+  };
+  billing?: {
+    city: string;
+    country: CountryCode;
+    state: string;
+    street: string;
+    zipcode: string;
+  };
+  payment_method?: string;
+  payment_method_type?: string;
+  payment_link?: string;
+  card_network?: string;
+  card_type?: string;
+  card_last_four?: string;
+  card_issuing_country?: string;
+  product_cart?: Array<{
+    product_id: string;
+    quantity: number;
+  }>;
+  refunds?: DodoRefund[];
+  disputes?: DodoDispute[];
+  error_message?: string;
+  discount_id?: string;
+  metadata?: Record<string, string>;
+  created_at: string;
+  updated_at: string;
+}
+
+// For subscription events, the event.data will have the DodoSubscriptionData properties
+// For payment events, the event.data will have the DodoPaymentData properties
+export interface WebhookEventData
+  extends Partial<DodoSubscriptionData>,
+    Partial<DodoPaymentData> {
+  // Allow additional unknown properties
   [key: string]: unknown;
 }
 

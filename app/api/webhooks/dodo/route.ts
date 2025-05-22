@@ -6,36 +6,17 @@ import {
   createCreditTransaction,
   savePaymentCustomer,
 } from "@/lib/payment/billing-service";
+import { redis } from "@/lib/db/kv";
 
 // Initialize Prisma client
 const prisma = new PrismaClient();
 
 // Define proper types for webhook events
-interface WebhookEventData {
-  subscription?: {
-    subscription_id: string;
-    customer?: {
-      customer_id: string;
-    };
-    metadata?: Record<string, string>;
-    current_period_start: string;
-    current_period_end: string;
-    cancel_at_period_end?: boolean;
-    billing_cycle?: string;
-    status: string;
-  };
-  payment?: {
-    payment_id: string;
-    customer?: {
-      customer_id: string;
-    };
-    metadata?: Record<string, string>;
-    amount: number;
-    currency: string;
-    receipt_url?: string;
-    description?: string;
-  };
-}
+import {
+  WebhookEventData,
+  DodoSubscriptionData,
+  DodoPaymentData,
+} from "@/lib/payment/types";
 
 interface WebhookEventType {
   type: string;
@@ -72,6 +53,19 @@ export async function POST(request: NextRequest) {
     const event = paymentProvider.parseWebhookEvent(rawBody);
     console.log(`Processing webhook event: ${event.type}`);
 
+    // Deduplication logic using Redis
+    const webhookId = webhookHeaders["webhook-id"];
+    if (webhookId) {
+      const dodoEventKey = `dodo:webhook:${webhookId}`;
+      const isDuplicate = await redis.get(dodoEventKey);
+      if (isDuplicate) {
+        console.log("Duplicate Dodo webhook event, skipping:", webhookId);
+        return new NextResponse("Webhook already processed", { status: 200 });
+      }
+      // Mark this webhook as processed for 5 minutes
+      await redis.set(dodoEventKey, "1", { ex: 300 });
+    }
+
     // Handle different event types
     switch (event.type) {
       // Subscription events
@@ -93,6 +87,10 @@ export async function POST(request: NextRequest) {
 
       case "subscription.cancelled":
         await handleSubscriptionCanceled(event);
+        break;
+
+      case "subscription.plan_changed":
+        await handleSubscriptionPlanChanged(event);
         break;
 
       // Payment events
@@ -117,9 +115,10 @@ export async function POST(request: NextRequest) {
 
 // Handler for subscription.active event
 async function handleSubscriptionActive(event: WebhookEventType) {
-  const subscriptionData = event.data.subscription;
-  if (!subscriptionData) {
-    console.error("No subscription data in event");
+  // For subscription events, cast the data to DodoSubscriptionData
+  const subscriptionData = event.data as DodoSubscriptionData;
+  if (!subscriptionData || !subscriptionData.subscription_id) {
+    console.error("No valid subscription data in event");
     return;
   }
 
@@ -158,9 +157,13 @@ async function handleSubscriptionActive(event: WebhookEventType) {
         where: { id: existingSubscription.id },
         data: {
           status: "active",
-          currentPeriodStart: new Date(subscriptionData.current_period_start),
-          currentPeriodEnd: new Date(subscriptionData.current_period_end),
-          cancelAtPeriodEnd: subscriptionData.cancel_at_period_end || false,
+          currentPeriodStart: subscriptionData.previous_billing_date
+            ? new Date(subscriptionData.previous_billing_date)
+            : new Date(),
+          currentPeriodEnd: subscriptionData.next_billing_date
+            ? new Date(subscriptionData.next_billing_date)
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days if not provided
+          cancelAtPeriodEnd: !!subscriptionData.cancelled_at,
         },
       });
     } else {
@@ -172,10 +175,16 @@ async function handleSubscriptionActive(event: WebhookEventType) {
           planType: planType as PlanType,
           status: "active",
           billingCycle:
-            subscriptionData.billing_cycle === "yearly" ? "YEARLY" : "MONTHLY",
-          currentPeriodStart: new Date(subscriptionData.current_period_start),
-          currentPeriodEnd: new Date(subscriptionData.current_period_end),
-          cancelAtPeriodEnd: subscriptionData.cancel_at_period_end || false,
+            subscriptionData.payment_frequency_interval === "Year"
+              ? "YEARLY"
+              : "MONTHLY",
+          currentPeriodStart: subscriptionData.previous_billing_date
+            ? new Date(subscriptionData.previous_billing_date)
+            : new Date(),
+          currentPeriodEnd: subscriptionData.next_billing_date
+            ? new Date(subscriptionData.next_billing_date)
+            : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days if not provided
+          cancelAtPeriodEnd: !!subscriptionData.cancelled_at,
           metadata: metadata,
         },
       });
@@ -219,8 +228,9 @@ async function handleSubscriptionActive(event: WebhookEventType) {
 
 // Handler for subscription.on_hold event
 async function handleSubscriptionOnHold(event: WebhookEventType) {
-  const subscriptionData = event.data.subscription;
-  if (!subscriptionData) {
+  const subscriptionData = event.data as DodoSubscriptionData;
+  if (!subscriptionData || !subscriptionData.subscription_id) {
+    console.error("No valid subscription data in event");
     return;
   }
 
@@ -242,8 +252,9 @@ async function handleSubscriptionOnHold(event: WebhookEventType) {
 
 // Handler for subscription.failed event
 async function handleSubscriptionFailed(event: WebhookEventType) {
-  const subscriptionData = event.data.subscription;
-  if (!subscriptionData) {
+  const subscriptionData = event.data as DodoSubscriptionData;
+  if (!subscriptionData || !subscriptionData.subscription_id) {
+    console.error("No valid subscription data in event");
     return;
   }
 
@@ -265,8 +276,9 @@ async function handleSubscriptionFailed(event: WebhookEventType) {
 
 // Handler for subscription.renewed event
 async function handleSubscriptionRenewed(event: WebhookEventType) {
-  const subscriptionData = event.data.subscription;
-  if (!subscriptionData) {
+  const subscriptionData = event.data as DodoSubscriptionData;
+  if (!subscriptionData || !subscriptionData.subscription_id) {
+    console.error("No valid subscription data in event");
     return;
   }
 
@@ -295,8 +307,12 @@ async function handleSubscriptionRenewed(event: WebhookEventType) {
         externalId: subscriptionData.subscription_id,
       },
       data: {
-        currentPeriodStart: new Date(subscriptionData.current_period_start),
-        currentPeriodEnd: new Date(subscriptionData.current_period_end),
+        currentPeriodStart: subscriptionData.previous_billing_date
+          ? new Date(subscriptionData.previous_billing_date)
+          : new Date(),
+        currentPeriodEnd: subscriptionData.next_billing_date
+          ? new Date(subscriptionData.next_billing_date)
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days if not provided
         status: "active",
       },
     });
@@ -342,8 +358,9 @@ async function handleSubscriptionRenewed(event: WebhookEventType) {
 
 // Handler for subscription.canceled event
 async function handleSubscriptionCanceled(event: WebhookEventType) {
-  const subscriptionData = event.data.subscription;
-  if (!subscriptionData) {
+  const subscriptionData = event.data as DodoSubscriptionData;
+  if (!subscriptionData || !subscriptionData.subscription_id) {
+    console.error("No valid subscription data in event");
     return;
   }
 
@@ -364,10 +381,121 @@ async function handleSubscriptionCanceled(event: WebhookEventType) {
   }
 }
 
+// Handler for subscription.plan_changed event
+async function handleSubscriptionPlanChanged(event: WebhookEventType) {
+  const subscriptionData = event.data as DodoSubscriptionData;
+  if (!subscriptionData || !subscriptionData.subscription_id) {
+    console.error("No valid subscription data in event");
+    return;
+  }
+
+  const metadata = subscriptionData.metadata || {};
+  const organizationId = metadata.organizationId;
+
+  if (!organizationId) {
+    console.error("No organizationId in subscription metadata");
+    return;
+  }
+
+  // Get plan type from metadata
+  const planType = metadata.planType;
+
+  if (!planType) {
+    console.error("No planType in subscription metadata");
+    return;
+  }
+
+  try {
+    // Get the existing subscription
+    const existingSubscription = await prisma.subscription.findFirst({
+      where: {
+        externalId: subscriptionData.subscription_id,
+      },
+    });
+
+    if (!existingSubscription) {
+      console.error(
+        `Subscription not found for plan change: ${subscriptionData.subscription_id}`
+      );
+      return;
+    }
+
+    // Update the subscription with new plan type and dates
+    await prisma.subscription.update({
+      where: { id: existingSubscription.id },
+      data: {
+        planType: planType as PlanType,
+        currentPeriodStart: subscriptionData.previous_billing_date
+          ? new Date(subscriptionData.previous_billing_date)
+          : new Date(),
+        currentPeriodEnd: subscriptionData.next_billing_date
+          ? new Date(subscriptionData.next_billing_date)
+          : existingSubscription.currentPeriodEnd,
+        billingCycle:
+          subscriptionData.payment_frequency_interval === "Year"
+            ? "YEARLY"
+            : "MONTHLY",
+        status: "active",
+      },
+    });
+
+    // Update organization's plan
+    await prisma.organization.update({
+      where: { id: organizationId },
+      data: {
+        plan: planType as PlanType,
+      },
+    });
+
+    // If the new plan has message credits, grant them
+    const planLimits = await prisma.planLimit.findFirst({
+      where: {
+        planType: planType as PlanType,
+        feature: {
+          name: "message_credits",
+        },
+      },
+      include: {
+        feature: true,
+      },
+    });
+
+    if (planLimits && !planLimits.isUnlimited) {
+      // Calculate prorated credits based on days remaining in billing cycle
+      const now = new Date();
+      const endDate = subscriptionData.next_billing_date
+        ? new Date(subscriptionData.next_billing_date)
+        : existingSubscription.currentPeriodEnd;
+
+      const totalDaysInPeriod = Math.floor(
+        (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      const daysInMonth = 30; // Simplified calculation
+      const prorationFactor = Math.max(0, totalDaysInPeriod / daysInMonth);
+      const proratedCredits = Math.floor(planLimits.value * prorationFactor);
+
+      if (proratedCredits > 0) {
+        await createCreditTransaction(
+          organizationId,
+          proratedCredits,
+          "PLAN_GRANT",
+          "Plan change credit allocation (prorated)",
+          { subscriptionId: subscriptionData.subscription_id }
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error handling subscription.plan_changed event:", error);
+    throw error;
+  }
+}
+
 // Handler for payment.succeeded event
 async function handlePaymentSucceeded(event: WebhookEventType) {
-  const paymentData = event.data.payment;
-  if (!paymentData) {
+  const paymentData = event.data as DodoPaymentData;
+  if (!paymentData || !paymentData.payment_id) {
+    console.error("No valid payment data in event");
     return;
   }
 
@@ -388,21 +516,43 @@ async function handlePaymentSucceeded(event: WebhookEventType) {
       );
     }
 
+    // Check if we have a valid subscription ID
+    const subscriptionId =
+      metadata.subscriptionId || paymentData.subscription_id;
+    let validSubscriptionId = null;
+
+    if (subscriptionId) {
+      // Verify that the subscription exists
+      const subscription = await prisma.subscription.findFirst({
+        where: {
+          externalId: subscriptionId,
+        },
+      });
+
+      if (subscription) {
+        validSubscriptionId = subscription.id;
+      } else {
+        console.log(
+          `Warning: Referenced subscription ${subscriptionId} not found in database`
+        );
+      }
+    }
+
     // Create invoice record
     await prisma.invoice.create({
       data: {
         organizationId: metadata.organizationId,
-        subscriptionId: metadata.subscriptionId,
-        amount: paymentData.amount,
+        subscriptionId: validSubscriptionId, // Only use subscription ID if valid
+        amount: paymentData.total_amount,
         currency: paymentData.currency,
         status: "paid",
         dueDate: new Date(),
         paidAt: new Date(),
-        invoiceUrl: paymentData.receipt_url,
+        invoiceUrl: paymentData.payment_link,
         invoiceNumber: `INV-${Date.now()}`,
         paymentIntent: paymentData.payment_id,
         externalId: paymentData.payment_id,
-        description: paymentData.description || "Subscription payment",
+        description: metadata.description || "Subscription payment",
         metadata: metadata,
       },
     });
@@ -425,27 +575,52 @@ async function handlePaymentSucceeded(event: WebhookEventType) {
 
 // Handler for payment.failed event
 async function handlePaymentFailed(event: WebhookEventType) {
-  const paymentData = event.data.payment;
-  if (!paymentData) {
+  const paymentData = event.data as DodoPaymentData;
+  if (!paymentData || !paymentData.payment_id) {
+    console.error("No valid payment data in event");
     return;
   }
 
   const metadata = paymentData.metadata || {};
 
   try {
+    // Check if we have a valid subscription ID
+    const subscriptionId =
+      metadata.subscriptionId || paymentData.subscription_id;
+    let validSubscriptionId = null;
+
+    if (subscriptionId) {
+      // Verify that the subscription exists
+      const subscription = await prisma.subscription.findFirst({
+        where: {
+          externalId: subscriptionId,
+        },
+      });
+
+      if (subscription) {
+        validSubscriptionId = subscription.id;
+      } else {
+        console.log(
+          `Warning: Referenced subscription ${subscriptionId} not found in database`
+        );
+      }
+    }
+
     // Create invoice record with failed status
     await prisma.invoice.create({
       data: {
         organizationId: metadata.organizationId,
-        subscriptionId: metadata.subscriptionId,
-        amount: paymentData.amount,
+        subscriptionId: validSubscriptionId, // Only use subscription ID if valid
+        amount: paymentData.total_amount,
         currency: paymentData.currency,
         status: "failed",
         dueDate: new Date(),
         invoiceNumber: `INV-${Date.now()}`,
         paymentIntent: paymentData.payment_id,
         externalId: paymentData.payment_id,
-        description: paymentData.description || "Failed payment",
+        description:
+          metadata.description ||
+          `Failed payment: ${paymentData.error_message || "Unknown error"}`,
         metadata: metadata,
       },
     });
