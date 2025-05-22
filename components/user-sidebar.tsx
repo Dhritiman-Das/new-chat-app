@@ -21,20 +21,14 @@ import { NavUser } from "./nav-user";
 import { User } from "@/lib/generated/prisma";
 import { useMemo } from "react";
 import { UserOrganization } from "@/lib/types/prisma";
-import { OrganizationSwitcher } from "./org-switcher";
 // import { getUserOrganizations } from "@/lib/queries/cached-queries";
 
 interface OrgSidebarProps {
-  orgId: string;
   user: User;
   userOrganizations: UserOrganization[];
 }
 
-export function OrgSidebar({
-  orgId,
-  user,
-  userOrganizations,
-}: OrgSidebarProps) {
+export function UserSidebar({ user, userOrganizations }: OrgSidebarProps) {
   const pathname = usePathname();
 
   // Bot level
@@ -60,19 +54,9 @@ export function OrgSidebar({
   const accountItems = useMemo(
     () => [
       {
-        title: "Billing",
-        url: `/dashboard/${orgId}/billing`,
-        icon: Icons.Billing,
-      },
-      {
-        title: "Access tokens",
-        url: `/dashboard/${orgId}/access-tokens`,
-        icon: Icons.Key,
-      },
-      {
-        title: "Notifications",
-        url: `/dashboard/${orgId}/notifications`,
-        icon: Icons.Bell,
+        title: "Profile",
+        url: `/dashboard/account/me`,
+        icon: Icons.User,
       },
     ],
     []
@@ -101,19 +85,13 @@ export function OrgSidebar({
 
   return (
     <Sidebar>
-      {/* <SidebarHeader>
+      <SidebarHeader>
         <div className="flex items-center gap-2 justify-center pt-2">
           <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <Icons.LogoIcon className="size-4" />
           </div>
           <span className="text-md font-medium tracking-widest">Bonti</span>
         </div>
-      </SidebarHeader> */}
-      <SidebarHeader>
-        <OrganizationSwitcher
-          activeOrgId={orgId}
-          organizations={userOrganizations}
-        />
       </SidebarHeader>
       <SidebarContent className="h-full flex flex-col">
         <SidebarGroup>
@@ -228,7 +206,7 @@ export function OrgSidebar({
 
         <div className="mt-auto">
           <SidebarSeparator />
-          <NavUser user={user} activeOrgId={orgId} />
+          <NavUser user={user} />
         </div>
       </SidebarContent>
     </Sidebar>

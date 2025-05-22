@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { OrgSidebar } from "./org-sidebar";
 import { Bot, User } from "@/lib/generated/prisma";
 import { UserOrganization } from "@/lib/types/prisma";
+import { UserSidebar } from "./user-sidebar";
 
 interface OrganizationBots {
   organization: {
@@ -82,5 +83,5 @@ export function ConditionalAppSidebar({
   }
 
   // Default to null
-  return null;
+  return <UserSidebar user={user} userOrganizations={userOrganizations} />;
 }

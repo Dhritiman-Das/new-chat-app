@@ -22,7 +22,13 @@ import { useState } from "react";
 import { User } from "@/lib/generated/prisma";
 import Link from "next/link";
 
-export function NavUser({ user }: { user: User }) {
+export function NavUser({
+  user,
+  activeOrgId,
+}: {
+  user: User;
+  activeOrgId?: string;
+}) {
   const { isMobile } = useSidebar();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -103,10 +109,14 @@ export function NavUser({ user }: { user: User }) {
                   Account
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Icons.Billing />
-                Billing
-              </DropdownMenuItem>
+              {activeOrgId && (
+                <DropdownMenuItem asChild>
+                  <Link href={`/dashboard/${activeOrgId}/billing`}>
+                    <Icons.Billing />
+                    Billing
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem>
                 <Icons.Bell />
                 Notifications

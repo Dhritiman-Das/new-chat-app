@@ -180,7 +180,7 @@ export function AppSidebar({
 
         <div className="mt-auto">
           <SidebarSeparator />
-          <NavUser user={user} />
+          <NavUser user={user} activeOrgId={orgId} />
         </div>
       </SidebarContent>
     </Sidebar>
