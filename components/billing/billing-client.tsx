@@ -26,6 +26,7 @@ import {
   updateAddOnQuantity,
   updateOrganizationSubscription,
 } from "@/lib/payment/billing-service";
+import { purchaseCreditPack } from "@/app/actions/billing";
 
 // Hard-coded plans data
 const plans: Plan[] = [
@@ -99,6 +100,11 @@ interface BillingClientProps {
       unitPrice: number;
     }[];
     invoices: ClientInvoice[];
+    creditUsageData?: {
+      planAllocation: number;
+      planUsed: number;
+      additionalBalance: number;
+    };
   };
 }
 
@@ -342,9 +348,63 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
     }
   };
 
-  // Handle purchase credits (placeholder)
-  const handlePurchaseCredits = () => {
-    toast.info("This feature is coming soon!");
+  // Function to handle credit pack purchase
+  const handlePurchaseCreditPack = async (quantity: number) => {
+    try {
+      setLoading(true);
+
+      // Show loading toast
+      const loadingToast = toast.loading(
+        `Creating payment for ${quantity} credit pack${
+          quantity > 1 ? "s" : ""
+        }...`
+      );
+
+      // Call the server action to create a payment link
+      const result = await purchaseCreditPack({
+        organizationId: orgId,
+        quantity: quantity,
+      });
+
+      // Remove loading toast
+      toast.dismiss(loadingToast);
+
+      // Next-safe-action result handling
+      if (result?.data?.success) {
+        // Check if the payment link was created successfully
+        if (result.data?.data?.paymentLinkUrl) {
+          const paymentUrl = result.data.data.paymentLinkUrl as string;
+          toast.success("Redirecting to payment page...");
+          window.location.href = paymentUrl;
+          return;
+        }
+      }
+
+      // Handle error case - either from the action result or a generic message
+      let errorMessage = "Failed to create payment link";
+      if (result?.data?.error) {
+        if (
+          typeof result.data.error === "object" &&
+          result.data.error !== null &&
+          "message" in result.data.error
+        ) {
+          const errMsg = result.data.error.message;
+          if (typeof errMsg === "string") {
+            errorMessage = errMsg;
+          }
+        }
+      }
+      toast.error(errorMessage);
+    } catch (error) {
+      console.error("Error creating payment for credits:", error);
+      if (error instanceof Error) {
+        toast.error(`Payment creation failed: ${error.message}`);
+      } else {
+        toast.error("Failed to create payment. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -359,9 +419,9 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
           <TabsTrigger value="usage" className="w-[150px]">
             Usage & Limits
           </TabsTrigger>
-          <TabsTrigger value="addons" className="w-[150px]">
+          {/* <TabsTrigger value="addons" className="w-[150px]">
             Add-ons
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="invoices" className="w-[150px]">
             Invoices
           </TabsTrigger>
@@ -381,7 +441,8 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
           <UsageTab
             usageData={usageData}
             creditBalance={creditBalance}
-            onPurchaseCredits={handlePurchaseCredits}
+            onPurchaseCredits={handlePurchaseCreditPack}
+            creditUsageData={initialData.creditUsageData}
           />
         </TabsContent>
 

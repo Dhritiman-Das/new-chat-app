@@ -790,6 +790,9 @@ export async function getOrganizationCreditBalance(organizationId: string) {
 }
 
 export async function getOrganizationUsage(organizationId: string) {
+  // Get all features first
+  const features = await getPlansCache();
+
   // Get counts of usage by feature
   const usageCounts = await prisma.usageRecord.groupBy({
     by: ["featureId"],
@@ -805,17 +808,19 @@ export async function getOrganizationUsage(organizationId: string) {
     },
   });
 
-  // Get features
-  const features = await getPlansCache();
+  // Create a map of feature ID to usage
+  const usageMap = new Map();
+  usageCounts.forEach((usage) => {
+    usageMap.set(usage.featureId, usage._sum.quantity || 0);
+  });
 
-  // Map usage to feature names
-  return usageCounts.map((usage) => {
-    const feature = features.find((f) => f.id === usage.featureId);
+  // Map all features to usage (including those with no usage records)
+  return features.map((feature) => {
     return {
-      featureId: usage.featureId,
-      featureName: feature?.name || "Unknown",
-      displayName: feature?.displayName || "Unknown",
-      usage: usage._sum.quantity || 0,
+      featureId: feature.id,
+      featureName: feature.name,
+      displayName: feature.displayName,
+      usage: usageMap.get(feature.id) || 0,
     };
   });
 }

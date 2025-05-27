@@ -789,3 +789,57 @@ export const getBotAllTools = async (botId: string) => {
     }
   )();
 };
+
+// Get message credit packs available for purchase
+export const getMessageCreditPacks = async () => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      const creditPacks = await prisma.addOn.findMany({
+        where: {
+          feature: {
+            name: "message_credits",
+          },
+        },
+        orderBy: {
+          unitPrice: "asc",
+        },
+      });
+
+      return { data: creditPacks };
+    },
+    ["message_credit_packs"],
+    {
+      tags: ["add_ons", "message_credits"],
+      revalidate: 3600, // Cache for 1 hour since these don't change often
+    }
+  )();
+};
+
+// Get agent add-ons available for purchase
+export const getAgentAddOns = async () => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      const agentAddOns = await prisma.addOn.findMany({
+        where: {
+          feature: {
+            name: "agents",
+          },
+        },
+        orderBy: {
+          unitPrice: "asc",
+        },
+      });
+
+      return { data: agentAddOns };
+    },
+    ["agent_add_ons"],
+    {
+      tags: ["add_ons", "agents"],
+      revalidate: 3600, // Cache for 1 hour
+    }
+  )();
+};

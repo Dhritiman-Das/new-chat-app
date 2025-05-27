@@ -336,7 +336,9 @@ export class DodoPaymentsProvider implements PaymentProvider {
         product_cart: [
           {
             product_id: options.productId,
-            quantity: 1, // Default to 1 if not specified
+            quantity: options.metadata?.quantity
+              ? Number(options.metadata.quantity)
+              : 1, // Use quantity from metadata or default to 1
           },
         ],
       };

@@ -12,6 +12,10 @@ import {
 } from "@/app/actions/conversation-tracking";
 import { DocumentReference, KnowledgeContext } from "@/app/actions/types";
 import { getBotDetails } from "@/lib/queries/cached-queries";
+import {
+  hasEnoughCredits,
+  processModelCreditUsage,
+} from "@/lib/payment/credit-service";
 
 // Initialize the tools and get tool services
 const toolExecutionService = new ToolExecutionService();
@@ -81,6 +85,12 @@ export async function processChatRequest(
   // Use provided userId/orgId or fallback to the bot's values
   const effectiveUserId = userId || bot.userId;
   const effectiveOrgId = organizationId || bot.organizationId;
+
+  // Check if the organization has enough credits for this model
+  const hasCredits = await hasEnoughCredits(effectiveOrgId, modelId);
+  if (!hasCredits) {
+    throw new Error(`Insufficient credits for using model: ${modelId}`);
+  }
 
   // Create or get conversation
   if (!currentConversationId) {
@@ -245,11 +255,20 @@ export async function processChatRequest(
   const startProcessingTime = Date.now();
 
   // Create the handler for when generation finishes
-  const handleFinish = (
+  const handleFinish = async (
     text: string,
     usage: UsageInfo,
     responseMessages: ResponseMessages
   ) => {
+    // Process credit usage for this model request
+    await processModelCreditUsage(effectiveOrgId, modelId, {
+      botId,
+      userId: effectiveUserId,
+      conversationId: currentConversationId,
+      tokenCount: usage?.totalTokens || 0,
+      source,
+    });
+
     // Create the simplified knowledge context
     const knowledgeContext: KnowledgeContext = {
       documents: usedDocuments,
@@ -319,7 +338,11 @@ export async function processChatRequest(
     });
 
     // Handle the completion
-    handleFinish(response.text, response.usage, response.response.messages);
+    await handleFinish(
+      response.text,
+      response.usage,
+      response.response.messages
+    );
 
     return {
       stream: null,
