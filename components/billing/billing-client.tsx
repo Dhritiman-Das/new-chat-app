@@ -12,7 +12,7 @@ import { UsageTab } from "@/components/billing/usage-tab";
 import { AddOnsTab } from "@/components/billing/addons-tab";
 import { InvoicesTab } from "@/components/billing/invoices-tab";
 import { PlansDialog } from "@/components/billing/plans-dialog";
-import { BillingCycle, SubscriptionStatus } from "@/lib/payment/types";
+import { BillingCycle } from "@/lib/payment/types";
 import {
   ClientInvoice,
   adaptClientInvoicesToInvoicesTab,
@@ -27,6 +27,7 @@ import {
   updateOrganizationSubscription,
 } from "@/lib/payment/billing-service";
 import { purchaseCreditPack } from "@/app/actions/billing";
+import { SubscriptionStatus } from "@/lib/generated/prisma";
 
 // Hard-coded plans data
 const plans: Plan[] = [
@@ -165,10 +166,7 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
       }
 
       // If the user already had a subscription or the update was successful
-      if (
-        subscription.status !== "inactive" ||
-        (result && result.status === "active")
-      ) {
+      if (result && result.status === SubscriptionStatus.ACTIVE) {
         toast.success(`Successfully updated to ${planId} plan`);
 
         // Update local state to reflect changes
@@ -176,7 +174,7 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
           ...subscription,
           id: result?.subscriptionId || subscription.id,
           planType: planType,
-          status: result?.status || "active",
+          status: result?.status || SubscriptionStatus.ACTIVE,
           billingCycle: cycle === BillingCycle.YEARLY ? "YEARLY" : "MONTHLY",
         });
       } else {

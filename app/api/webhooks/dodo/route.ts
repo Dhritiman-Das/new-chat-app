@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { PrismaClient, PlanType } from "@/lib/generated/prisma";
+import {
+  PrismaClient,
+  PlanType,
+  SubscriptionStatus,
+} from "@/lib/generated/prisma";
 import { getPaymentProvider } from "@/lib/payment/factory";
 import {
   createCreditTransaction,
@@ -156,7 +160,7 @@ async function handleSubscriptionActive(event: WebhookEventType) {
       await prisma.subscription.update({
         where: { id: existingSubscription.id },
         data: {
-          status: "active",
+          status: SubscriptionStatus.ACTIVE,
           currentPeriodStart: subscriptionData.previous_billing_date
             ? new Date(subscriptionData.previous_billing_date)
             : new Date(),
@@ -173,7 +177,7 @@ async function handleSubscriptionActive(event: WebhookEventType) {
           organizationId,
           externalId: subscriptionData.subscription_id,
           planType: planType as PlanType,
-          status: "active",
+          status: SubscriptionStatus.ACTIVE,
           billingCycle:
             subscriptionData.payment_frequency_interval === "Year"
               ? "YEARLY"
@@ -241,7 +245,7 @@ async function handleSubscriptionOnHold(event: WebhookEventType) {
         externalId: subscriptionData.subscription_id,
       },
       data: {
-        status: "past_due",
+        status: SubscriptionStatus.PAST_DUE,
       },
     });
   } catch (error) {
@@ -265,7 +269,7 @@ async function handleSubscriptionFailed(event: WebhookEventType) {
         externalId: subscriptionData.subscription_id,
       },
       data: {
-        status: "incomplete",
+        status: SubscriptionStatus.UNPAID,
       },
     });
   } catch (error) {
@@ -313,7 +317,7 @@ async function handleSubscriptionRenewed(event: WebhookEventType) {
         currentPeriodEnd: subscriptionData.next_billing_date
           ? new Date(subscriptionData.next_billing_date)
           : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days if not provided
-        status: "active",
+        status: SubscriptionStatus.ACTIVE,
       },
     });
 
@@ -371,7 +375,7 @@ async function handleSubscriptionCanceled(event: WebhookEventType) {
         externalId: subscriptionData.subscription_id,
       },
       data: {
-        status: "canceled",
+        status: SubscriptionStatus.CANCELED,
         cancelAtPeriodEnd: false, // It's already canceled
       },
     });
@@ -435,7 +439,7 @@ async function handleSubscriptionPlanChanged(event: WebhookEventType) {
           subscriptionData.payment_frequency_interval === "Year"
             ? "YEARLY"
             : "MONTHLY",
-        status: "active",
+        status: SubscriptionStatus.ACTIVE,
       },
     });
 

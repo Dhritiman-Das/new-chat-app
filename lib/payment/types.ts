@@ -1,4 +1,5 @@
 import { CountryCode } from "dodopayments/resources/misc.mjs";
+import { SubscriptionStatus as PrismaSubscriptionStatus } from "@/lib/generated/prisma";
 
 export interface Customer {
   name?: string;
@@ -31,15 +32,7 @@ export enum BillingCycle {
   YEARLY = "YEARLY",
 }
 
-export type SubscriptionStatus =
-  | "active"
-  | "canceled"
-  | "past_due"
-  | "trialing"
-  | "incomplete"
-  | "incomplete_expired"
-  | "unpaid"
-  | "paused";
+export type SubscriptionStatus = PrismaSubscriptionStatus;
 
 export interface CreateSubscriptionOptions {
   planId: string;

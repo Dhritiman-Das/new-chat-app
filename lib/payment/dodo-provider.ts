@@ -8,11 +8,11 @@ import {
   AddOnSubscriptionOptions,
   CreatePaymentLinkOptions,
   WebhookEvent,
-  SubscriptionStatus,
   ActivateSubscriptionOptions,
 } from "./types";
 import { CountryCode } from "dodopayments/resources/misc.mjs";
 import { PaymentCreateParams } from "dodopayments/resources/payments.mjs";
+import { SubscriptionStatus } from "../generated/prisma";
 
 // Define interface for customer creation
 interface CreateCustomerOptions {
@@ -407,15 +407,15 @@ export class DodoPaymentsProvider implements PaymentProvider {
   // Helper method to map Dodo Payments subscription status to our status type
   private mapSubscriptionStatus(dodoStatus: string): SubscriptionStatus {
     const statusMap: Record<string, SubscriptionStatus> = {
-      pending: "incomplete",
-      active: "active",
-      on_hold: "past_due",
-      paused: "paused",
-      cancelled: "canceled",
-      failed: "incomplete",
-      expired: "incomplete_expired",
+      pending: SubscriptionStatus.PENDING,
+      active: SubscriptionStatus.ACTIVE,
+      on_hold: SubscriptionStatus.PAST_DUE,
+      paused: SubscriptionStatus.PAUSED,
+      cancelled: SubscriptionStatus.CANCELED,
+      failed: SubscriptionStatus.UNPAID,
+      expired: SubscriptionStatus.EXPIRED,
     };
 
-    return statusMap[dodoStatus] || "active";
+    return statusMap[dodoStatus] || SubscriptionStatus.ACTIVE;
   }
 }

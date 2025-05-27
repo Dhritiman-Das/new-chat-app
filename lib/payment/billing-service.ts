@@ -1,6 +1,10 @@
 "use server";
 
-import { PlanType, PrismaClient } from "@/lib/generated/prisma";
+import {
+  PlanType,
+  PrismaClient,
+  SubscriptionStatus,
+} from "@/lib/generated/prisma";
 import { getActivePaymentProvider } from "./factory";
 import {
   UpdateSubscriptionOptions,
@@ -435,7 +439,7 @@ export async function updateOrganizationSubscription(
         );
         console.log("Result from changePlan:", result);
         // Change the subscription in the database
-        if (result.status === "active") {
+        if (result.status === SubscriptionStatus.ACTIVE) {
           await prisma.subscription.update({
             where: { id: subscription.id },
             data: {
@@ -658,7 +662,7 @@ export async function addAddOnToOrganizationSubscription(
         addOnId,
         quantity,
         startDate: new Date(),
-        status: "active",
+        status: SubscriptionStatus.ACTIVE,
         externalId: result.addOnSubscriptionId,
       },
     });
@@ -739,7 +743,7 @@ export async function removeAddOnFromSubscription(
     await prisma.addOnSubscription.update({
       where: { id: addOnSubscriptionId },
       data: {
-        status: "canceled",
+        status: SubscriptionStatus.CANCELED,
         endDate: new Date(),
       },
     });
@@ -756,7 +760,7 @@ export async function getOrganizationAddOns(organizationId: string) {
   return await prisma.addOnSubscription.findMany({
     where: {
       organizationId,
-      status: "active",
+      status: SubscriptionStatus.ACTIVE,
     },
     include: {
       addOn: true,
