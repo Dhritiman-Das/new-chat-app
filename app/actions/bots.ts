@@ -26,6 +26,7 @@ type UpdateBotInput = {
   name?: string;
   description?: string | null;
   systemPrompt?: string;
+  defaultModelId?: string | null;
   isActive?: boolean;
 };
 
@@ -203,6 +204,9 @@ export async function updateBot(data: UpdateBotInput): Promise<ActionResponse> {
           description: data.description,
         }),
         ...(data.systemPrompt && { systemPrompt: data.systemPrompt }),
+        ...(data.defaultModelId !== undefined && {
+          defaultModelId: data.defaultModelId,
+        }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     });

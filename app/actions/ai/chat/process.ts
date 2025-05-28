@@ -59,7 +59,7 @@ export async function processChatRequest(
   const {
     messages,
     conversationId: initialConversationId,
-    modelId,
+    modelId: requestedModelId,
     botId,
     userId,
     organizationId,
@@ -79,6 +79,10 @@ export async function processChatRequest(
   // Use provided organizationId or fallback to the bot's value
   const effectiveOrgId = organizationId || bot.organizationId;
   const effectiveUserId = userId || bot.userId;
+
+  // Determine which model to use - requested model or bot's default if available
+  const defaultModelId = bot.defaultModelId;
+  const modelId = requestedModelId || defaultModelId || "gpt-4o"; // Fallback to a default model if none specified
 
   // Wrap the entire chat processing with subscription check
   const result = await withSubscriptionCheck(

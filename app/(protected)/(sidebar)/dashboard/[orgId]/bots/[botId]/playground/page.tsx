@@ -24,6 +24,11 @@ export default async function PlaygroundPage({ params }: PageProps) {
   const botResponse = await getBotById(botId);
   const bot = botResponse?.data;
 
+  // Get bot's default model ID if it exists
+  const defaultModelId = bot
+    ? ((bot as Record<string, unknown>).defaultModelId as string | null)
+    : null;
+
   return (
     <div>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
@@ -66,7 +71,11 @@ export default async function PlaygroundPage({ params }: PageProps) {
 
       <div className="p-6 h-[calc(100vh-4rem)] flex flex-col">
         {/* <h1 className="text-2xl font-bold mb-6">AI Playground</h1> */}
-        <ModelComparison models={availableModels} botId={botId} />
+        <ModelComparison
+          models={availableModels}
+          botId={botId}
+          defaultModelId={defaultModelId}
+        />
       </div>
     </div>
   );

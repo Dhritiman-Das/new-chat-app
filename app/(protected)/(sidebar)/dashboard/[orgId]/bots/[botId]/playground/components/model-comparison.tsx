@@ -8,11 +8,13 @@ import ChatInterface from "./chat-interface";
 interface ModelComparisonProps {
   models: Model[];
   botId: string;
+  defaultModelId?: string | null;
 }
 
 export default function ModelComparison({
   models,
   botId,
+  defaultModelId,
 }: ModelComparisonProps) {
   // Generate unique ID prefix for playgrounds
   const playgroundIdPrefix = `playground-${Math.random()
@@ -20,13 +22,25 @@ export default function ModelComparison({
     .substring(2, 9)}`;
   let playgroundCounter = 0;
 
+  // Get the default model if specified, otherwise use the first available model
+  const getInitialModelId = () => {
+    if (defaultModelId) {
+      // Verify the defaultModelId exists in available models
+      const modelExists = models.some((model) => model.id === defaultModelId);
+      if (modelExists) {
+        return defaultModelId;
+      }
+    }
+    return models.length > 0 ? models[0].id : "";
+  };
+
   const [playgrounds, setPlaygrounds] = useState<
     { id: string; modelId: string }[]
   >([
-    // Default to first available model in first playground
+    // Use the default model or first available model in first playground
     {
       id: `${playgroundIdPrefix}-${playgroundCounter++}`,
-      modelId: models.length > 0 ? models[0].id : "",
+      modelId: getInitialModelId(),
     },
   ]);
 
@@ -36,7 +50,7 @@ export default function ModelComparison({
       ...prev,
       {
         id: `${playgroundIdPrefix}-${Date.now()}`, // Use timestamp for unique IDs
-        modelId: models.length > 0 ? models[0].id : "",
+        modelId: getInitialModelId(),
       },
     ]);
   };

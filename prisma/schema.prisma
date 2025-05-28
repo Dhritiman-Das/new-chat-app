@@ -88,6 +88,7 @@ model Bot {
   name           String
   description    String?
   systemPrompt   String   @map("system_prompt")
+  defaultModelId String?  @default("gpt-4o") @map("default_model_id")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
