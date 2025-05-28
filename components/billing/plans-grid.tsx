@@ -30,20 +30,24 @@ interface PlansGridProps {
   currentPlanType: string;
   loading: boolean;
   isDialog?: boolean;
+  hasSubscription?: boolean;
 }
 
 export function PlansGrid({
   plans,
   billingCycle,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onBillingCycleChange,
   onPlanChange,
   currentPlanType,
   loading,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isDialog = false,
+  hasSubscription = false,
 }: PlansGridProps) {
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      {/* <div className="flex justify-between items-center mb-6">
         {!isDialog && <h2 className="text-2xl font-bold">Available Plans</h2>}
         <div
           className={`flex items-center space-x-2 ${isDialog ? "ml-auto" : ""}`}
@@ -66,7 +70,7 @@ export function PlansGrid({
             Save with yearly
           </Button>
         </div>
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => (
@@ -101,7 +105,11 @@ export function PlansGrid({
               <Button
                 className="w-full"
                 variant={plan.popular ? "default" : "outline"}
-                disabled={loading || plan.id.toUpperCase() === currentPlanType}
+                disabled={
+                  loading ||
+                  plan.id.toUpperCase() === currentPlanType.toUpperCase() ||
+                  !hasSubscription
+                }
                 onClick={() => onPlanChange(plan.id)}
               >
                 {plan.id.toUpperCase() === currentPlanType

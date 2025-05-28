@@ -17,6 +17,11 @@ import { ConversationOverviewSection } from "@/components/charts/conversation-ov
 import { BusinessOutcomesSection } from "@/components/charts/business-outcomes-section";
 import { UserEngagementSection } from "@/components/charts/user-engagement-section";
 import { Skeleton } from "@/components/ui/skeleton";
+import { prisma } from "@/lib/db/prisma";
+import { PlanType, SubscriptionStatus } from "@/lib/generated/prisma";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Icons } from "@/components/icons";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -35,6 +40,86 @@ export default async function AnalyticsPage({
   const timeFrame = ["7d", "30d", "90d", "all"].includes(rawTimeFrame || "")
     ? rawTimeFrame
     : "30d";
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { organizationId: orgId },
+    select: { status: true, planType: true },
+  });
+
+  // Check if organization has access to analytics
+  const hasAccess =
+    subscription?.planType === PlanType.PRO ||
+    subscription?.planType === PlanType.STANDARD;
+
+  // Check if subscription is active
+  const hasActiveSubscription =
+    subscription?.status === SubscriptionStatus.ACTIVE;
+
+  // If no access, show upgrade UI
+  if (!hasAccess || !hasActiveSubscription) {
+    return (
+      <div>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbLink href="/">Home</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                    Dashboard
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink href={`/dashboard/${orgId}/bots`}>
+                    Bots
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Analytics</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </header>
+
+        <Shell className="gap-6 p-6">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="mb-4 rounded-full bg-muted p-6">
+              <Icons.CircleOff className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h2 className="text-2xl font-bold">
+              Analytics Requires an Upgrade
+            </h2>
+            <p className="mb-6 mt-2 max-w-md text-muted-foreground">
+              {!hasAccess ? (
+                <>
+                  Analytics is available on the Standard and Pro plans. Upgrade
+                  your plan to access detailed insights.
+                </>
+              ) : (
+                <>
+                  Your subscription requires attention. Please update your
+                  billing information to access analytics.
+                </>
+              )}
+            </p>
+            <Button asChild size="lg">
+              <Link href={`/dashboard/${orgId}/billing`}>
+                {!hasAccess ? "Upgrade Plan" : "Update Billing"}
+              </Link>
+            </Button>
+          </div>
+        </Shell>
+      </div>
+    );
+  }
 
   // Log timeFrame to prevent unused variable warning
   console.log(`Rendering analytics for time frame: ${timeFrame}`);

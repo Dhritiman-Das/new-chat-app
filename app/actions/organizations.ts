@@ -2,7 +2,11 @@
 
 import { getUserOrganizations } from "@/lib/queries/cached-queries";
 import { ActionResponse, appErrors } from "./types";
-import { PlanType } from "@/lib/generated/prisma";
+import {
+  BillingCycle,
+  PlanType,
+  SubscriptionStatus,
+} from "@/lib/generated/prisma";
 import { requireAuth } from "@/utils/auth";
 import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
@@ -132,6 +136,21 @@ export async function createOrganization(
           userId: user.id,
           organizationId: org.id,
           role: "OWNER",
+        },
+      });
+
+      // Create a subscription record with trial status
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 7); // 7-day trial
+
+      await tx.subscription.create({
+        data: {
+          organizationId: org.id,
+          planType: PlanType.HOBBY,
+          status: SubscriptionStatus.TRIALING, // Use a specific status for trial
+          billingCycle: BillingCycle.MONTHLY,
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: trialEndDate,
         },
       });
 

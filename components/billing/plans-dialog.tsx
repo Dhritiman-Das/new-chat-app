@@ -18,6 +18,7 @@ interface PlansDialogProps {
   onBillingCycleChange: (value: "monthly" | "yearly") => void;
   onPlanChange: (planId: string) => Promise<void>;
   loading: boolean;
+  hasSubscription?: boolean;
 }
 
 export function PlansDialog({
@@ -29,6 +30,7 @@ export function PlansDialog({
   onBillingCycleChange,
   onPlanChange,
   loading,
+  hasSubscription = false,
 }: PlansDialogProps) {
   // When a plan is selected, close the dialog after the plan change is successful
   const handlePlanChange = async (planId: string) => {
@@ -54,6 +56,7 @@ export function PlansDialog({
             onPlanChange={handlePlanChange}
             loading={loading}
             isDialog={true}
+            hasSubscription={hasSubscription}
           />
         </div>
       </DialogContent>

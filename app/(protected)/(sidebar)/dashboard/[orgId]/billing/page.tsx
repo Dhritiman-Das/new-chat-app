@@ -21,7 +21,11 @@ import {
 import { getOrganizationInvoices } from "@/lib/queries/cached-queries";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db/prisma";
-import { TransactionType } from "@/lib/generated/prisma";
+import {
+  PlanType,
+  SubscriptionStatus,
+  TransactionType,
+} from "@/lib/generated/prisma";
 
 interface BillingPageProps {
   params: Promise<{
@@ -40,7 +44,7 @@ export default async function BillingPage({ params }: BillingPageProps) {
     ? {
         id: subscription.id,
         planType: subscription.planType,
-        status: subscription.status || "inactive",
+        status: subscription.status || SubscriptionStatus.ACTIVE,
         billingCycle: subscription.billingCycle,
         currentPeriodEnd:
           subscription.currentPeriodEnd?.toISOString() ||
@@ -48,8 +52,8 @@ export default async function BillingPage({ params }: BillingPageProps) {
       }
     : {
         id: "", // Empty string for non-existent subscription
-        planType: "HOBBY", // Default plan
-        status: "inactive", // Default status for no subscription
+        planType: PlanType.HOBBY, // Default plan
+        status: SubscriptionStatus.ACTIVE, // Default status for no subscription
         billingCycle: BillingCycle.MONTHLY,
         currentPeriodEnd: new Date(
           Date.now() + 30 * 24 * 60 * 60 * 1000
@@ -252,7 +256,9 @@ export default async function BillingPage({ params }: BillingPageProps) {
   // Filter to only show agents and message_credits
   const filteredUsageWithLimits = usageWithLimits.filter(
     (usage) =>
-      usage.featureName === "agents" || usage.featureName === "message_credits"
+      usage.featureName === "agents" ||
+      usage.featureName === "message_credits" ||
+      usage.featureName === "links"
   );
 
   // Map add-ons to client format

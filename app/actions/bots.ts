@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db/prisma";
 import { toolRegistry } from "@/lib/tools";
 import { initializeTools } from "@/lib/tools";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
+import { hasAvailableBotSlots } from "@/lib/payment/bot-limit-service";
 
 // Initialize tools
 initializeTools();
@@ -119,6 +120,19 @@ export async function createBot(data: CreateBotInput): Promise<ActionResponse> {
       return {
         success: false,
         error: appErrors.UNAUTHORIZED,
+      };
+    }
+
+    // Check if the organization has available bot slots
+    const hasAvailable = await hasAvailableBotSlots(data.organizationId);
+    if (!hasAvailable) {
+      return {
+        success: false,
+        error: {
+          code: "BOT_LIMIT_EXCEEDED",
+          message:
+            "You have reached the maximum number of bots allowed for your plan. Please upgrade to create more bots.",
+        },
       };
     }
 

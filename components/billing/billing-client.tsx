@@ -35,13 +35,13 @@ const plans: Plan[] = [
     id: "hobby",
     name: "Hobby",
     description: "For individual developers and small projects",
-    priceMonthly: 19,
-    priceYearly: 190, // 2 months free
+    priceMonthly: 49,
+    priceYearly: 490, // 2 months free
     features: [
       "2 agents",
-      "500 message credits",
-      "No analytics",
+      "2,000 message credits",
       "5 website links",
+      "Limited Tools",
     ],
     buttonText: "Get Started",
     popular: false,
@@ -50,13 +50,15 @@ const plans: Plan[] = [
     id: "standard",
     name: "Standard",
     description: "For growing teams and businesses",
-    priceMonthly: 49,
-    priceYearly: 490, // 2 months free
+    priceMonthly: 129,
+    priceYearly: 1290, // 2 months free
     features: [
+      "Everything from Hobby",
       "5 agents",
-      "2,000 message credits",
+      "12,000 message credits",
       "Basic analytics",
       "25 website links",
+      "All Tools",
     ],
     buttonText: "Subscribe",
     popular: true,
@@ -65,13 +67,15 @@ const plans: Plan[] = [
     id: "pro",
     name: "Pro",
     description: "For larger organizations with advanced needs",
-    priceMonthly: 99,
-    priceYearly: 990, // 2 months free
+    priceMonthly: 249,
+    priceYearly: 2490, // 2 months free
     features: [
+      "Everything from Standard",
       "15 agents",
       "10,000 message credits",
       "Advanced analytics",
       "100 website links",
+      "All Tools",
     ],
     buttonText: "Go Pro",
     popular: false,
@@ -84,7 +88,7 @@ interface BillingClientProps {
     subscription: {
       id: string;
       planType: string;
-      status: SubscriptionStatus | string;
+      status: SubscriptionStatus;
       billingCycle: string;
       currentPeriodEnd: string;
     };
@@ -218,7 +222,7 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
       // Update local state
       setSubscription({
         ...subscription,
-        status: "canceling",
+        status: SubscriptionStatus.CANCELED,
       });
 
       router.refresh();
@@ -250,7 +254,7 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
       // Update local state
       setSubscription({
         ...subscription,
-        status: "active",
+        status: SubscriptionStatus.ACTIVE,
         // If we have a new subscription ID, update it
         ...(result && result.newSubscription
           ? { id: result.subscriptionId }
@@ -471,6 +475,7 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
         onBillingCycleChange={setBillingCycle}
         onPlanChange={handlePlanChange}
         loading={loading}
+        hasSubscription={!!subscription.id}
       />
     </div>
   );

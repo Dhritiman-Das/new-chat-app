@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { getBotUsageInfo } from "@/lib/payment/bot-limit-service";
 
 interface PageProps {
   params: Promise<{ orgId: string }>;
@@ -23,6 +24,9 @@ export default async function NewBotPage({ params }: PageProps) {
 
   // Fetch organizations server side
   const { data: organizations } = await getUserOrganizations();
+
+  // Fetch bot usage information
+  const botUsageInfo = await getBotUsageInfo(orgId);
 
   return (
     <div>
@@ -67,7 +71,11 @@ export default async function NewBotPage({ params }: PageProps) {
         </div>
 
         <div className="w-full">
-          <NewBotForm organizations={organizations} orgId={orgId} />
+          <NewBotForm
+            organizations={organizations}
+            orgId={orgId}
+            botUsageInfo={botUsageInfo}
+          />
         </div>
       </div>
     </div>

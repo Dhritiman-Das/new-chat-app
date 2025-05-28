@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -65,6 +66,18 @@ export default function ChatInterface({
       if (newConversationId) {
         setConversationId(newConversationId);
       }
+    },
+    onError: (error) => {
+      console.error("Chat error:", JSON.stringify(error, null, 2));
+      // Extract the error message from JSON if it's in that format
+      let errorMessage = error.message;
+
+      const parsedError = JSON.parse(error.message);
+      if (parsedError.error) {
+        errorMessage = parsedError.error;
+      }
+
+      toast.error(errorMessage || "An unexpected error occurred");
     },
   });
 

@@ -74,8 +74,6 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (error) {
-    console.error("Chat API error:", error);
-
     // Add CORS headers to error response
     const headers = new Headers();
     const url = new URL(req.url);
@@ -83,7 +81,9 @@ export async function POST(req: NextRequest) {
     const botId = url.searchParams.get("botId");
 
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: error instanceof Error ? error.message : "Internal server error",
+      },
       {
         status: 500,
         headers: await addCorsHeaders(

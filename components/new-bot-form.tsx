@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -37,6 +38,7 @@ import Link from "next/link";
 import { createBot } from "@/app/actions/bots";
 import { ActionResponse } from "@/app/actions/types";
 import { TemplateDialog } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/settings/template-dialog";
+import { UsageIndicator } from "@/components/usage-indicator";
 
 const formSchema = z.object({
   name: z.string().min(2, "Bot name must be at least 2 characters"),
@@ -58,12 +60,24 @@ interface Organization {
   role: string;
 }
 
+interface BotUsageInfo {
+  limit: number;
+  usage: number;
+  available: number;
+  hasAvailable: boolean;
+}
+
 interface NewBotFormProps {
   organizations: Organization[];
   orgId?: string;
+  botUsageInfo?: BotUsageInfo;
 }
 
-export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
+export default function NewBotForm({
+  organizations,
+  orgId,
+  botUsageInfo,
+}: NewBotFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orgIdFromQuery = searchParams.get("org");
@@ -104,6 +118,7 @@ export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
       const result = (await createBot(data)) as unknown as ActionResponse<{
         id: string;
       }>;
+
       if (result && result.success) {
         // Keep loading state active during redirection
         router.push(
@@ -113,11 +128,24 @@ export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
         return;
       } else {
         console.error("Error creating bot:", result?.error);
-        form.setError("root", {
-          message:
-            result?.error?.message ||
-            "An error occurred while creating the bot",
-        });
+
+        // Check for specific error codes
+        if (result?.error?.code === "BOT_LIMIT_EXCEEDED") {
+          toast.error("Bot limit exceeded", {
+            description: result.error.message,
+            action: {
+              label: "Go to Billing",
+              onClick: () =>
+                router.push(`/dashboard/${data.organizationId}/billing`),
+            },
+          });
+        } else {
+          form.setError("root", {
+            message:
+              result?.error?.message ||
+              "An error occurred while creating the bot",
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to create bot:", error);
@@ -129,6 +157,9 @@ export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
     // Only reset loading state if there was an error
     setIsLoading(false);
   }
+
+  // Check if limit is reached
+  const isLimitReached = botUsageInfo && botUsageInfo.available <= 0;
 
   return (
     <Card>
@@ -244,15 +275,30 @@ export default function NewBotForm({ organizations, orgId }: NewBotFormProps) {
               </div>
             )}
           </CardContent>
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex justify-between items-center mt-4">
             <Button variant="outline" asChild disabled={isLoading}>
               <Link href={orgId ? `/dashboard/${orgId}/bots` : "/bots"}>
                 Cancel
               </Link>
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Creating..." : "Create Bot"}
-            </Button>
+
+            <div className="flex items-center gap-2">
+              {botUsageInfo && (
+                <UsageIndicator
+                  usage={botUsageInfo.usage}
+                  limit={botUsageInfo.limit}
+                  available={botUsageInfo.available}
+                  label="Agents"
+                  redirectUrl={`/dashboard/${selectedOrgId}/billing`}
+                  size="md"
+                  tooltipSide="top"
+                />
+              )}
+
+              <Button type="submit" disabled={isLoading || isLimitReached}>
+                {isLoading ? "Creating..." : "Create Bot"}
+              </Button>
+            </div>
           </CardFooter>
         </form>
       </Form>

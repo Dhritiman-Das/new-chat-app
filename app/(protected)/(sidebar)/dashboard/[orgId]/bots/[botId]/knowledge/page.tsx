@@ -28,6 +28,11 @@ import {
   KnowledgeFile,
   WebsiteSource,
 } from "@/lib/types/prisma";
+import {
+  getOrganizationUsage,
+  getPlanLimits,
+} from "@/lib/payment/billing-service";
+import { PlanType } from "@/lib/generated/prisma";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -74,6 +79,25 @@ export default async function KnowledgePage({ params }: PageProps) {
       websiteSources: [] as WebsiteSource[],
     };
   }
+
+  // Fetch website link usage and limits
+  const [usageData, subscription] = await Promise.all([
+    getOrganizationUsage(orgId),
+    prisma.subscription.findUnique({
+      where: { organizationId: orgId },
+      select: { planType: true },
+    }),
+  ]);
+
+  // Get plan limits based on subscription plan
+  const planType = subscription?.planType || PlanType.HOBBY;
+  const planLimits = await getPlanLimits(planType);
+
+  // Find links feature usage and limit
+  const linksUsage =
+    usageData.find((item) => item.featureName === "links")?.usage || 0;
+  const linksLimit =
+    planLimits.find((item) => item.featureName === "links")?.value || 0;
 
   return (
     <div>
@@ -177,6 +201,8 @@ export default async function KnowledgePage({ params }: PageProps) {
                   botId={botId}
                   orgId={orgId}
                   knowledgeBaseId={defaultKnowledgeBase.id}
+                  websiteLinkLimit={linksLimit}
+                  websiteLinkUsage={linksUsage}
                 />
               </CardContent>
             </Card>

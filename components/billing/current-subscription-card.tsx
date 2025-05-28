@@ -13,12 +13,13 @@ import {
 } from "@/components/ui/card";
 import { CancelSubscriptionDialog } from "./cancel-subscription-dialog";
 import { ReactivateSubscriptionDialog } from "./reactivate-subscription-dialog";
+import { SubscriptionStatus } from "@/lib/generated/prisma";
 
 interface CurrentSubscriptionCardProps {
   subscription: {
     id: string;
     planType: string;
-    status: string;
+    status: SubscriptionStatus;
     billingCycle: string;
     currentPeriodEnd: Date;
   };
@@ -39,8 +40,32 @@ export function CurrentSubscriptionCard({
   const [showReactivateDialog, setShowReactivateDialog] = useState(false);
 
   const isCanceled =
-    subscription.status === "canceled" || subscription.status === "canceling";
-  const isActive = subscription.status === "active";
+    subscription.status === SubscriptionStatus.CANCELED ||
+    subscription.status === SubscriptionStatus.PAUSED;
+  const isActive = subscription.status === SubscriptionStatus.ACTIVE;
+
+  const getBadgeColor = (status: SubscriptionStatus) => {
+    switch (status) {
+      case SubscriptionStatus.ACTIVE:
+        return "default";
+      case SubscriptionStatus.CANCELED:
+        return "destructive";
+      case SubscriptionStatus.EXPIRED:
+        return "destructive";
+      case SubscriptionStatus.PAST_DUE:
+        return "destructive";
+      case SubscriptionStatus.UNPAID:
+        return "destructive";
+      case SubscriptionStatus.TRIALING:
+        return "default";
+      case SubscriptionStatus.PENDING:
+        return "default";
+      case SubscriptionStatus.PAUSED:
+        return "default";
+      default:
+        return "default";
+    }
+  };
 
   return (
     <>
@@ -60,7 +85,7 @@ export function CurrentSubscriptionCard({
                   {subscription.planType}
                 </p>
               </div>
-              <Badge variant={isActive ? "default" : "destructive"}>
+              <Badge variant={getBadgeColor(subscription.status)}>
                 {subscription.status}
               </Badge>
             </div>

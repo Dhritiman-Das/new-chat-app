@@ -76,6 +76,7 @@ export function UsageTab({
     const displayNames: Record<string, string> = {
       agents: "AI Agents",
       message_credits: "Message Credits",
+      links: "Website Links",
     };
 
     return displayNames[featureName] || featureName.replace(/_/g, " ");
@@ -86,6 +87,8 @@ export function UsageTab({
     const descriptions: Record<string, string> = {
       agents: "Number of AI agents you can create and manage",
       message_credits: "Credits available for AI message generation",
+      links:
+        "Number of website links that can be scraped for your knowledge bases",
     };
 
     return descriptions[featureName] || "";
