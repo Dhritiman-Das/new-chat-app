@@ -51,8 +51,9 @@ export async function processWordDocument(
   buffer: ArrayBuffer
 ): Promise<string> {
   try {
-    // Use mammoth to extract text from the Word document
-    const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+    // Convert ArrayBuffer to Buffer and use mammoth to extract text
+    const nodeBuffer = Buffer.from(buffer);
+    const result = await mammoth.extractRawText({ buffer: nodeBuffer });
     return result.value || ""; // Return empty string if value is undefined
   } catch (error) {
     console.error("Error processing Word document:", error);

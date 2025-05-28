@@ -30,11 +30,11 @@ import {
   DrawerClose,
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
-import { Download, FileText, Loader2 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { InvoicePDFViewer } from "./invoice-pdf-viewer";
-import { fetchInvoicePDF } from "@/app/actions/invoice";
-import { toast } from "sonner";
+// import {Loader2 } from "lucide-react";
+// import { Dialog, DialogContent } from "@/components/ui/dialog";
+// import { InvoicePDFViewer } from "./invoice-pdf-viewer";
+// import { fetchInvoicePDF } from "@/app/actions/invoice";
+// import { toast } from "sonner";
 
 interface InvoicesTabProps {
   invoices: (Invoice & {
@@ -216,12 +216,12 @@ function InvoiceDetailsDrawer({
   isOpen,
   onClose,
 }: InvoiceDetailsDrawerProps) {
-  const [isPdfLoading, setIsPdfLoading] = useState(false);
-  const [pdfData, setPdfData] = useState<{
-    pdfBase64: string;
-    contentType: string;
-  } | null>(null);
-  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  // const [isPdfLoading, setIsPdfLoading] = useState(false);
+  // const [pdfData, setPdfData] = useState<{
+  //   pdfBase64: string;
+  //   contentType: string;
+  // } | null>(null);
+  // const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   if (!invoice) return null;
 
@@ -245,66 +245,66 @@ function InvoiceDetailsDrawer({
     }
   };
 
-  const handleDownloadInvoice = () => {
-    if (invoice.invoiceUrl) {
-      window.open(invoice.invoiceUrl, "_blank");
-    }
-  };
+  // const handleDownloadInvoice = () => {
+  //   if (invoice.invoiceUrl) {
+  //     window.open(invoice.invoiceUrl, "_blank");
+  //   }
+  // };
 
-  const handleViewPdf = async () => {
-    // If we already have the PDF data, just open the modal
-    if (pdfData) {
-      setIsPdfModalOpen(true);
-      return;
-    }
+  // const handleViewPdf = async () => {
+  //   // If we already have the PDF data, just open the modal
+  //   if (pdfData) {
+  //     setIsPdfModalOpen(true);
+  //     return;
+  //   }
 
-    // Get the payment ID from paymentIntent or externalId
-    const paymentId = invoice.paymentIntent || invoice.externalId;
+  //   // Get the payment ID from paymentIntent or externalId
+  //   const paymentId = invoice.paymentIntent || invoice.externalId;
 
-    if (!paymentId) {
-      toast.error("Cannot view invoice: Missing payment reference");
-      return;
-    }
+  //   if (!paymentId) {
+  //     toast.error("Cannot view invoice: Missing payment reference");
+  //     return;
+  //   }
 
-    setIsPdfLoading(true);
+  //   setIsPdfLoading(true);
 
-    try {
-      const result = await fetchInvoicePDF({ paymentId });
+  //   try {
+  //     const result = await fetchInvoicePDF({ paymentId });
 
-      // Check if the result has the expected structure
-      if (result?.data?.success) {
-        const responseData = result.data.data;
-        console.log({ responseData });
-        // Check if responseData has the expected structure
-        if (
-          responseData &&
-          typeof responseData === "object" &&
-          "pdfBase64" in responseData &&
-          "contentType" in responseData
-        ) {
-          setPdfData({
-            pdfBase64: responseData.pdfBase64 as string,
-            contentType: responseData.contentType as string,
-          });
-          setIsPdfModalOpen(true);
-        } else {
-          toast.error("Invalid PDF data format");
-        }
-      } else {
-        // Extract error message if available
-        let errorMessage = "Failed to load invoice PDF";
-        if (result?.data?.error) {
-          errorMessage = result.data.error.message;
-        }
-        toast.error(errorMessage);
-      }
-    } catch (error) {
-      toast.error("An error occurred while loading the invoice PDF");
-      console.error(error);
-    } finally {
-      setIsPdfLoading(false);
-    }
-  };
+  //     // Check if the result has the expected structure
+  //     if (result?.data?.success) {
+  //       const responseData = result.data.data;
+  //       console.log({ responseData });
+  //       // Check if responseData has the expected structure
+  //       if (
+  //         responseData &&
+  //         typeof responseData === "object" &&
+  //         "pdfBase64" in responseData &&
+  //         "contentType" in responseData
+  //       ) {
+  //         setPdfData({
+  //           pdfBase64: responseData.pdfBase64 as string,
+  //           contentType: responseData.contentType as string,
+  //         });
+  //         setIsPdfModalOpen(true);
+  //       } else {
+  //         toast.error("Invalid PDF data format");
+  //       }
+  //     } else {
+  //       // Extract error message if available
+  //       let errorMessage = "Failed to load invoice PDF";
+  //       if (result?.data?.error) {
+  //         errorMessage = result.data.error.message;
+  //       }
+  //       toast.error(errorMessage);
+  //     }
+  //   } catch (error) {
+  //     toast.error("An error occurred while loading the invoice PDF");
+  //     console.error(error);
+  //   } finally {
+  //     setIsPdfLoading(false);
+  //   }
+  // };
 
   return (
     <>
@@ -398,7 +398,7 @@ function InvoiceDetailsDrawer({
             </div>
 
             <DrawerFooter className="pt-2 space-y-2">
-              <Button
+              {/* <Button
                 onClick={handleViewPdf}
                 className="w-full"
                 disabled={isPdfLoading}
@@ -425,7 +425,7 @@ function InvoiceDetailsDrawer({
                   <Download className="mr-2 h-4 w-4" />
                   Download Original
                 </Button>
-              )}
+              )} */}
 
               <DrawerClose asChild>
                 <Button variant="outline">Close</Button>
@@ -435,7 +435,7 @@ function InvoiceDetailsDrawer({
         </DrawerContent>
       </Drawer>
 
-      <Dialog open={isPdfModalOpen} onOpenChange={setIsPdfModalOpen}>
+      {/* <Dialog open={isPdfModalOpen} onOpenChange={setIsPdfModalOpen}>
         <DialogContent className="max-w-4xl w-full">
           {pdfData ? (
             <InvoicePDFViewer
@@ -450,7 +450,7 @@ function InvoiceDetailsDrawer({
             </div>
           )}
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
     </>
   );
 }

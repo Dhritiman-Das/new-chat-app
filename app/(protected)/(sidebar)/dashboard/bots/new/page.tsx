@@ -13,20 +13,10 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { getBotUsageInfo } from "@/lib/payment/bot-limit-service";
 
-interface PageProps {
-  params: Promise<{ orgId: string }>;
-}
-
-export default async function NewBotPage({ params }: PageProps) {
-  const { orgId } = await params;
-
+export default async function NewBotPage() {
   // Fetch organizations server side
   const { data: organizations } = await getUserOrganizations();
-
-  // Fetch bot usage information
-  const botUsageInfo = await getBotUsageInfo(orgId);
 
   return (
     <div>
@@ -41,21 +31,11 @@ export default async function NewBotPage({ params }: PageProps) {
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbLink href={`/dashboard/${orgId}`}>
-                  Dashboard
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbLink href={`/dashboard/${orgId}`}>
-                  {orgId}
-                </BreadcrumbLink>
+                <BreadcrumbLink href={`/dashboard`}>Dashboard</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbLink href={`/dashboard/${orgId}/bots`}>
-                  Bots
-                </BreadcrumbLink>
+                <BreadcrumbLink href={`/dashboard/bots`}>Bots</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
@@ -69,7 +49,7 @@ export default async function NewBotPage({ params }: PageProps) {
       <div className="p-6 space-y-6">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" asChild>
-            <Link href={`/dashboard/${orgId}/bots`}>
+            <Link href={`/dashboard/bots`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -77,11 +57,7 @@ export default async function NewBotPage({ params }: PageProps) {
         </div>
 
         <div className="w-full">
-          <NewBotForm
-            organizations={organizations}
-            orgId={orgId}
-            botUsageInfo={botUsageInfo}
-          />
+          <NewBotForm organizations={organizations} />
         </div>
       </div>
     </div>

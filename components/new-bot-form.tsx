@@ -277,7 +277,9 @@ export default function NewBotForm({
           </CardContent>
           <CardFooter className="flex justify-between items-center mt-4">
             <Button variant="outline" asChild disabled={isLoading}>
-              <Link href={orgId ? `/dashboard/${orgId}/bots` : "/bots"}>
+              <Link
+                href={orgId ? `/dashboard/${orgId}/bots` : "/dashboard/bots"}
+              >
                 Cancel
               </Link>
             </Button>
