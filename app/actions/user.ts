@@ -5,8 +5,8 @@ import { z } from "zod";
 import { ActionResponse, appErrors } from "@/app/actions/types";
 import { prisma } from "@/lib/db/prisma";
 import { revalidateTag } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireAuth } from "@/utils/auth";
+import { createServiceRoleClient } from "@/utils/supabase/server";
 
 // Create safe action client
 const action = createSafeActionClient();
@@ -62,19 +62,32 @@ export const updateProfile = action
 // Delete user account
 export const deleteAccount = action
   .schema(deleteAccountSchema)
-  .action(async (): Promise<ActionResponse> => {
+  .action(async (): Promise<ActionResponse<{ redirectUrl: string }>> => {
     try {
       const user = await requireAuth();
 
-      // Delete the user
+      // Delete the user from the database
       await prisma.user.delete({
         where: {
           id: user.id,
         },
       });
 
-      // Redirect to sign out
-      redirect("/auth/signout");
+      // Create a Supabase client with service role key for admin operations
+      const supabase = await createServiceRoleClient();
+
+      // Delete the user from Supabase auth system
+      const { error } = await supabase.auth.admin.deleteUser(user.id);
+
+      if (error) {
+        throw new Error(`Failed to delete auth user: ${error.message}`);
+      }
+
+      // Return success with redirect URL instead of calling redirect()
+      return {
+        success: true,
+        data: { redirectUrl: "/sign-in" },
+      };
     } catch (error) {
       console.error("Error deleting account:", error);
       return {

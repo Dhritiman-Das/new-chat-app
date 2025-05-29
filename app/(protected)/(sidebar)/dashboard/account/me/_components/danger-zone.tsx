@@ -25,8 +25,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { deleteAccount } from "@/app/actions/user";
+import { useRouter } from "next/navigation";
 
 export function DangerZone() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -34,7 +36,11 @@ export function DangerZone() {
   const handleDeleteAccount = async () => {
     setIsLoading(true);
     try {
-      await deleteAccount({ confirmDelete: true });
+      const result = await deleteAccount({ confirmDelete: true });
+      if (result?.data?.success) {
+        router.push(result.data.data?.redirectUrl ?? "/sign-in");
+      }
+
       // Redirect happens in the server action
     } catch (error) {
       console.error("Error deleting account:", error);

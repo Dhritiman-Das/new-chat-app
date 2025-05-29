@@ -108,8 +108,8 @@ const UsageIndicator: FC<UsageIndicatorProps> = ({
           innerRadius={innerRadius}
           outerRadius={outerRadius}
           barSize={6}
-          startAngle={90}
-          endAngle={maxAngle}
+          startAngle={-90}
+          endAngle={maxAngle - 90}
         >
           <PolarGrid radialLines={false} gridType="circle" />
           <RadialBar background dataKey="value" cornerRadius={10} />

@@ -36,7 +36,7 @@ export default function WelcomePage() {
               transition={{ delay: 0.2, duration: 0.5 }}
             >
               <CardTitle className="text-3xl font-bold mb-3">
-                Welcome to AI Bots!
+                Welcome to Bonti!
               </CardTitle>
               <p className="text-muted-foreground">
                 Let&apos;s get you set up with everything you need to start
