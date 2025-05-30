@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/db/prisma";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
 import crypto from "crypto";
+import { env } from "@/src/env";
 
 // Encryption implementation using Node.js crypto
 // In a real app, consider using a dedicated key management system
 // and rotating encryption keys periodically
 function encryptData(data: Record<string, unknown>): Record<string, unknown> {
   try {
-    const encryptionKey = process.env.CREDENTIALS_ENCRYPTION_KEY;
+    const encryptionKey = env.CREDENTIALS_ENCRYPTION_KEY;
     if (!encryptionKey || encryptionKey.length < 32) {
       console.warn(
         "Warning: Missing or insufficient encryption key. Using unencrypted storage."
@@ -52,7 +53,7 @@ function decryptData(data: Record<string, unknown>): Record<string, unknown> {
       return data;
     }
 
-    const encryptionKey = process.env.CREDENTIALS_ENCRYPTION_KEY;
+    const encryptionKey = env.CREDENTIALS_ENCRYPTION_KEY;
     if (!encryptionKey || encryptionKey.length < 32) {
       console.warn("Warning: Missing or insufficient decryption key.");
       return data;

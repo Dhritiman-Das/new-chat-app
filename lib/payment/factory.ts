@@ -1,5 +1,6 @@
 import { PaymentProvider } from "./types";
 import { DodoPaymentsProvider } from "./dodo-provider";
+import { env } from "@/src/env";
 
 // This type allows us to extend with other payment providers later
 export type PaymentProviderType = "dodo" | "stripe" | "paddle";
@@ -51,7 +52,6 @@ export function getPaymentProvider(
  * Reads from environment variables
  */
 export function getActivePaymentProvider(): PaymentProvider {
-  const providerType = (process.env.PAYMENT_PROVIDER ||
-    "dodo") as PaymentProviderType;
+  const providerType = env.PAYMENT_PROVIDER as PaymentProviderType;
   return getPaymentProvider(providerType);
 }

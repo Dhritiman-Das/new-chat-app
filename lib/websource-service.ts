@@ -7,6 +7,7 @@ import { ScrapingStatus, EmbeddingStatus } from "./generated/prisma";
 import { getVectorDb } from "./vectordb";
 import { splitDocument } from "./vectordb/utils";
 import { prisma } from "./db/prisma";
+import { env } from "@/src/env";
 
 // Abstract crawler interface to support different providers in the future
 interface WebCrawler {
@@ -45,7 +46,7 @@ class FirecrawlCrawler implements WebCrawler {
   constructor(apiKey?: string) {
     // Use the API key from env if not provided
     this.client = new FirecrawlApp({
-      apiKey: apiKey || (process.env.FIRECRAWL_API_KEY as string),
+      apiKey: apiKey || env.FIRECRAWL_API_KEY,
     });
   }
 

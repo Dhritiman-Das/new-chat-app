@@ -1,16 +1,17 @@
 /**
  * OAuth provider configurations
  */
+import { env } from "@/src/env";
 
 // GoHighLevel configuration
 export const gohighlevelConfig = {
   apiEndpoint: "https://services.leadconnectorhq.com",
-  clientId: process.env.NEXT_PUBLIC_GOHIGHLEVEL_CLIENT_ID || "",
-  clientSecret: process.env.GOHIGHLEVEL_CLIENT_SECRET || "",
+  clientId: env.NEXT_PUBLIC_GOHIGHLEVEL_CLIENT_ID,
+  clientSecret: env.GOHIGHLEVEL_CLIENT_SECRET,
   apiVersion: "2021-04-15",
   authEndpoint: "https://marketplace.gohighlevel.com/oauth/chooselocation",
   tokenEndpoint: "https://services.leadconnectorhq.com/oauth/token",
-  redirectUri: process.env.NEXT_PUBLIC_GOHIGHLEVEL_OAUTH_REDIRECT_URL!,
+  redirectUri: env.NEXT_PUBLIC_GOHIGHLEVEL_OAUTH_REDIRECT_URL,
   scopes: [
     "calendars.readonly",
     "calendars.write",
@@ -55,11 +56,11 @@ T1hhTiaCeIY/OwwwNUY2yvcCAwEAAQ==
 // Google configuration
 export const googleConfig = {
   apiEndpoint: "https://www.googleapis.com",
-  clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+  clientId: env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+  clientSecret: env.GOOGLE_CLIENT_SECRET,
   authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
   tokenEndpoint: "https://oauth2.googleapis.com/token",
-  redirectUri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/google`,
+  redirectUri: `${env.NEXT_PUBLIC_APP_URL}/api/auth/callback/google`,
   calendarScopes: [
     "https://www.googleapis.com/auth/calendar",
     "https://www.googleapis.com/auth/calendar.events",
@@ -69,12 +70,12 @@ export const googleConfig = {
 
 // Slack configuration
 export const slackConfig = {
-  clientId: process.env.NEXT_PUBLIC_SLACK_CLIENT_ID!,
-  clientSecret: process.env.SLACK_CLIENT_SECRET!,
-  redirectUri: process.env.NEXT_PUBLIC_SLACK_OAUTH_REDIRECT_URL!,
-  signingSecret: process.env.SLACK_SIGNING_SECRET!,
-  stateSecret: process.env.SLACK_STATE_SECRET!,
-  appId: process.env.NEXT_PUBLIC_SLACK_APP_ID!,
+  clientId: env.NEXT_PUBLIC_SLACK_CLIENT_ID,
+  clientSecret: env.SLACK_CLIENT_SECRET,
+  redirectUri: env.NEXT_PUBLIC_SLACK_OAUTH_REDIRECT_URL,
+  signingSecret: env.SLACK_SIGNING_SECRET,
+  stateSecret: env.SLACK_STATE_SECRET,
+  appId: env.NEXT_PUBLIC_SLACK_APP_ID,
   authEndpoint: "https://slack.com/oauth/v2/authorize",
   tokenEndpoint: "https://slack.com/api/oauth.v2.access",
   scopes: [

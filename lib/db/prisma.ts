@@ -1,5 +1,6 @@
 // lib/db/prisma.ts
 import { PrismaClient } from "@/lib/generated/prisma";
+import { env } from "@/src/env";
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
@@ -11,11 +12,9 @@ export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     log:
-      process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
-        : ["error"],
+      env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export default prisma;

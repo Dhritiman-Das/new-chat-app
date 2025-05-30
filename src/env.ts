@@ -47,6 +47,9 @@ export const env = createEnv({
     SLACK_CLIENT_SECRET: z.string().min(1),
     SLACK_SIGNING_SECRET: z.string().min(1),
     SLACK_STATE_SECRET: z.string().min(1),
+
+    // Node environment
+    NODE_ENV: z.enum(["development", "production"]).default("development"),
   },
 
   /**

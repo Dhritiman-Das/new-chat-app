@@ -17,6 +17,7 @@ import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import { InputJsonValue } from "../generated/prisma/runtime/library";
 import { getUser } from "@/utils/auth";
+import { env } from "@/src/env";
 
 const prisma = new PrismaClient();
 
@@ -127,16 +128,16 @@ export async function getProductId(
   // Define the mapping of plan ID and billing cycle to product ID
   const productMapping: Record<string, Record<string, string>> = {
     hobby: {
-      monthly: process.env.PRODUCT_ID_HOBBY_MONTHLY!,
-      yearly: process.env.PRODUCT_ID_HOBBY_YEARLY!,
+      monthly: env.PRODUCT_ID_HOBBY_MONTHLY,
+      yearly: env.PRODUCT_ID_HOBBY_YEARLY,
     },
     standard: {
-      monthly: process.env.PRODUCT_ID_STANDARD_MONTHLY!,
-      yearly: process.env.PRODUCT_ID_STANDARD_YEARLY!,
+      monthly: env.PRODUCT_ID_STANDARD_MONTHLY,
+      yearly: env.PRODUCT_ID_STANDARD_YEARLY,
     },
     pro: {
-      monthly: process.env.PRODUCT_ID_PRO_MONTHLY!,
-      yearly: process.env.PRODUCT_ID_PRO_YEARLY!,
+      monthly: env.PRODUCT_ID_PRO_MONTHLY,
+      yearly: env.PRODUCT_ID_PRO_YEARLY,
     },
   };
 
@@ -247,11 +248,13 @@ export async function createSubscriptionForOrganization(
       customer: finalCustomer,
       billingAddress,
       billingCycle,
-      returnUrl,
       metadata: {
         organizationId,
         planType,
       },
+      returnUrl:
+        returnUrl ||
+        `${env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/settings/billing?success=true`,
     });
 
     // Store the customer ID if we get one back from the subscription creation
@@ -375,7 +378,7 @@ export async function updateOrganizationSubscription(
           organizationId,
           planType,
         },
-        returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/settings/billing?success=true`,
+        returnUrl: `${env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/settings/billing?success=true`,
       });
 
       // Store the customer ID if we got one back

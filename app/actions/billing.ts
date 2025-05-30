@@ -5,6 +5,7 @@ import { createSafeActionClient } from "next-safe-action";
 import { getActivePaymentProvider } from "@/lib/payment/factory";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
+import { env } from "@/src/env";
 
 // Create safe action client
 const action = createSafeActionClient();
@@ -87,7 +88,7 @@ export const purchaseCreditPack = action
           country: "US",
           zipcode: "10001",
         },
-        productId: process.env.PRODUCT_ID_CREDIT_PACK || "", // Should be configured in env
+        productId: env.PRODUCT_ID_CREDIT_PACK,
         description: `${totalCredits} Message Credits`,
         metadata: {
           organizationId,
@@ -97,7 +98,7 @@ export const purchaseCreditPack = action
         },
         returnUrl:
           returnUrl ||
-          `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/billing?tab=usage&success=true`,
+          `${env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/billing?tab=usage&success=true`,
       });
 
       return {
@@ -199,7 +200,7 @@ export const purchaseCreditsWithPayment = action
           country: "US",
           zipcode: "10001",
         },
-        productId: process.env.PRODUCT_ID_CREDIT_PACK || "", // Should be configured in env
+        productId: env.PRODUCT_ID_CREDIT_PACK,
         description: `${creditAmount} Message Credits`,
         metadata: {
           organizationId,
@@ -208,7 +209,7 @@ export const purchaseCreditsWithPayment = action
         },
         returnUrl:
           returnUrl ||
-          `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/billing?tab=usage&success=true`,
+          `${env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/billing?tab=usage&success=true`,
       });
 
       return {

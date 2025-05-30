@@ -21,6 +21,7 @@ import { getEmbeddings } from "../../embedding";
 import { truncateStringByBytes } from "../../utils";
 import * as pineconeUtils from "./utils";
 import { VectorDbService } from "../..";
+import { env } from "@/src/env";
 
 // Default namespace
 enum Namespace {
@@ -35,7 +36,7 @@ export class PineconeVectorDb implements VectorDbService {
   constructor(config: Partial<VectorDbConfig> = {}) {
     // Default configuration
     this.config = {
-      indexName: process.env.PINECONE_INDEX || "default-index",
+      indexName: env.PINECONE_INDEX,
       namespace: Namespace.default,
       dimensions: 1536, // OpenAI embedding dimensions
       chunkSize: 500,
@@ -48,7 +49,7 @@ export class PineconeVectorDb implements VectorDbService {
 
     // Initialize Pinecone client
     this.pinecone = new Pinecone({
-      apiKey: process.env.PINECONE_API_KEY!,
+      apiKey: env.PINECONE_API_KEY,
     });
   }
 

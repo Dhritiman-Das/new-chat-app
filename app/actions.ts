@@ -4,6 +4,7 @@ import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { env } from "@/src/env";
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
@@ -61,7 +62,7 @@ export const signInWithGoogleAction = async () => {
   const { error, data } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?redirect_to=/dashboard/bots`,
+      redirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/callback?redirect_to=/dashboard/bots`,
     },
   });
   console.log({ error, data });

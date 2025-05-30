@@ -1,7 +1,8 @@
 import { createHmac } from "node:crypto";
+import { env } from "@/src/env";
 
 export async function verifySlackWebhook(req: Request) {
-  const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
+  const SLACK_SIGNING_SECRET = env.SLACK_SIGNING_SECRET;
 
   if (!SLACK_SIGNING_SECRET) {
     throw new Error("SLACK_SIGNING_SECRET is not set");

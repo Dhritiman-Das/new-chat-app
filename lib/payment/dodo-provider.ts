@@ -13,6 +13,7 @@ import {
 import { CountryCode } from "dodopayments/resources/misc.mjs";
 import { PaymentCreateParams } from "dodopayments/resources/payments.mjs";
 import { SubscriptionStatus } from "../generated/prisma";
+import { env } from "@/src/env";
 
 // Define interface for customer creation
 interface CreateCustomerOptions {
@@ -33,7 +34,7 @@ export class DodoPaymentsProvider implements PaymentProvider {
 
   constructor() {
     // Initialize Dodo Payments client
-    const apiKey = process.env.DODO_PAYMENTS_API_KEY;
+    const apiKey = env.DODO_PAYMENTS_API_KEY;
     if (!apiKey) {
       throw new Error("DODO_API_KEY environment variable is not set");
     }
@@ -44,7 +45,7 @@ export class DodoPaymentsProvider implements PaymentProvider {
     });
 
     // Initialize webhook verification
-    const webhookKey = process.env.DODO_WEBHOOK_KEY;
+    const webhookKey = env.DODO_WEBHOOK_KEY;
     if (!webhookKey) {
       throw new Error("DODO_WEBHOOK_KEY environment variable is not set");
     }

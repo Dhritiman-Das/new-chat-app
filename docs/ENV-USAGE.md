@@ -62,7 +62,7 @@ client: {
 
 // If using Next.js >= 13.4.4, add client vars to experimental__runtimeEnv:
 experimental__runtimeEnv: {
-  NEXT_PUBLIC_MY_NEW_CLIENT_VAR: process.env.NEXT_PUBLIC_MY_NEW_CLIENT_VAR,
+  NEXT_PUBLIC_MY_NEW_CLIENT_VAR: env.NEXT_PUBLIC_MY_NEW_CLIENT_VAR,
 },
 ```
 

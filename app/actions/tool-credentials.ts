@@ -12,6 +12,7 @@ import {
   getAuthUrl,
   gohighlevelConfig,
 } from "@/lib/auth/config/providers-config";
+import { env } from "@/src/env";
 
 const actionClient = createSafeActionClient();
 
@@ -147,7 +148,7 @@ export const connectGoogleCalendar = actionClient
         const cookieStore = await cookies();
         cookieStore.set("oauth_state", stateToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
+          secure: env.NODE_ENV === "production",
           sameSite: "lax",
           maxAge: 60 * 10, // 10 minutes
           path: "/",
@@ -159,7 +160,7 @@ export const connectGoogleCalendar = actionClient
           JSON.stringify({ toolId, botId, orgId }),
           {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
+            secure: env.NODE_ENV === "production",
             sameSite: "lax",
             maxAge: 60 * 10, // 10 minutes
             path: "/",
@@ -284,7 +285,7 @@ export const connectGoHighLevel = actionClient
         const cookieStore = await cookies();
         cookieStore.set("oauth_state", stateToken, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
+          secure: env.NODE_ENV === "production",
           sameSite: "lax",
           maxAge: 60 * 10, // 10 minutes
           path: "/",
@@ -296,7 +297,7 @@ export const connectGoHighLevel = actionClient
           JSON.stringify({ toolId, botId, orgId }),
           {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
+            secure: env.NODE_ENV === "production",
             sameSite: "lax",
             maxAge: 60 * 10, // 10 minutes
             path: "/",
@@ -305,8 +306,7 @@ export const connectGoHighLevel = actionClient
 
         // Use the auth system to generate the authorization URL
         // Override the redirectUri in gohighlevelConfig temporarily if needed
-        const redirectUri =
-          process.env.NEXT_PUBLIC_GOHIGHLEVEL_OAUTH_REDIRECT_URL;
+        const redirectUri = env.NEXT_PUBLIC_GOHIGHLEVEL_OAUTH_REDIRECT_URL;
         const originalRedirectUri = gohighlevelConfig.redirectUri;
 
         if (redirectUri && redirectUri !== originalRedirectUri) {

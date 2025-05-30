@@ -4,12 +4,13 @@ import { DodoPayments } from "dodopayments";
 import { createSafeActionClient } from "next-safe-action";
 import { z } from "zod";
 import type { ActionResponse } from "@/app/actions/types";
+import { env } from "@/src/env";
 
 const action = createSafeActionClient();
 
 // Create a DodoPayments client
 const getDodoClient = () => {
-  const apiKey = process.env.DODO_PAYMENTS_API_KEY;
+  const apiKey = env.DODO_PAYMENTS_API_KEY;
   if (!apiKey) {
     throw new Error("DODO_PAYMENTS_API_KEY environment variable is not set");
   }

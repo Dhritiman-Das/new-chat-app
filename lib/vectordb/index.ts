@@ -5,6 +5,7 @@ import {
   VectorDbFilter,
   VectorDbResponse,
 } from "./types";
+import { env } from "@/src/env";
 
 /**
  * Interface for vector database services
@@ -102,7 +103,7 @@ export async function getVectorDb(
   config?: Partial<VectorDbConfig>
 ): Promise<VectorDbService> {
   if (!defaultVectorDb) {
-    const provider = process.env.VECTOR_DB_PROVIDER || "pinecone";
+    const provider = env.VECTOR_DB_PROVIDER;
     defaultVectorDb = await VectorDbFactory.create(provider, config);
     await defaultVectorDb.initialize();
   }

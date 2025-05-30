@@ -5,6 +5,7 @@ import prisma from "@/lib/db/prisma";
 import { getCalendarsForCredential } from "@/lib/auth/services/google-calendar-service";
 import { Prisma } from "@/lib/generated/prisma";
 import { googleConfig } from "@/lib/auth/config/providers-config";
+import { env } from "@/src/env";
 
 // Google OAuth token response type
 interface GoogleOAuthTokenResponse {
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
     console.error("Google auth error:", error);
     return NextResponse.redirect(
       `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       }/error?message=Authentication failed: ${error}`
     );
   }
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
   if (!code || !state) {
     return NextResponse.redirect(
       `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       }/error?message=Invalid authentication response`
     );
   }
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
     console.error("State mismatch: potential CSRF attack");
     return NextResponse.redirect(
       `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       }/error?message=Invalid authentication state`
     );
   }
@@ -268,7 +269,7 @@ export async function GET(request: Request) {
     // Redirect back to the bot settings page
     return NextResponse.redirect(
       `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       }/dashboard/${orgId}/bots/${botId}/tools/google-calendar?connected=true&toolId=${toolId}`
     );
   } catch (error) {
@@ -280,7 +281,7 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(
       `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
       }/error?message=Authentication failed: ${
         error instanceof Error ? error.message : "Unknown error"
       }`
