@@ -55,7 +55,7 @@ T1hhTiaCeIY/OwwwNUY2yvcCAwEAAQ==
 // Google configuration
 export const googleConfig = {
   apiEndpoint: "https://www.googleapis.com",
-  clientId: process.env.GOOGLE_CLIENT_ID || "",
+  clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
   clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
   authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
   tokenEndpoint: "https://oauth2.googleapis.com/token",

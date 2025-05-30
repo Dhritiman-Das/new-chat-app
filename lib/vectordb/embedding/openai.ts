@@ -1,9 +1,10 @@
 import { OpenAI } from "openai";
 import { EmbeddingProvider } from "./index";
+import { env } from "@/src/env";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: env.OPENAI_API_KEY,
 });
 
 export class OpenAIEmbeddingProvider implements EmbeddingProvider {
