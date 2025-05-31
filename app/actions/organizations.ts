@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db/prisma";
 import { checkOrganizationSlugAvailability } from "@/lib/queries/cached-queries";
 import { createSafeActionClient } from "next-safe-action";
 import { z } from "zod";
+import { createCreditTransaction } from "@/lib/payment/billing-service";
 
 // Create safe action client
 const action = createSafeActionClient();
@@ -156,6 +157,30 @@ export async function createOrganization(
 
       return org;
     });
+
+    // Find the plan limits for message credits
+    const planLimits = await prisma.planLimit.findFirst({
+      where: {
+        planType: (data.plan as PlanType) || PlanType.HOBBY,
+        feature: {
+          name: "message_credits",
+        },
+      },
+      include: {
+        feature: true,
+      },
+    });
+
+    // Add initial credits if the plan has a defined limit
+    if (planLimits && !planLimits.isUnlimited) {
+      await createCreditTransaction(
+        organization.id,
+        planLimits.value,
+        "PLAN_GRANT",
+        "Initial plan credit allocation",
+        { source: "organization_creation" }
+      );
+    }
 
     // Revalidate cache
     revalidateTag(`user_organizations_${user.id}`);

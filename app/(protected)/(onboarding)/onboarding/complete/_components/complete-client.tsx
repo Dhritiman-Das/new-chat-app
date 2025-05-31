@@ -31,7 +31,6 @@ export default function CompleteClient({ organization }: CompleteClientProps) {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          router.push(`/dashboard/${organization.id}`);
           return 0;
         }
         return prev - 1;
@@ -40,6 +39,13 @@ export default function CompleteClient({ organization }: CompleteClientProps) {
 
     return () => clearInterval(timer);
   }, [router, organization.id]);
+
+  // Add a separate effect to handle navigation when countdown reaches 0
+  useEffect(() => {
+    if (countdown === 0) {
+      router.push(`/dashboard/${organization.id}`);
+    }
+  }, [countdown, router, organization.id]);
 
   const handleContinue = () => {
     router.push(`/dashboard/${organization.id}`);
