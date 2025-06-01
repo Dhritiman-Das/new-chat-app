@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { getBotById } from "@/lib/queries/cached-queries";
+import { getBotById, getOrganizationById } from "@/lib/queries/cached-queries";
 import {
   Card,
   CardContent,
@@ -81,12 +81,13 @@ export default async function KnowledgePage({ params }: PageProps) {
   }
 
   // Fetch website link usage and limits
-  const [usageData, subscription] = await Promise.all([
+  const [usageData, subscription, { data: organization }] = await Promise.all([
     getOrganizationUsage(orgId),
     prisma.subscription.findUnique({
       where: { organizationId: orgId },
       select: { planType: true },
     }),
+    getOrganizationById(orgId),
   ]);
 
   // Get plan limits based on subscription plan
@@ -114,6 +115,12 @@ export default async function KnowledgePage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

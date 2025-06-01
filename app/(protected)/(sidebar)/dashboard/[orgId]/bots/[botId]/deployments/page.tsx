@@ -2,6 +2,7 @@ import { requireAuth } from "@/utils/auth";
 import {
   getBotById,
   getInstalledDeployments,
+  getOrganizationById,
 } from "@/lib/queries/cached-queries";
 import { Suspense } from "react";
 
@@ -27,8 +28,13 @@ export default async function DeploymentsPage({ params }: PageProps) {
   await requireAuth();
   const { botId, orgId } = await params;
 
-  const botResponse = await getBotById(botId);
+  const [botResponse, organizationResponse] = await Promise.all([
+    getBotById(botId),
+    getOrganizationById(orgId),
+  ]);
+
   const bot = botResponse?.data;
+  const organization = organizationResponse?.data;
 
   return (
     <div>
@@ -45,6 +51,12 @@ export default async function DeploymentsPage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

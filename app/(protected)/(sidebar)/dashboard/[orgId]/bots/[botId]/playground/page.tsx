@@ -10,7 +10,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getAvailableModels } from "@/lib/models";
-import { getBotById } from "@/lib/queries/cached-queries";
+import { getBotById, getOrganizationById } from "@/lib/queries/cached-queries";
 import ModelComparison from "./components/model-comparison";
 
 interface PageProps {
@@ -21,8 +21,15 @@ export default async function PlaygroundPage({ params }: PageProps) {
   await requireAuth();
   const { orgId, botId } = await params;
   const availableModels = getAvailableModels();
-  const botResponse = await getBotById(botId);
+
+  // Fetch bot and organization data
+  const [botResponse, organizationResponse] = await Promise.all([
+    getBotById(botId),
+    getOrganizationById(orgId),
+  ]);
+
   const bot = botResponse?.data;
+  const organization = organizationResponse?.data;
 
   // Get bot's default model ID if it exists
   const defaultModelId = bot
@@ -44,6 +51,12 @@ export default async function PlaygroundPage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

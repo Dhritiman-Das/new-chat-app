@@ -1,7 +1,10 @@
 import { ArrowLeft } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { getUserOrganizations } from "@/lib/queries/cached-queries";
+import {
+  getOrganizationById,
+  getUserOrganizations,
+} from "@/lib/queries/cached-queries";
 import NewBotForm from "@/components/new-bot-form";
 import {
   Breadcrumb,
@@ -22,8 +25,10 @@ interface PageProps {
 export default async function NewBotPage({ params }: PageProps) {
   const { orgId } = await params;
 
-  // Fetch organizations server side
-  const { data: organizations } = await getUserOrganizations();
+  const [{ data: organizations }, { data: organization }] = await Promise.all([
+    getUserOrganizations(),
+    getOrganizationById(orgId),
+  ]);
 
   // Fetch bot usage information
   const botUsageInfo = await getBotUsageInfo(orgId);
@@ -48,7 +53,7 @@ export default async function NewBotPage({ params }: PageProps) {
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
-                  {orgId}
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

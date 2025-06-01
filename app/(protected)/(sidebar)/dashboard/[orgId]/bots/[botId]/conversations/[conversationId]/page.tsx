@@ -1,5 +1,9 @@
 import { requireAuth } from "@/utils/auth";
-import { getConversationById, getBotById } from "@/lib/queries/cached-queries";
+import {
+  getConversationById,
+  getBotById,
+  getOrganizationById,
+} from "@/lib/queries/cached-queries";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -14,7 +18,6 @@ import { Icons } from "@/components/icons";
 import { format } from "date-fns";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ConversationWithMessages } from "./types";
 import ConversationMessages from "@/components/conversation-messages";
 import { BackButton } from "@/components/back-button";
 import { Badge } from "@/components/ui/badge";
@@ -37,14 +40,13 @@ export default async function ConversationDetailPage({ params }: PageProps) {
   const { botId, orgId, conversationId } = await params;
 
   // Get bot and conversation data
-  const [botResponse, conversationResponse] = await Promise.all([
-    getBotById(botId),
-    getConversationById(conversationId),
-  ]);
+  const [{ data: bot }, { data: conversation }, { data: organization }] =
+    await Promise.all([
+      getBotById(botId),
+      getConversationById(conversationId),
+      getOrganizationById(orgId),
+    ]);
 
-  const bot = botResponse?.data;
-  const conversation =
-    conversationResponse?.data as ConversationWithMessages | null;
   // Map source to icon
   const getSourceIcon = (source: string | null) => {
     switch (source) {
@@ -76,6 +78,12 @@ export default async function ConversationDetailPage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

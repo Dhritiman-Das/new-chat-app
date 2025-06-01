@@ -1,5 +1,5 @@
 import { requireAuth } from "@/utils/auth";
-import { getBotById } from "@/lib/queries/cached-queries";
+import { getBotById, getOrganizationById } from "@/lib/queries/cached-queries";
 import {
   Card,
   CardContent,
@@ -29,8 +29,10 @@ export default async function BotSettings({ params }: PageProps) {
   const { botId, orgId } = await params;
 
   // Fetch bot data
-  const botResponse = await getBotById(botId);
-  const bot = botResponse?.data;
+  const [{ data: bot }, { data: organization }] = await Promise.all([
+    getBotById(botId),
+    getOrganizationById(orgId),
+  ]);
 
   if (!bot) {
     return <div className="p-6">Bot not found</div>;
@@ -51,6 +53,12 @@ export default async function BotSettings({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

@@ -63,6 +63,12 @@ export default async function BotsPage({ params }: PageProps) {
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {currentOrg?.slug || orgId}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
                 <BreadcrumbPage>Bots</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>

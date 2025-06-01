@@ -3,6 +3,7 @@ import {
   getBotById,
   getBotDetails,
   getBotConversations,
+  getOrganizationById,
 } from "@/lib/queries/cached-queries";
 import {
   Card,
@@ -34,17 +35,23 @@ export default async function Dashboard({ params }: PageProps) {
   const { botId, orgId } = await params;
 
   // Fetch data in parallel
-  const [botResponse, botDetailsResponse, recentConversationsResponse] =
-    await Promise.all([
-      getBotById(botId),
-      getBotDetails(botId),
-      getBotConversations(botId, 1, 5),
-    ]);
+  const [
+    botResponse,
+    botDetailsResponse,
+    recentConversationsResponse,
+    organizationResponse,
+  ] = await Promise.all([
+    getBotById(botId),
+    getBotDetails(botId),
+    getBotConversations(botId, 1, 5),
+    getOrganizationById(orgId),
+  ]);
 
   const bot = botResponse?.data;
   const botDetails = botDetailsResponse?.data;
   const knowledgeBaseCount = botDetails?.knowledgeBases?.length || 0;
   const recentConversations = recentConversationsResponse?.data || [];
+  const organization = organizationResponse?.data;
 
   const stats = [
     {
@@ -84,6 +91,12 @@ export default async function Dashboard({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

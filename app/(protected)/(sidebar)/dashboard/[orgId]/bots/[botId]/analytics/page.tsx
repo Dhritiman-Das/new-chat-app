@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { getBotById } from "@/lib/queries/cached-queries";
+import { getBotById, getOrganizationById } from "@/lib/queries/cached-queries";
 import * as React from "react";
 import { TimeFrameSelect } from "@/components/charts/time-frame-select";
 import { Shell } from "@/components/shell";
@@ -41,6 +41,16 @@ export default async function AnalyticsPage({
     ? rawTimeFrame
     : "30d";
 
+  // Fetch bot data and organization in parallel
+  const [botResponse, organizationResponse] = await Promise.all([
+    getBotById(botId),
+    getOrganizationById(orgId),
+  ]);
+
+  const bot = botResponse?.data;
+  const organization = organizationResponse?.data;
+
+  // Check subscription status
   const subscription = await prisma.subscription.findUnique({
     where: { organizationId: orgId },
     select: { status: true, planType: true },
@@ -124,10 +134,6 @@ export default async function AnalyticsPage({
   // Log timeFrame to prevent unused variable warning
   console.log(`Rendering analytics for time frame: ${timeFrame}`);
 
-  // Fetch bot information
-  const botResponse = await getBotById(botId);
-  const bot = botResponse?.data;
-
   // HARDCODED DUMMY DATA INSTEAD OF FETCHING
   // This simulates a very busy and successful bot
 
@@ -203,6 +209,12 @@ export default async function AnalyticsPage({
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

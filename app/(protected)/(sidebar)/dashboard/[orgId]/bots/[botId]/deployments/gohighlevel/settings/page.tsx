@@ -1,5 +1,5 @@
 import { requireAuth } from "@/utils/auth";
-import { getBotById } from "@/lib/queries/cached-queries";
+import { getBotById, getOrganizationById } from "@/lib/queries/cached-queries";
 
 import {
   Breadcrumb,
@@ -32,13 +32,21 @@ export default async function GoHighLevelSettingsPage({ params }: PageProps) {
   await requireAuth();
   const { botId, orgId } = await params;
 
+  // Fetch data
+  const [botResponse, organizationResponse, goHighLevelIntegrationsResponse] =
+    await Promise.all([
+      getBotById(botId),
+      getOrganizationById(orgId),
+      getGoHighLevelIntegrations(orgId),
+    ]);
+
+  const bot = botResponse?.data;
+  const organization = organizationResponse?.data;
+  const goHighLevelIntegrations = goHighLevelIntegrationsResponse;
+
   const LogoComponent =
     deploymentLogos["gohighlevel" as keyof typeof deploymentLogos];
 
-  const botResponse = await getBotById(botId);
-  const goHighLevelIntegrations = await getGoHighLevelIntegrations(botId);
-
-  const bot = botResponse?.data;
   const integration = goHighLevelIntegrations[0]; // Get the first integration if exists
 
   // If no integration exists, redirect to the main deployment page
@@ -81,6 +89,12 @@ export default async function GoHighLevelSettingsPage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

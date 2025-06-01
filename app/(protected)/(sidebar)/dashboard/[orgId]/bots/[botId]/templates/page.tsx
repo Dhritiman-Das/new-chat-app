@@ -1,5 +1,5 @@
 import { requireAuth } from "@/utils/auth";
-import { getBotById } from "@/lib/queries/cached-queries";
+import { getBotById, getOrganizationById } from "@/lib/queries/cached-queries";
 
 import {
   Breadcrumb,
@@ -39,9 +39,10 @@ export default async function TemplatesPage({ params }: PageProps) {
   const { botId, orgId } = await params;
 
   // Fetch data in parallel
-  const [botResponse] = await Promise.all([getBotById(botId)]);
-
-  const bot = botResponse?.data;
+  const [{ data: bot }, { data: organization }] = await Promise.all([
+    getBotById(botId),
+    getOrganizationById(orgId),
+  ]);
 
   return (
     <div>
@@ -58,6 +59,12 @@ export default async function TemplatesPage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

@@ -2,6 +2,7 @@ import { requireAuth } from "@/utils/auth";
 import {
   getBotById,
   getIframeConfigForBot,
+  getOrganizationById,
 } from "@/lib/queries/cached-queries";
 
 import {
@@ -28,11 +29,17 @@ export default async function DeploymentsIframePage({ params }: PageProps) {
   await requireAuth();
   const { botId, orgId } = await params;
 
-  const botResponse = await getBotById(botId);
-  const configResponse = await getIframeConfigForBot(botId);
+  const [botResponse, configResponse, organizationResponse] = await Promise.all(
+    [
+      getBotById(botId),
+      getIframeConfigForBot(botId),
+      getOrganizationById(orgId),
+    ]
+  );
 
   const bot = botResponse?.data;
   const iframeConfig = configResponse?.data || {};
+  const organization = organizationResponse?.data;
 
   const LogoComponent =
     deploymentLogos["iframe" as keyof typeof deploymentLogos];
@@ -52,6 +59,12 @@ export default async function DeploymentsIframePage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

@@ -1,5 +1,9 @@
 import { requireAuth } from "@/utils/auth";
-import { getBotById, getBotTool } from "@/lib/queries/cached-queries";
+import {
+  getBotById,
+  getBotTool,
+  getOrganizationById,
+} from "@/lib/queries/cached-queries";
 import { Icons } from "@/components/icons";
 import {
   Breadcrumb,
@@ -43,8 +47,10 @@ export default async function ToolDetailPage({ params }: PageProps) {
   const { botId, orgId, "tool-slug": toolSlug } = await params;
 
   // Fetch bot data
-  const botResponse = await getBotById(botId);
-  const bot = botResponse?.data;
+  const [{ data: bot }, { data: organization }] = await Promise.all([
+    getBotById(botId),
+    getOrganizationById(orgId),
+  ]);
 
   if (!bot) {
     notFound();
@@ -103,6 +109,12 @@ export default async function ToolDetailPage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

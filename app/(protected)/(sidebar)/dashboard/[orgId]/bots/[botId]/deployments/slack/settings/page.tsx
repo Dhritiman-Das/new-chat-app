@@ -1,5 +1,5 @@
 import { requireAuth } from "@/utils/auth";
-import { getBotById } from "@/lib/queries/cached-queries";
+import { getBotById, getOrganizationById } from "@/lib/queries/cached-queries";
 import { getSlackIntegrations } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/deployments/slack/utils";
 import { SlackSettings } from "@/components/slack/slack-settings";
 import { notFound } from "next/navigation";
@@ -24,10 +24,17 @@ export default async function SlackSettingsPage({ params }: PageProps) {
   await requireAuth();
   const { botId, orgId } = await params;
 
-  const botResponse = await getBotById(botId);
-  const slackIntegrations = await getSlackIntegrations(botId);
+  const [botResponse, organizationResponse, slackIntegrationsResponse] =
+    await Promise.all([
+      getBotById(botId),
+      getOrganizationById(orgId),
+      getSlackIntegrations(botId),
+    ]);
 
   const bot = botResponse?.data;
+  const organization = organizationResponse?.data;
+  const slackIntegrations = slackIntegrationsResponse;
+
   const integration = slackIntegrations[0]; // Get the first integration if exists
 
   if (!integration) {
@@ -49,6 +56,12 @@ export default async function SlackSettingsPage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

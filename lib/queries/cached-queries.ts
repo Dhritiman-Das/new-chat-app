@@ -130,6 +130,26 @@ export const getOrganizationActiveBotCount = async (organizationId: string) => {
   )();
 };
 
+export const getOrganizationById = async (organizationId: string) => {
+  await requireAuth();
+
+  return unstable_cache(
+    async () => {
+      const organization = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true, slug: true, logoUrl: true },
+      });
+
+      return { data: organization };
+    },
+    ["organization", organizationId],
+    {
+      tags: [`organization_${organizationId}`],
+      revalidate: 60, // Cache for 1 minute
+    }
+  )();
+};
+
 // Cache active bot count
 export const getUserActiveBotCount = async () => {
   const user = await requireAuth();

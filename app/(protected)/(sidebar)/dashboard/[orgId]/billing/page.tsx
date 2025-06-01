@@ -18,7 +18,10 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { getOrganizationInvoices } from "@/lib/queries/cached-queries";
+import {
+  getOrganizationById,
+  getOrganizationInvoices,
+} from "@/lib/queries/cached-queries";
 import { format } from "date-fns";
 import { prisma } from "@/lib/db/prisma";
 import {
@@ -133,6 +136,7 @@ export default async function BillingPage({ params }: BillingPageProps) {
     activeBots,
     creditUsagePartialData,
     { data: dbInvoices },
+    { data: organization },
   ] = await Promise.all([
     getOrganizationSubscription(orgId),
     getOrganizationCreditBalance(orgId),
@@ -140,6 +144,7 @@ export default async function BillingPage({ params }: BillingPageProps) {
     getActiveBotsCount(orgId),
     getCreditUsageData(orgId),
     getOrganizationInvoices(orgId, 1, 20),
+    getOrganizationById(orgId),
   ]);
 
   // Complete credit usage data with the credit balance we fetched
@@ -321,6 +326,12 @@ export default async function BillingPage({ params }: BillingPageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

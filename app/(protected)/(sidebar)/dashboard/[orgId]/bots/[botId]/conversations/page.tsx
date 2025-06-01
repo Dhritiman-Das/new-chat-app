@@ -13,6 +13,7 @@ import {
   getBotById,
   getCachedConversationStatusCounts,
   getCachedConversations,
+  getOrganizationById,
 } from "@/lib/queries/cached-queries";
 import * as React from "react";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
@@ -39,9 +40,10 @@ export default async function ConversationsPage({
   const { botId, orgId } = await params;
   const search = searchParamsCache.parse(await searchParams);
 
-  // Fetch bot information
-  const botResponse = await getBotById(botId);
-  const bot = botResponse?.data;
+  const [{ data: bot }, { data: organization }] = await Promise.all([
+    getBotById(botId),
+    getOrganizationById(orgId),
+  ]);
 
   // Get valid filters - could be an object or string
   const validFilters = getValidFilters<ConversationFilterSchema>(
@@ -75,6 +77,12 @@ export default async function ConversationsPage({
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />

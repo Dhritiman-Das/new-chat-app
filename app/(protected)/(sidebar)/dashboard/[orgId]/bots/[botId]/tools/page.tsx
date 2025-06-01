@@ -21,7 +21,11 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 import { initializeTools } from "@/lib/tools";
-import { getBotById, getBotAllTools } from "@/lib/queries/cached-queries";
+import {
+  getBotById,
+  getBotAllTools,
+  getOrganizationById,
+} from "@/lib/queries/cached-queries";
 import { requireAuth } from "@/utils/auth";
 
 interface PageProps {
@@ -32,13 +36,17 @@ export default async function ToolsPage({ params }: PageProps) {
   await requireAuth();
   const { botId, orgId } = await params;
 
-  // Fetch bot data
-  const botResponse = await getBotById(botId);
-  const bot = botResponse?.data;
+  // Fetch bot data and organization
+  const [botResponse, botToolsResponse, organizationResponse] =
+    await Promise.all([
+      getBotById(botId),
+      getBotAllTools(botId),
+      getOrganizationById(orgId),
+    ]);
 
-  // Get all bot tools including disabled ones
-  const botToolsResponse = await getBotAllTools(botId);
+  const bot = botResponse?.data;
   const botTools = botToolsResponse.data;
+  const organization = organizationResponse?.data;
 
   // Map tool IDs to enabled status for quick lookup
   const enabledToolsMap = new Map(
@@ -64,6 +72,12 @@ export default async function ToolsPage({ params }: PageProps) {
               <BreadcrumbItem>
                 <BreadcrumbLink href={`/dashboard/${orgId}`}>
                   Dashboard
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/dashboard/${orgId}`}>
+                  {organization?.slug || orgId}
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
