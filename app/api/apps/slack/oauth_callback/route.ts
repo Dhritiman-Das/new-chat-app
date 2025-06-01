@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
-import { slackConfig } from "@/lib/bot-deployments/slack/config";
 import prisma from "@/lib/db/prisma";
 import { $Enums } from "@/lib/generated/prisma";
 import { getSlackIntegrationForBot } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/deployments/slack/utils";
+import { slackConfig } from "@/lib/auth/index";
 
 export async function GET(request: Request) {
   try {

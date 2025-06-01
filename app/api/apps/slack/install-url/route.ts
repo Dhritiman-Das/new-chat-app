@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
-import { slackConfig } from "@/lib/bot-deployments/slack/config";
 import prisma from "@/lib/db/prisma";
+import { slackConfig } from "@/lib/auth/index";
 import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 

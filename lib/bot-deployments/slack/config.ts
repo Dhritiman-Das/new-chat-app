@@ -1,6 +1,5 @@
 import image from "./assets/image.png";
 import { onInitialize } from "./initialize";
-import { env } from "@/src/env";
 
 export interface SlackConfig {
   clientId: string;
@@ -10,15 +9,6 @@ export interface SlackConfig {
   stateSecret: string;
   appId: string;
 }
-
-export const slackConfig: SlackConfig = {
-  clientId: env.NEXT_PUBLIC_SLACK_CLIENT_ID || "",
-  clientSecret: env.SLACK_CLIENT_SECRET || "",
-  redirectUri: env.NEXT_PUBLIC_SLACK_OAUTH_REDIRECT_URL || "",
-  signingSecret: env.SLACK_SIGNING_SECRET || "",
-  stateSecret: env.SLACK_STATE_SECRET || "",
-  appId: env.NEXT_PUBLIC_SLACK_APP_ID || "",
-};
 
 export default {
   name: "Slack",
