@@ -8,6 +8,9 @@ await jiti.import("./src/env");
 
 const nextConfig: NextConfig = {
   /* config options here */
+  compiler: {
+    removeConsole: process.env.NODE_ENV === "production",
+  },
   images: {
     remotePatterns: [
       {
