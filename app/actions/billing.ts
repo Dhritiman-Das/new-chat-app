@@ -6,6 +6,12 @@ import { getActivePaymentProvider } from "@/lib/payment/factory";
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
 import { env } from "@/src/env";
+import {
+  updateOrganizationSubscription,
+  cancelOrganizationSubscription,
+  activateOrganizationSubscription,
+} from "@/lib/payment/billing-service";
+import { BillingCycle } from "@/lib/payment/types";
 
 // Create safe action client
 const action = createSafeActionClient();
@@ -230,6 +236,138 @@ export const purchaseCreditsWithPayment = action
             error instanceof Error
               ? error.message
               : "Failed to create payment link",
+        },
+      };
+    }
+  });
+
+// Schema for updating subscription
+const updateSubscriptionSchema = z.object({
+  organizationId: z.string(),
+  planType: z.string(),
+  billingCycle: z.enum([BillingCycle.MONTHLY, BillingCycle.YEARLY]),
+});
+
+/**
+ * Server action to update a subscription
+ */
+export const updateSubscription = action
+  .schema(updateSubscriptionSchema)
+  .action(async ({ parsedInput }) => {
+    try {
+      const { organizationId, planType, billingCycle } = parsedInput;
+
+      // Check authentication
+      await requireAuth();
+
+      // Map the billing cycle string to enum
+      const cycle = billingCycle;
+
+      // Update the subscription
+      const result = await updateOrganizationSubscription(organizationId, {
+        planType,
+        billingCycle: cycle,
+      });
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      console.error("Error updating subscription:", error);
+
+      return {
+        success: false,
+        error: {
+          code: "SUBSCRIPTION_UPDATE_FAILED",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to update subscription",
+        },
+      };
+    }
+  });
+
+// Schema for canceling subscription
+const cancelSubscriptionSchema = z.object({
+  organizationId: z.string(),
+  atPeriodEnd: z.boolean().default(true),
+});
+
+/**
+ * Server action to cancel a subscription
+ */
+export const cancelSubscription = action
+  .schema(cancelSubscriptionSchema)
+  .action(async ({ parsedInput }) => {
+    try {
+      const { organizationId, atPeriodEnd } = parsedInput;
+
+      // Check authentication
+      await requireAuth();
+
+      // Cancel the subscription
+      const result = await cancelOrganizationSubscription(
+        organizationId,
+        atPeriodEnd
+      );
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      console.error("Error canceling subscription:", error);
+
+      return {
+        success: false,
+        error: {
+          code: "SUBSCRIPTION_CANCEL_FAILED",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to cancel subscription",
+        },
+      };
+    }
+  });
+
+// Schema for reactivating subscription
+const reactivateSubscriptionSchema = z.object({
+  organizationId: z.string(),
+});
+
+/**
+ * Server action to reactivate a subscription
+ */
+export const reactivateSubscription = action
+  .schema(reactivateSubscriptionSchema)
+  .action(async ({ parsedInput }) => {
+    try {
+      const { organizationId } = parsedInput;
+
+      // Check authentication
+      await requireAuth();
+
+      // Reactivate the subscription
+      const result = await activateOrganizationSubscription(organizationId);
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      console.error("Error reactivating subscription:", error);
+
+      return {
+        success: false,
+        error: {
+          code: "SUBSCRIPTION_REACTIVATE_FAILED",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to reactivate subscription",
         },
       };
     }

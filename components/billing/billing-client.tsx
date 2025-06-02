@@ -12,21 +12,23 @@ import { UsageTab } from "@/components/billing/usage-tab";
 import { AddOnsTab } from "@/components/billing/addons-tab";
 import { InvoicesTab } from "@/components/billing/invoices-tab";
 import { PlansDialog } from "@/components/billing/plans-dialog";
-import { BillingCycle } from "@/lib/payment/types";
 import {
   ClientInvoice,
   adaptClientInvoicesToInvoicesTab,
 } from "@/components/billing/invoice-types";
 
 import {
-  activateOrganizationSubscription,
   addAddOnToOrganizationSubscription,
-  cancelOrganizationSubscription,
   removeAddOnFromSubscription,
   updateAddOnQuantity,
-  updateOrganizationSubscription,
 } from "@/lib/payment/billing-service";
-import { purchaseCreditPack } from "@/app/actions/billing";
+import {
+  purchaseCreditPack,
+  updateSubscription,
+  cancelSubscription,
+  reactivateSubscription,
+} from "@/app/actions/billing";
+import { BillingCycle } from "@/lib/payment/types";
 import { SubscriptionStatus } from "@/lib/generated/prisma";
 
 // Hard-coded plans data
@@ -135,6 +137,7 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
 
   // Function to handle plan change
   const handlePlanChange = async (planId: string) => {
+    const loadingToast = toast.loading(`Updating your plan to ${planId}...`);
     try {
       setLoading(true);
 
@@ -145,11 +148,9 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
       const cycle =
         billingCycle === "yearly" ? BillingCycle.YEARLY : BillingCycle.MONTHLY;
 
-      // Show loading toast
-      const loadingToast = toast.loading(`Updating your plan to ${planId}...`);
-
-      // For all users, attempt to update the subscription with the chosen plan
-      const result = await updateOrganizationSubscription(orgId, {
+      // Call the server action with proper parameters
+      const result = await updateSubscription({
+        organizationId: orgId,
         planType,
         billingCycle: cycle,
       });
@@ -157,50 +158,67 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
       // Remove loading toast
       toast.dismiss(loadingToast);
 
-      // Check if we got a payment link back and redirect if necessary
-      if (
-        result &&
-        typeof result === "object" &&
-        "paymentLinkUrl" in result &&
-        result.paymentLinkUrl
-      ) {
-        toast.info("Redirecting to payment page...");
-        window.location.href = result.paymentLinkUrl as string;
-        return; // Stop execution if redirecting
+      // Success case handling
+      if (result?.data?.success) {
+        const subscriptionData = result.data.data;
+
+        // Check if we got a payment link back and redirect if necessary
+        if (
+          subscriptionData &&
+          typeof subscriptionData === "object" &&
+          "paymentLinkUrl" in subscriptionData &&
+          subscriptionData.paymentLinkUrl
+        ) {
+          toast.info("Redirecting to payment page...");
+          window.location.href = subscriptionData.paymentLinkUrl as string;
+          return; // Stop execution if redirecting
+        }
+
+        // If the user already had a subscription or the update was successful
+        if (
+          subscriptionData &&
+          subscriptionData.status === SubscriptionStatus.ACTIVE
+        ) {
+          toast.success(`Successfully updated to ${planId} plan`);
+
+          // Update local state to reflect changes
+          setSubscription({
+            ...subscription,
+            id: subscriptionData.subscriptionId || subscription.id,
+            planType: planType,
+            status: subscriptionData.status || SubscriptionStatus.ACTIVE,
+            billingCycle: cycle,
+          });
+        } else {
+          toast.success(`Successfully subscribed to ${planId} plan`);
+        }
+
+        // Refresh the page to show updated subscription from the server
+        router.refresh();
+        return;
       }
 
-      // If the user already had a subscription or the update was successful
-      if (result && result.status === SubscriptionStatus.ACTIVE) {
-        toast.success(`Successfully updated to ${planId} plan`);
-
-        // Update local state to reflect changes
-        setSubscription({
-          ...subscription,
-          id: result?.subscriptionId || subscription.id,
-          planType: planType,
-          status: result?.status || SubscriptionStatus.ACTIVE,
-          billingCycle: cycle === BillingCycle.YEARLY ? "YEARLY" : "MONTHLY",
-        });
-      } else {
-        toast.success(`Successfully subscribed to ${planId} plan`);
+      // Handle error case
+      let errorMessage = "Failed to update subscription";
+      if (result?.data?.error) {
+        if (
+          typeof result.data.error === "object" &&
+          result.data.error !== null &&
+          "message" in result.data.error
+        ) {
+          const errMsg = result.data.error.message;
+          if (typeof errMsg === "string") {
+            errorMessage = errMsg;
+          }
+        }
       }
-
-      // Refresh the page to show updated subscription from the server
-      router.refresh();
+      throw new Error(errorMessage);
     } catch (error) {
       console.error("Error changing plan:", error);
+      toast.dismiss(loadingToast);
 
-      // If it's a payment provider error (likely a message for end users)
-      if (
-        error instanceof Error &&
-        error.message.includes("payment provider")
-      ) {
-        // Cleaner message for payment provider errors
-        const errorMessage = error.message.includes(":")
-          ? error.message.split(":")[1].trim()
-          : error.message;
-        toast.error(`Plan change failed: ${errorMessage}`);
-      } else if (error instanceof Error) {
+      // Clean error handling
+      if (error instanceof Error) {
         toast.error(`Failed to change plan: ${error.message}`);
       } else {
         toast.error("Failed to change plan. Please try again.");
@@ -214,21 +232,50 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
   const handleCancelSubscription = async () => {
     try {
       setLoading(true);
-      await cancelOrganizationSubscription(orgId, true);
-      toast.success(
-        "Your subscription will be canceled at the end of the current billing period"
-      );
 
-      // Update local state
-      setSubscription({
-        ...subscription,
-        status: SubscriptionStatus.CANCELED,
+      const result = await cancelSubscription({
+        organizationId: orgId,
+        atPeriodEnd: true,
       });
 
-      router.refresh();
+      // Success case handling
+      if (result?.data?.success) {
+        toast.success(
+          "Your subscription will be canceled at the end of the current billing period"
+        );
+
+        // Update local state
+        setSubscription({
+          ...subscription,
+          status: SubscriptionStatus.CANCELED,
+        });
+
+        router.refresh();
+        return;
+      }
+
+      // Handle error case
+      let errorMessage = "Failed to cancel subscription";
+      if (result?.data?.error) {
+        if (
+          typeof result.data.error === "object" &&
+          result.data.error !== null &&
+          "message" in result.data.error
+        ) {
+          const errMsg = result.data.error.message;
+          if (typeof errMsg === "string") {
+            errorMessage = errMsg;
+          }
+        }
+      }
+      throw new Error(errorMessage);
     } catch (error) {
       console.error("Error canceling subscription:", error);
-      toast.error("Failed to cancel subscription. Please try again.");
+      if (error instanceof Error) {
+        toast.error(`Failed to cancel subscription: ${error.message}`);
+      } else {
+        toast.error("Failed to cancel subscription. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -239,30 +286,57 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
     try {
       setLoading(true);
 
-      // Update subscription status back to active
-      const result = await activateOrganizationSubscription(orgId);
-
-      // Check if this is a new subscription
-      if (result && result.newSubscription) {
-        toast.success(
-          "Your subscription has been reactivated with a new subscription ID"
-        );
-      } else {
-        toast.success("Your subscription has been reactivated");
-      }
-
-      // Update local state
-      setSubscription({
-        ...subscription,
-        status: SubscriptionStatus.ACTIVE,
-        // If we have a new subscription ID, update it
-        ...(result && result.newSubscription
-          ? { id: result.subscriptionId }
-          : {}),
+      const result = await reactivateSubscription({
+        organizationId: orgId,
       });
 
-      // Refresh the page to get the latest subscription data
-      router.refresh();
+      // Success case handling
+      if (result?.data?.success) {
+        const subscriptionData = result.data.data;
+
+        if (subscriptionData) {
+          // Check if this is a new subscription
+          if (subscriptionData.newSubscription) {
+            toast.success(
+              "Your subscription has been reactivated with a new subscription ID"
+            );
+          } else {
+            toast.success("Your subscription has been reactivated");
+          }
+
+          // Update local state
+          setSubscription({
+            ...subscription,
+            status: SubscriptionStatus.ACTIVE,
+            // If we have a new subscription ID, update it
+            ...(subscriptionData.newSubscription
+              ? { id: subscriptionData.subscriptionId }
+              : {}),
+          });
+        } else {
+          toast.success("Subscription reactivation request submitted");
+        }
+
+        // Refresh the page to get the latest subscription data
+        router.refresh();
+        return;
+      }
+
+      // Handle error case
+      let errorMessage = "Failed to reactivate subscription";
+      if (result?.data?.error) {
+        if (
+          typeof result.data.error === "object" &&
+          result.data.error !== null &&
+          "message" in result.data.error
+        ) {
+          const errMsg = result.data.error.message;
+          if (typeof errMsg === "string") {
+            errorMessage = errMsg;
+          }
+        }
+      }
+      throw new Error(errorMessage);
     } catch (error) {
       console.error("Error reactivating subscription:", error);
 
@@ -276,6 +350,8 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
         );
         // Open the plans dialog to help the user select a new plan
         setShowPlansDialog(true);
+      } else if (error instanceof Error) {
+        toast.error(`Failed to reactivate subscription: ${error.message}`);
       } else {
         toast.error(
           "Failed to reactivate subscription. Please try again or contact support."

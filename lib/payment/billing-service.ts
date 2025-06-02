@@ -433,14 +433,10 @@ export async function updateOrganizationSubscription(
           ? await getProductId(options.planType, options.billingCycle)
           : await getProductId(options.planType, subscription.billingCycle);
 
-        console.log(
-          `Changing plan to ${options.planType} with product ID ${planProductId}`
-        );
         result = await paymentProvider.changePlan(
           subscription.externalId || subscription.id,
           planProductId
         );
-        console.log("Result from changePlan:", result);
         // Change the subscription in the database
         if (result.status === SubscriptionStatus.ACTIVE) {
           await prisma.subscription.update({
@@ -464,7 +460,6 @@ export async function updateOrganizationSubscription(
           options.billingCycle
         );
 
-        console.log(`Changing billing cycle with product ID ${planProductId}`);
         result = await paymentProvider.changePlan(
           subscription.externalId || subscription.id,
           planProductId
@@ -478,10 +473,6 @@ export async function updateOrganizationSubscription(
         result = await paymentProvider.updateSubscription(updateOptions);
       }
     } catch (error) {
-      console.error(
-        "Error updating subscription with payment provider:",
-        error
-      );
       throw new Error(
         `Failed to update subscription with payment provider: ${
           error instanceof Error ? error.message : "Unknown error"
