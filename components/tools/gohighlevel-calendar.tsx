@@ -41,10 +41,18 @@ export default function GoHighLevelCalendarTool({
         value={activeTab}
       >
         <TabsList className="mb-6">
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-          <TabsTrigger value="functions">Functions</TabsTrigger>
-          <TabsTrigger value="auth">Authentication</TabsTrigger>
-          <TabsTrigger value="appointments">Appointments</TabsTrigger>
+          <TabsTrigger value="settings" className="w-[150px]">
+            Settings
+          </TabsTrigger>
+          <TabsTrigger value="functions" className="w-[150px]">
+            Functions
+          </TabsTrigger>
+          <TabsTrigger value="auth" className="w-[150px]">
+            Authentication
+          </TabsTrigger>
+          <TabsTrigger value="appointments" className="w-[150px]">
+            Appointments
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">

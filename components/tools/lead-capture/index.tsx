@@ -38,9 +38,15 @@ export default function LeadCaptureTool({
         value={activeTab}
       >
         <TabsList className="mb-6">
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-          <TabsTrigger value="functions">Functions</TabsTrigger>
-          <TabsTrigger value="leads">Captured Leads</TabsTrigger>
+          <TabsTrigger value="settings" className="w-[150px]">
+            Settings
+          </TabsTrigger>
+          <TabsTrigger value="functions" className="w-[150px]">
+            Functions
+          </TabsTrigger>
+          <TabsTrigger value="leads" className="w-[150px]">
+            Captured Leads
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">

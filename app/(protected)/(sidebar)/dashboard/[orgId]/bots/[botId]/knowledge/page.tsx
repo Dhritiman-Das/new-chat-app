@@ -151,10 +151,10 @@ export default async function KnowledgePage({ params }: PageProps) {
 
         <Tabs defaultValue="files" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="files" className="w-24">
+            <TabsTrigger value="files" className="w-[150px]">
               Files
             </TabsTrigger>
-            <TabsTrigger value="websites" className="w-24">
+            <TabsTrigger value="websites" className="w-[150px]">
               Websites
             </TabsTrigger>
           </TabsList>

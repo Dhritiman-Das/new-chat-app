@@ -299,11 +299,15 @@ export function TemplateDialog({
 
             <Tabs value={tab || "public"} onValueChange={setTab}>
               <TabsList className="mb-4">
-                <TabsTrigger value="public">Public Templates</TabsTrigger>
-                <TabsTrigger value="organization">
+                <TabsTrigger value="public" className="w-[200px]">
+                  Public Templates
+                </TabsTrigger>
+                <TabsTrigger value="organization" className="w-[200px]">
                   Organization Templates
                 </TabsTrigger>
-                <TabsTrigger value="my">My Templates</TabsTrigger>
+                <TabsTrigger value="my" className="w-[200px]">
+                  My Templates
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="public" className="mt-0">

@@ -46,8 +46,12 @@ export default function ConversationMessages({
           onValueChange={(value) => setViewMode(value as "normal" | "debug")}
         >
           <TabsList>
-            <TabsTrigger value="normal">Normal View</TabsTrigger>
-            <TabsTrigger value="debug">Debug View</TabsTrigger>
+            <TabsTrigger value="normal" className="w-[150px]">
+              Normal View
+            </TabsTrigger>
+            <TabsTrigger value="debug" className="w-[150px]">
+              Debug View
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
