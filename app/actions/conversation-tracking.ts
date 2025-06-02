@@ -14,6 +14,7 @@ import { revalidateTag } from "next/cache";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
 import { getVectorDb } from "@/lib/vectordb";
 import { QueryResult } from "@/lib/vectordb/types";
+import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 const action = createSafeActionClient();
 
@@ -100,7 +101,7 @@ export const createConversation = action
         });
 
         // Revalidate conversation cache tags
-        revalidateTag(`user_conversations_${conversation.botId}`);
+        revalidateTag(CACHE_TAGS.USER_CONVERSATIONS(conversation.botId));
 
         return {
           success: true,
@@ -166,7 +167,7 @@ export const addMessage = action
       });
 
       if (conversation) {
-        revalidateTag(`user_conversations_${conversation.botId}`);
+        revalidateTag(CACHE_TAGS.USER_CONVERSATIONS(conversation.botId));
       }
 
       return {
@@ -214,7 +215,7 @@ export const updateConversation = action
         });
 
         // Revalidate conversation cache tags
-        revalidateTag(`user_conversations_${conversation.botId}`);
+        revalidateTag(CACHE_TAGS.USER_CONVERSATIONS(conversation.botId));
 
         return {
           success: true,
@@ -340,7 +341,7 @@ export const updateToolExecution = action
         // Revalidate conversation cache tags
         if (toolExecution.conversation) {
           revalidateTag(
-            `user_conversations_${toolExecution.conversation.botId}`
+            CACHE_TAGS.USER_CONVERSATIONS(toolExecution.conversation.botId)
           );
         }
 

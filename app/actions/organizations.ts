@@ -14,6 +14,7 @@ import { checkOrganizationSlugAvailability } from "@/lib/queries/cached-queries"
 import { createSafeActionClient } from "next-safe-action";
 import { z } from "zod";
 import { createCreditTransaction } from "@/lib/payment/billing-service";
+import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 // Create safe action client
 const action = createSafeActionClient();
@@ -183,7 +184,7 @@ export async function createOrganization(
     }
 
     // Revalidate cache
-    revalidateTag(`user_organizations_${user.id}`);
+    revalidateTag(CACHE_TAGS.USER_ORGS(user.id));
 
     return {
       success: true,
@@ -203,6 +204,7 @@ export async function updateOrganization(
   data: UpdateOrganizationInput
 ): Promise<ActionResponse> {
   try {
+    // Validate input
     if (!data.id) {
       return {
         success: false,
@@ -213,28 +215,15 @@ export async function updateOrganization(
       };
     }
 
-    // Validate slug if provided
-    if (data.slug && !/^[a-z0-9-]+$/.test(data.slug)) {
-      return {
-        success: false,
-        error: {
-          ...appErrors.INVALID_INPUT,
-          message:
-            "Slug must contain only lowercase letters, numbers, and hyphens",
-        },
-      };
-    }
-
     // Get the authenticated user
     const user = await requireAuth();
 
-    // Check if user has permission to update this organization
-    const userOrg = await prisma.userOrganization.findFirst({
+    // Check if the user is a member of the organization
+    const userOrg = await prisma.userOrganization.findUnique({
       where: {
-        userId: user.id,
-        organizationId: data.id,
-        role: {
-          in: ["OWNER", "ADMIN"],
+        userId_organizationId: {
+          userId: user.id,
+          organizationId: data.id,
         },
       },
     });
@@ -246,18 +235,13 @@ export async function updateOrganization(
       };
     }
 
-    // Check if slug is already taken by another organization
+    // Check if slug is changing and if it's available
     if (data.slug) {
-      const existingOrg = await prisma.organization.findFirst({
-        where: {
-          slug: data.slug,
-          id: {
-            not: data.id,
-          },
-        },
-      });
-
-      if (existingOrg) {
+      const slugResult = await checkOrganizationSlugAvailability(
+        data.slug,
+        data.id
+      );
+      if (!slugResult.data.available) {
         return {
           success: false,
           error: {
@@ -269,20 +253,21 @@ export async function updateOrganization(
     }
 
     // Update the organization
+    const updateData: Record<string, string | PlanType | null> = {};
+    if (data.name) updateData.name = data.name;
+    if (data.slug) updateData.slug = data.slug;
+    if (data.plan) updateData.plan = data.plan as PlanType;
+    if (data.logoUrl !== undefined) updateData.logoUrl = data.logoUrl;
+
     const organization = await prisma.organization.update({
       where: {
         id: data.id,
       },
-      data: {
-        ...(data.name && { name: data.name }),
-        ...(data.slug && { slug: data.slug }),
-        ...(data.plan && { plan: data.plan as PlanType }),
-        ...(data.logoUrl !== undefined && { logoUrl: data.logoUrl }),
-      },
+      data: updateData,
     });
 
     // Revalidate cache
-    revalidateTag(`user_organizations_${user.id}`);
+    revalidateTag(CACHE_TAGS.USER_ORGS(user.id));
 
     return {
       success: true,

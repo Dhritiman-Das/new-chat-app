@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { revalidateTag } from "next/cache";
 import { requireAuth } from "@/utils/auth";
 import { createServiceRoleClient } from "@/utils/supabase/server";
+import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 // Create safe action client
 const action = createSafeActionClient();
@@ -40,7 +41,7 @@ export const updateProfile = action
       });
 
       // Revalidate user cache
-      revalidateTag(`user_${updatedUser.id}`);
+      revalidateTag(CACHE_TAGS.USER(updatedUser.id));
 
       return {
         success: true,
@@ -114,6 +115,9 @@ export const updateAvatar = action
           avatarUrl: parsedInput.avatarUrl,
         },
       });
+
+      // Revalidate user cache
+      revalidateTag(CACHE_TAGS.USER(updatedUser.id));
 
       return {
         success: true,

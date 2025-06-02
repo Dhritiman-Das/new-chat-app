@@ -8,6 +8,7 @@ import { revalidateTag } from "next/cache";
 import { AppError, appErrors } from "@/app/types/errors";
 import { EmbeddingStatus } from "@/lib/generated/prisma";
 import { ActionResponse } from "./types";
+import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 // Create a safe action client
 const action = createSafeActionClient();
@@ -86,8 +87,8 @@ export const uploadFile = action
       // 3. Update the file status when processing is complete
 
       // Revalidate cache tags
-      revalidateTag(`bot-${botId}`);
-      revalidateTag(`knowledge-${knowledgeBase.id}`);
+      revalidateTag(CACHE_TAGS.BOT(botId));
+      revalidateTag(CACHE_TAGS.KNOWLEDGE_BASE(knowledgeBase.id));
 
       return {
         success: true,
@@ -145,8 +146,8 @@ export const deleteFile = action
       // 2. Remove embeddings from vector database
 
       // Revalidate cache tags
-      revalidateTag(`bot-${botId}`);
-      revalidateTag(`knowledge-${knowledgeBaseId}`);
+      revalidateTag(CACHE_TAGS.BOT(botId));
+      revalidateTag(CACHE_TAGS.KNOWLEDGE_BASE(knowledgeBaseId));
 
       return {
         success: true,

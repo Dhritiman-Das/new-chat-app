@@ -24,6 +24,7 @@ import {
 import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
 import { getOrganizationInvoicesQuery } from "./index";
+import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 export const getMe = async () => {
   const user = await requireAuth();
@@ -56,7 +57,7 @@ export const getOrganizationInvoices = async (
       pageSize.toString(),
     ],
     {
-      tags: [`organization_invoices_${organizationId}`],
+      tags: [CACHE_TAGS.ORGANIZATION_INVOICES(organizationId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -73,7 +74,7 @@ export const getUserOrganizations = async () => {
     },
     ["user_organizations", userId],
     {
-      tags: [`user_organizations_${userId}`],
+      tags: [CACHE_TAGS.USER_ORGS(userId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -90,7 +91,7 @@ export const getOrganizationBots = async (organizationId: string) => {
     },
     ["organization_bots", organizationId],
     {
-      tags: [`organization_bots_${organizationId}`],
+      tags: [CACHE_TAGS.ORGANIZATION_BOTS(organizationId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -107,7 +108,7 @@ export const getUserBots = async () => {
     },
     ["user_bots", userId],
     {
-      tags: [`user_bots_${userId}`],
+      tags: [CACHE_TAGS.USER_BOTS(userId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -124,7 +125,7 @@ export const getOrganizationActiveBotCount = async (organizationId: string) => {
     },
     ["organization_active_bot_count", organizationId],
     {
-      tags: [`organization_bots_${organizationId}`],
+      tags: [CACHE_TAGS.ORGANIZATION_BOTS(organizationId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -144,7 +145,7 @@ export const getOrganizationById = async (organizationId: string) => {
     },
     ["organization", organizationId],
     {
-      tags: [`organization_${organizationId}`],
+      tags: [CACHE_TAGS.ORGANIZATION(organizationId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -161,7 +162,7 @@ export const getUserActiveBotCount = async () => {
     },
     ["user_active_bot_count", userId],
     {
-      tags: [`user_bots_${userId}`],
+      tags: [CACHE_TAGS.USER_BOTS(userId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -178,7 +179,7 @@ export const getUserKnowledgeBaseCount = async () => {
     },
     ["knowledge_base_count", userId],
     {
-      tags: [`user_knowledge_bases_${userId}`],
+      tags: [CACHE_TAGS.USER_KNOWLEDGE_BASES(userId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -195,7 +196,7 @@ export const getRecentConversations = async (limit = 5) => {
     },
     ["recent_conversations", userId, limit.toString()],
     {
-      tags: [`user_conversations_${userId}`],
+      tags: [CACHE_TAGS.USER_CONVERSATIONS(userId)],
       revalidate: 30, // Cache for 30 seconds (conversations update more frequently)
     }
   )();
@@ -211,7 +212,7 @@ export const getBotById = async (botId: string) => {
     },
     ["bot", botId],
     {
-      tags: [`bot_${botId}`],
+      tags: [CACHE_TAGS.BOT(botId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -227,7 +228,7 @@ export const getBotTool = async (botId: string, toolId: string) => {
     },
     ["bot_tool", botId, toolId],
     {
-      tags: [`bot_${botId}`, `bot_tools_${botId}`],
+      tags: [CACHE_TAGS.BOT(botId), CACHE_TAGS.BOT_TOOLS(botId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -246,7 +247,7 @@ export const checkOrganizationSlugAvailability = async (
     },
     ["organization_slug_availability", slug, excludeOrgId || ""],
     {
-      tags: [`organization_slugs`],
+      tags: [CACHE_TAGS.ORGANIZATION_SLUGS],
       revalidate: 5, // Cache for 5 seconds since we need this to be fairly up-to-date
     }
   )();
@@ -320,7 +321,10 @@ export const getConversationById = async (conversationId: string) => {
     },
     [`conversation_${conversationId}`, userId],
     {
-      tags: [`conversation_${conversationId}`, `user_conversations_${userId}`],
+      tags: [
+        CACHE_TAGS.CONVERSATION(conversationId),
+        CACHE_TAGS.USER_CONVERSATIONS(userId),
+      ],
       revalidate: 60, // Cache for 60 seconds
     }
   )();
@@ -397,7 +401,10 @@ export const getBotConversations = async (
     },
     [`bot_conversations_${botId}_page_${page}_size_${pageSize}`, userId],
     {
-      tags: [`bot_conversations_${botId}`, `user_conversations_${userId}`],
+      tags: [
+        CACHE_TAGS.BOT_CONVERSATIONS(botId),
+        CACHE_TAGS.USER_CONVERSATIONS(userId),
+      ],
       revalidate: 30, // Cache for 30 seconds
     }
   )();
@@ -482,7 +489,10 @@ export const getBotConversationsWithToolData = async (
     },
     [`bot_conversations_${botId}_page_${page}_size_${pageSize}`, userId],
     {
-      tags: [`bot_conversations_${botId}`, `user_conversations_${userId}`],
+      tags: [
+        CACHE_TAGS.BOT_CONVERSATIONS(botId),
+        CACHE_TAGS.USER_CONVERSATIONS(userId),
+      ],
       revalidate: 30, // Cache for 30 seconds
     }
   )();
@@ -597,7 +607,10 @@ export const getBotConversationMetrics = async (
       userId,
     ],
     {
-      tags: [`bot_conversations_${botId}`, `user_conversations_${userId}`],
+      tags: [
+        CACHE_TAGS.BOT_CONVERSATIONS(botId),
+        CACHE_TAGS.USER_CONVERSATIONS(userId),
+      ],
       revalidate: 60 * 5, // Cache for 5 minutes
     }
   )();
@@ -616,9 +629,9 @@ export const getBotDetails = async (botId: string, bypassAuth = false) => {
     ["bot_details", botId],
     {
       tags: [
-        `bot_${botId}`,
-        `bot_tools_${botId}`,
-        `bot_knowledge_bases_${botId}`,
+        CACHE_TAGS.BOT(botId),
+        CACHE_TAGS.BOT_TOOLS(botId),
+        CACHE_TAGS.BOT_KNOWLEDGE_BASES(botId),
       ],
       revalidate: 60, // Cache for 1 minute
     }
@@ -639,7 +652,7 @@ export const getCachedConversationStatusCounts = async (botId: string) => {
       return statusCounts; // Return directly without wrapping in {data: ...}
     },
     ["conversation-status-counts", botId],
-    { tags: [`conversation-status-counts-${botId}`], revalidate: 60 }
+    { tags: [CACHE_TAGS.BOT_CONVERSATION_STATUS(botId)], revalidate: 60 }
   )();
 };
 
@@ -679,7 +692,7 @@ export const getCachedConversations = async (
       filtersStr || "none",
     ],
     {
-      tags: [`bot-conversations-${botId}`],
+      tags: [CACHE_TAGS.BOT_CONVERSATIONS(botId)],
       revalidate: 60,
     }
   )();
@@ -696,7 +709,7 @@ export const getCachedConversationSources = async (botId: string) => {
       return { data: await getConversationSourcesQuery(prisma, botId) };
     },
     ["conversation-sources", botId],
-    { tags: [`conversation-sources-${botId}`], revalidate: 60 }
+    { tags: [CACHE_TAGS.BOT_CONVERSATION_SOURCES(botId)], revalidate: 60 }
   )();
 };
 
@@ -731,7 +744,7 @@ export const getInstalledDeployments = async (botId: string) => {
       return { data: await getInstalledDeploymentsQuery(prisma, botId) };
     },
     ["installed-deployments", botId],
-    { tags: [`installed-deployments-${botId}`], revalidate: 60 }
+    { tags: [CACHE_TAGS.BOT_DEPLOYMENTS(botId)], revalidate: 60 }
   )();
 };
 
@@ -749,7 +762,7 @@ export const getBotAppointments = async (
     },
     ["bot_appointments", botId, page.toString(), limit.toString()],
     {
-      tags: [`bot_appointments_${botId}`],
+      tags: [CACHE_TAGS.BOT_APPOINTMENTS(botId)],
       revalidate: 30, // Cache for 30 seconds since appointments might be updated frequently
     }
   )();
@@ -766,7 +779,7 @@ export const getUserBotsGroupedByOrg = async () => {
     },
     ["user_bots_grouped", userId],
     {
-      tags: [`user_bots_${userId}`, `user_organizations_${userId}`],
+      tags: [CACHE_TAGS.USER_BOTS(userId), CACHE_TAGS.USER_ORGS(userId)],
       revalidate: 60, // Cache for 1 minute
     }
   )();
@@ -783,11 +796,11 @@ export const getBotCounts = async (botId: string) => {
     ["bot_counts", botId],
     {
       tags: [
-        `bot_${botId}`,
-        `bot_tools_${botId}`,
-        `bot_knowledge_bases_${botId}`,
-        `bot_deployments_${botId}`,
-        `bot_conversations_${botId}`,
+        CACHE_TAGS.BOT(botId),
+        CACHE_TAGS.BOT_TOOLS(botId),
+        CACHE_TAGS.BOT_KNOWLEDGE_BASES(botId),
+        CACHE_TAGS.BOT_DEPLOYMENTS(botId),
+        CACHE_TAGS.BOT_CONVERSATIONS(botId),
       ],
       revalidate: 30, // Cache for 30 seconds since these counts might change frequently
     }
@@ -804,7 +817,7 @@ export const getBotAllTools = async (botId: string) => {
     },
     ["bot_all_tools", botId],
     {
-      tags: [`bot_${botId}`, `bot_tools_${botId}`],
+      tags: [CACHE_TAGS.BOT(botId), CACHE_TAGS.BOT_TOOLS(botId)],
       revalidate: 30, // Cache for 30 seconds
     }
   )();
@@ -831,7 +844,7 @@ export const getMessageCreditPacks = async () => {
     },
     ["message_credit_packs"],
     {
-      tags: ["add_ons", "message_credits"],
+      tags: [CACHE_TAGS.ADD_ONS, CACHE_TAGS.MESSAGE_CREDITS],
       revalidate: 3600, // Cache for 1 hour since these don't change often
     }
   )();
@@ -858,7 +871,7 @@ export const getAgentAddOns = async () => {
     },
     ["agent_add_ons"],
     {
-      tags: ["add_ons", "agents"],
+      tags: [CACHE_TAGS.ADD_ONS, CACHE_TAGS.AGENT_ADD_ONS],
       revalidate: 3600, // Cache for 1 hour
     }
   )();

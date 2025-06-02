@@ -9,6 +9,7 @@ import { toolRegistry } from "@/lib/tools";
 import { initializeTools } from "@/lib/tools";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
 import { hasAvailableBotSlots } from "@/lib/payment/bot-limit-service";
+import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 // Initialize tools
 initializeTools();
@@ -149,8 +150,8 @@ export async function createBot(data: CreateBotInput): Promise<ActionResponse> {
     });
 
     // Revalidate the user bots cache
-    revalidateTag(`user_bots_${user.id}`);
-    revalidateTag(`organization_bots_${data.organizationId}`);
+    revalidateTag(CACHE_TAGS.USER_BOTS(user.id));
+    revalidateTag(CACHE_TAGS.ORGANIZATION_BOTS(data.organizationId));
 
     return {
       success: true,
@@ -199,21 +200,17 @@ export async function updateBot(data: UpdateBotInput): Promise<ActionResponse> {
         id: data.id,
       },
       data: {
-        ...(data.name && { name: data.name }),
-        ...(data.description !== undefined && {
-          description: data.description,
-        }),
-        ...(data.systemPrompt && { systemPrompt: data.systemPrompt }),
-        ...(data.defaultModelId !== undefined && {
-          defaultModelId: data.defaultModelId,
-        }),
-        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        name: data.name,
+        description: data.description,
+        systemPrompt: data.systemPrompt,
+        defaultModelId: data.defaultModelId,
+        isActive: data.isActive,
       },
     });
 
     // Revalidate the user bots cache
-    revalidateTag(`user_bots_${user.id}`);
-    revalidateTag(`bot_${data.id}`);
+    revalidateTag(CACHE_TAGS.USER_BOTS(user.id));
+    revalidateTag(CACHE_TAGS.BOT(data.id));
 
     return {
       success: true,
@@ -264,8 +261,8 @@ export async function deleteBot(data: { id: string }): Promise<ActionResponse> {
     });
 
     // Revalidate the user bots cache
-    revalidateTag(`user_bots_${user.id}`);
-    revalidateTag(`organization_bots_${existingBot.organizationId}`);
+    revalidateTag(CACHE_TAGS.USER_BOTS(user.id));
+    revalidateTag(CACHE_TAGS.ORGANIZATION_BOTS(existingBot.organizationId));
 
     return {
       success: true,
@@ -404,8 +401,8 @@ export async function installTool(
     }
 
     // Revalidate relevant tags
-    revalidateTag(`bot_${botId}`);
-    revalidateTag(`bot_tools_${botId}`);
+    revalidateTag(CACHE_TAGS.BOT(botId));
+    revalidateTag(CACHE_TAGS.BOT_TOOLS(botId));
 
     return {
       success: true,
@@ -478,8 +475,8 @@ export async function updateToolStatus(
     });
 
     // Revalidate relevant tags
-    revalidateTag(`bot_${botId}`);
-    revalidateTag(`bot_tools_${botId}`);
+    revalidateTag(CACHE_TAGS.BOT(botId));
+    revalidateTag(CACHE_TAGS.BOT_TOOLS(botId));
 
     return {
       success: true,
@@ -548,8 +545,8 @@ export async function uninstallTool(
     });
 
     // Revalidate relevant tags
-    revalidateTag(`bot_${botId}`);
-    revalidateTag(`bot_tools_${botId}`);
+    revalidateTag(CACHE_TAGS.BOT(botId));
+    revalidateTag(CACHE_TAGS.BOT_TOOLS(botId));
 
     return {
       success: true,
@@ -632,8 +629,8 @@ export async function saveIframeConfiguration(
     }
 
     // Revalidate the bot cache
-    revalidateTag(`bot_${data.botId}`);
-    revalidateTag(`bot_deployments_${data.botId}`);
+    revalidateTag(CACHE_TAGS.BOT(data.botId));
+    revalidateTag(CACHE_TAGS.BOT_DEPLOYMENTS(data.botId));
 
     return {
       success: true,
@@ -709,8 +706,8 @@ export async function createIntegration(
     });
 
     // Revalidate the user integrations cache
-    revalidateTag(`user_integrations_${user.id}`);
-    revalidateTag(`bot_integrations_${data.botId}`);
+    revalidateTag(CACHE_TAGS.USER_INTEGRATIONS(user.id));
+    revalidateTag(CACHE_TAGS.BOT_INTEGRATIONS(data.botId));
 
     return {
       success: true,
@@ -786,8 +783,8 @@ export async function linkIntegrationToBot(
     });
 
     // Revalidate the bot cache
-    revalidateTag(`bot_${data.botId}`);
-    revalidateTag(`bot_integrations_${data.botId}`);
+    revalidateTag(CACHE_TAGS.BOT(data.botId));
+    revalidateTag(CACHE_TAGS.BOT_INTEGRATIONS(data.botId));
 
     return {
       success: true,

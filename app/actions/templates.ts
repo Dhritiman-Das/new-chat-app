@@ -6,6 +6,8 @@ import { getUser } from "@/utils/auth";
 import type { ActionResponse } from "./types";
 import { revalidateTag } from "next/cache";
 import prisma from "@/lib/db/prisma";
+import * as CACHE_TAGS from "@/lib/constants/cache-tags";
+
 // Action client
 const action = createSafeActionClient();
 
@@ -125,7 +127,7 @@ export const createTemplate = action
         },
       });
 
-      revalidateTag("templates");
+      revalidateTag(CACHE_TAGS.TEMPLATES);
 
       return {
         success: true,
@@ -214,13 +216,18 @@ export const applyTemplate = action
         },
       });
 
-      // Increment template usage count
+      // Increment usage count for the template
       await prisma.template.update({
         where: { id: templateId },
-        data: { usageCount: { increment: 1 } },
+        data: {
+          usageCount: {
+            increment: 1,
+          },
+        },
       });
 
-      revalidateTag("bots");
+      // Revalidate bot cache
+      revalidateTag(CACHE_TAGS.BOT(botId));
 
       return {
         success: true,
@@ -287,3 +294,66 @@ export const createCategory = action
       };
     }
   });
+
+// Get template categories
+export async function getTemplateCategories(): Promise<ActionResponse> {
+  try {
+    const categories = await prisma.templateCategory.findMany({
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      data: categories,
+    };
+  } catch (error) {
+    console.error("Error fetching template categories:", error);
+    return {
+      success: false,
+      error: {
+        code: "FAILED_TO_FETCH_CATEGORIES",
+        message: "Failed to fetch template categories",
+      },
+    };
+  }
+}
+
+// Create a template category
+export async function createTemplateCategory(
+  name: string,
+  description?: string
+): Promise<ActionResponse> {
+  try {
+    // Generate slug from name
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const category = await prisma.templateCategory.create({
+      data: {
+        name,
+        description,
+        slug,
+      },
+    });
+
+    revalidateTag(CACHE_TAGS.TEMPLATE_CATEGORIES);
+
+    return {
+      success: true,
+      data: category,
+    };
+  } catch (error) {
+    console.error("Error creating template category:", error);
+    return {
+      success: false,
+      error: {
+        code: "FAILED_TO_CREATE_CATEGORY",
+        message: "Failed to create template category",
+      },
+    };
+  }
+}
