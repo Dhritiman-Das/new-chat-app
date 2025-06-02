@@ -58,6 +58,7 @@ export interface CancelSubscriptionOptions {
 
 export interface ActivateSubscriptionOptions {
   subscriptionId: string;
+  returnUrl?: string;
 }
 
 export interface AddOnInfo {
@@ -243,6 +244,7 @@ export interface PaymentProvider {
     subscriptionId: string;
     status: SubscriptionStatus;
     newSubscription?: boolean;
+    paymentLinkUrl?: string;
   }>;
 
   // Add-on methods

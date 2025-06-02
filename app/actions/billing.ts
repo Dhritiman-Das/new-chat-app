@@ -260,6 +260,22 @@ export const updateSubscription = action
       // Check authentication
       await requireAuth();
 
+      // Get current subscription to check if it's a trial without externalId
+      const currentSubscription = await prisma.subscription.findUnique({
+        where: { organizationId },
+      });
+
+      // Log info about the subscription update attempt
+      console.log(`Updating subscription for org ${organizationId}:`, {
+        planType,
+        billingCycle,
+        currentSubscription: {
+          id: currentSubscription?.id,
+          status: currentSubscription?.status,
+          hasExternalId: !!currentSubscription?.externalId,
+        },
+      });
+
       // Map the billing cycle string to enum
       const cycle = billingCycle;
 
@@ -268,6 +284,16 @@ export const updateSubscription = action
         planType,
         billingCycle: cycle,
       });
+
+      // If this was a trial-to-paid conversion, log the success
+      if (currentSubscription && !currentSubscription.externalId) {
+        console.log(`Successfully converted trial subscription to paid plan:`, {
+          organizationId,
+          subscriptionId: result.subscriptionId,
+          previousStatus: currentSubscription.status,
+          newStatus: result.status,
+        });
+      }
 
       return {
         success: true,
@@ -336,6 +362,7 @@ export const cancelSubscription = action
 // Schema for reactivating subscription
 const reactivateSubscriptionSchema = z.object({
   organizationId: z.string(),
+  returnUrl: z.string().url().optional(),
 });
 
 /**
@@ -345,13 +372,28 @@ export const reactivateSubscription = action
   .schema(reactivateSubscriptionSchema)
   .action(async ({ parsedInput }) => {
     try {
-      const { organizationId } = parsedInput;
+      const { organizationId, returnUrl } = parsedInput;
 
       // Check authentication
       await requireAuth();
 
       // Reactivate the subscription
-      const result = await activateOrganizationSubscription(organizationId);
+      const result = await activateOrganizationSubscription(
+        organizationId,
+        returnUrl
+      );
+
+      // Check if we received a payment link
+      // If yes, return it so the client can redirect the user
+      if (result.paymentLinkUrl) {
+        return {
+          success: true,
+          data: {
+            ...result,
+            requiresPayment: true,
+          },
+        };
+      }
 
       return {
         success: true,

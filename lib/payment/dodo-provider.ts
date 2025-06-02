@@ -102,11 +102,17 @@ export class DodoPaymentsProvider implements PaymentProvider {
           : undefined,
       });
 
+      // If a payment link was generated, the subscription requires payment
+      // and should be considered PENDING until payment is confirmed via webhook
+      const status = response.payment_link
+        ? SubscriptionStatus.PENDING
+        : this.mapSubscriptionStatus("active");
+
       return {
         subscriptionId: response.subscription_id,
         paymentLinkUrl: response.payment_link || undefined,
         clientSecret: response.client_secret || undefined,
-        status: "active" as SubscriptionStatus, // Cast to SubscriptionStatus
+        status: status,
         customerId: customerId, // Return the customer ID that was used
       };
     } catch (error) {
@@ -186,7 +192,7 @@ export class DodoPaymentsProvider implements PaymentProvider {
 
       return {
         subscriptionId: response.subscription_id,
-        status: "canceled" as SubscriptionStatus, // Cast to SubscriptionStatus
+        status: SubscriptionStatus.CANCELED,
       };
     } catch (error) {
       console.error("Error canceling subscription:", error);
@@ -234,7 +240,7 @@ export class DodoPaymentsProvider implements PaymentProvider {
         reactivated_at: new Date().toISOString(),
       };
 
-      // Create a new subscription
+      // Create a new subscription with payment link to ensure user completes payment
       const newSubscription = await this.client.subscriptions.create({
         product_id: productId,
         customer: {
@@ -243,17 +249,25 @@ export class DodoPaymentsProvider implements PaymentProvider {
         billing: subscription.billing,
         quantity: subscription.quantity || 1,
         metadata: newMetadata,
+        payment_link: true, // Generate a payment link for reactivation
+        return_url: options.returnUrl, // Use the provided return URL
       });
 
       console.log(
         `Created new subscription ${newSubscription.subscription_id} to replace ${options.subscriptionId}`
       );
 
-      // Return the new subscription details
+      // Determine if we should return PENDING status when there's a payment link
+      const status = newSubscription.payment_link
+        ? SubscriptionStatus.PENDING
+        : SubscriptionStatus.ACTIVE;
+
+      // Return the new subscription details with payment link if available
       return {
         subscriptionId: newSubscription.subscription_id,
-        status: "active" as SubscriptionStatus,
+        status,
         newSubscription: true, // Flag to indicate this is a new subscription
+        paymentLinkUrl: newSubscription.payment_link || undefined,
       };
     } catch (error) {
       console.error("Error reactivating subscription:", error);
@@ -418,5 +432,17 @@ export class DodoPaymentsProvider implements PaymentProvider {
     };
 
     return statusMap[dodoStatus] || SubscriptionStatus.ACTIVE;
+  }
+
+  // Helper method to find Dodo Payments' inactive subscription statuses
+  private isInactiveSubscriptionStatus(dodoStatus: string): boolean {
+    const inactiveStatuses = [
+      "cancelled",
+      "failed",
+      "expired",
+      "on_hold",
+      "paused",
+    ];
+    return inactiveStatuses.includes(dodoStatus);
   }
 }

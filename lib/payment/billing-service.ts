@@ -4,6 +4,7 @@ import {
   PlanType,
   PrismaClient,
   SubscriptionStatus,
+  UserRole,
 } from "@/lib/generated/prisma";
 import { getActivePaymentProvider } from "./factory";
 import {
@@ -156,6 +157,26 @@ export async function getProductId(
   return productMapping[planId][cycle];
 }
 
+export async function mapProductIdToPlanType(
+  productId: string
+): Promise<string> {
+  // This should be the reverse mapping of getProductId in billing-service.ts
+  const { env } = await import("@/src/env");
+
+  // Create a mapping from product ID to plan type
+  const productMapping: Record<string, string> = {
+    [env.PRODUCT_ID_HOBBY_MONTHLY]: PlanType.HOBBY,
+    [env.PRODUCT_ID_HOBBY_YEARLY]: PlanType.HOBBY,
+    [env.PRODUCT_ID_STANDARD_MONTHLY]: PlanType.STANDARD,
+    [env.PRODUCT_ID_STANDARD_YEARLY]: PlanType.STANDARD,
+    [env.PRODUCT_ID_PRO_MONTHLY]: PlanType.PRO,
+    [env.PRODUCT_ID_PRO_YEARLY]: PlanType.PRO,
+  };
+
+  // Return the mapped plan type or default to STANDARD
+  return productMapping[productId] || PlanType.STANDARD;
+}
+
 // Cache plan info for performance
 const getPlansCache = cache(async () => {
   return await prisma.planFeature.findMany({
@@ -197,7 +218,7 @@ export async function createSubscriptionForOrganization(
             user: true,
           },
           where: {
-            role: "OWNER",
+            role: UserRole.OWNER,
           },
           take: 1,
         },
@@ -207,6 +228,11 @@ export async function createSubscriptionForOrganization(
     if (!organization) {
       throw new Error(`Organization not found: ${organizationId}`);
     }
+
+    // Check if the organization already has a subscription
+    const existingSubscription = await prisma.subscription.findUnique({
+      where: { organizationId },
+    });
 
     // Try to get customer info from authenticated user
     const authCustomer = await getCustomerFromUser();
@@ -254,7 +280,7 @@ export async function createSubscriptionForOrganization(
       },
       returnUrl:
         returnUrl ||
-        `${env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/settings/billing?success=true`,
+        `${env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/billing?success=true`,
     });
 
     // Store the customer ID if we get one back from the subscription creation
@@ -266,14 +292,62 @@ export async function createSubscriptionForOrganization(
       await savePaymentCustomer(organizationId, result.customerId);
     }
 
-    // When the subscription is created successfully, we'll get a webhook callback
-    // that will handle creating the subscription record in our database
-    // For now, we'll return the payment link for the customer to complete the process
+    // If an existing subscription exists (likely a trial), update it instead of creating a new one
+    // But set status to PENDING until payment is confirmed via webhook
+    if (existingSubscription) {
+      await prisma.subscription.update({
+        where: { id: existingSubscription.id },
+        data: {
+          planType: planType as PlanType,
+          status: SubscriptionStatus.PENDING, // Set to PENDING until payment confirmed
+          billingCycle,
+          externalId: result.subscriptionId,
+          updatedAt: new Date(),
+          metadata: {
+            ...((existingSubscription.metadata as Record<string, unknown>) ||
+              {}),
+            previousTrialSubscription: true,
+            upgradedAt: new Date().toISOString(),
+            pendingPlanType: planType, // Store the pending plan type
+            paymentInitiated: true,
+          },
+        },
+      });
+    } else {
+      // Create a new subscription record
+      const now = new Date();
+      const endDate = new Date();
+      // Set end date based on billing cycle
+      endDate.setMonth(
+        endDate.getMonth() + (billingCycle === BillingCycle.YEARLY ? 12 : 1)
+      );
+
+      await prisma.subscription.create({
+        data: {
+          organizationId,
+          planType: planType as PlanType,
+          status: SubscriptionStatus.PENDING, // Set to PENDING until payment confirmed
+          billingCycle,
+          currentPeriodStart: now,
+          currentPeriodEnd: endDate,
+          externalId: result.subscriptionId,
+          metadata: {
+            pendingPlanType: planType, // Store the pending plan type
+            paymentInitiated: true,
+          },
+        },
+      });
+    }
+
+    // Don't update the organization's plan type until payment is confirmed via webhook
+
+    // Revalidate the billing page
+    revalidatePath("/dashboard/billing");
 
     return {
       paymentLinkUrl: result.paymentLinkUrl,
       subscriptionId: result.subscriptionId,
-      status: result.status,
+      status: SubscriptionStatus.PENDING, // Return PENDING status
       customerId: result.customerId,
     };
   } catch (error) {
@@ -295,8 +369,9 @@ export async function updateOrganizationSubscription(
       where: { organizationId },
     });
 
-    // If no subscription exists, create a new one instead of updating
-    if (!subscription) {
+    // If no subscription exists or if it exists but has no externalId,
+    // create a new subscription instead of updating
+    if (!subscription || !subscription.externalId) {
       // Get organization to ensure it exists
       const organization = await prisma.organization.findUnique({
         where: { id: organizationId },
@@ -306,7 +381,7 @@ export async function updateOrganizationSubscription(
               user: true,
             },
             where: {
-              role: "OWNER",
+              role: UserRole.OWNER,
             },
             take: 1,
           },
@@ -378,7 +453,7 @@ export async function updateOrganizationSubscription(
           organizationId,
           planType,
         },
-        returnUrl: `${env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/settings/billing?success=true`,
+        returnUrl: `${env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/billing?success=true`,
       });
 
       // Store the customer ID if we got one back
@@ -386,39 +461,58 @@ export async function updateOrganizationSubscription(
         await savePaymentCustomer(organizationId, result.customerId);
       }
 
-      // Create subscription record in our database
-      const now = new Date();
-      const endDate = new Date();
-      // Set end date based on billing cycle
-      endDate.setMonth(
-        endDate.getMonth() + (billingCycle === BillingCycle.YEARLY ? 12 : 1)
-      );
+      // If subscription already exists but has no externalId, update it
+      if (subscription) {
+        await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            planType: subscription.planType, // Keep current plan type until payment confirmed
+            status: SubscriptionStatus.PENDING, // Set to PENDING until payment confirmed
+            billingCycle,
+            externalId: result.subscriptionId,
+            updatedAt: new Date(),
+            metadata: {
+              ...((subscription.metadata as Record<string, unknown>) || {}),
+              previousTrialSubscription: true,
+              upgradedAt: new Date().toISOString(),
+              pendingPlanType: planType, // Store the pending plan type
+              paymentInitiated: true,
+            },
+          },
+        });
+      } else {
+        // Create subscription record in our database
+        const now = new Date();
+        const endDate = new Date();
+        // Set end date based on billing cycle
+        endDate.setMonth(
+          endDate.getMonth() + (billingCycle === BillingCycle.YEARLY ? 12 : 1)
+        );
 
-      await prisma.subscription.create({
-        data: {
-          organizationId,
-          planType: planType as PlanType,
-          status: result.status,
-          billingCycle,
-          currentPeriodStart: now,
-          currentPeriodEnd: endDate,
-          externalId: result.subscriptionId,
-        },
-      });
+        await prisma.subscription.create({
+          data: {
+            organizationId,
+            planType: PlanType.HOBBY, // Default to HOBBY until payment confirmed
+            status: SubscriptionStatus.PENDING, // Set to PENDING until payment confirmed
+            billingCycle,
+            currentPeriodStart: now,
+            currentPeriodEnd: endDate,
+            externalId: result.subscriptionId,
+            metadata: {
+              pendingPlanType: planType, // Store the pending plan type
+              paymentInitiated: true,
+            },
+          },
+        });
+      }
 
-      // Update organization's plan type
-      await prisma.organization.update({
-        where: { id: organizationId },
-        data: {
-          plan: planType as PlanType,
-        },
-      });
+      // Don't update organization's plan type until payment is confirmed via webhook
 
       revalidatePath("/dashboard/billing");
       return result;
     }
 
-    // If subscription exists, proceed with update
+    // If subscription exists with externalId, proceed with update
     const updateOptions: UpdateSubscriptionOptions = {
       subscriptionId: subscription.externalId || subscription.id,
     };
@@ -558,7 +652,10 @@ export async function cancelOrganizationSubscription(
   }
 }
 
-export async function activateOrganizationSubscription(organizationId: string) {
+export async function activateOrganizationSubscription(
+  organizationId: string,
+  returnUrl?: string
+) {
   try {
     // Get current subscription
     const subscription = await prisma.subscription.findUnique({
@@ -575,15 +672,23 @@ export async function activateOrganizationSubscription(organizationId: string) {
     const paymentProvider = getActivePaymentProvider();
     const result = await paymentProvider.activateSubscription({
       subscriptionId: subscription.externalId || subscription.id,
+      returnUrl:
+        returnUrl ||
+        `${env.NEXT_PUBLIC_APP_URL}/dashboard/${organizationId}/billing?success=true`,
     });
 
     // Check if this is a new subscription (was created as part of reactivation)
     if (result.newSubscription) {
+      // If the result has a paymentLinkUrl, update the subscription status to PENDING
+      const newStatus = result.paymentLinkUrl
+        ? SubscriptionStatus.PENDING
+        : result.status;
+
       // Update the existing subscription record with the new subscription ID
       await prisma.subscription.update({
         where: { id: subscription.id },
         data: {
-          status: result.status,
+          status: newStatus,
           externalId: result.subscriptionId, // Update with the new subscription ID
           cancelAtPeriodEnd: false,
           updatedAt: new Date(),
@@ -592,9 +697,14 @@ export async function activateOrganizationSubscription(organizationId: string) {
             reactivated: true,
             previousSubscriptionId: subscription.externalId,
             reactivatedAt: new Date().toISOString(),
+            paymentInitiated: !!result.paymentLinkUrl,
+            paymentPending: !!result.paymentLinkUrl,
           },
         },
       });
+
+      // Don't update the organization's plan type until payment is confirmed via webhook
+      // if a payment link was provided
     } else {
       // Just update the status for a regular reactivation
       await prisma.subscription.update({

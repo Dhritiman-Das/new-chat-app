@@ -43,6 +43,7 @@ export function CurrentSubscriptionCard({
     subscription.status === SubscriptionStatus.CANCELED ||
     subscription.status === SubscriptionStatus.PAUSED;
   const isActive = subscription.status === SubscriptionStatus.ACTIVE;
+  const isPending = subscription.status === SubscriptionStatus.PENDING;
 
   const getBadgeColor = (status: SubscriptionStatus) => {
     switch (status) {
@@ -59,7 +60,7 @@ export function CurrentSubscriptionCard({
       case SubscriptionStatus.TRIALING:
         return "default";
       case SubscriptionStatus.PENDING:
-        return "default";
+        return "secondary";
       case SubscriptionStatus.PAUSED:
         return "default";
       default:
@@ -78,14 +79,19 @@ export function CurrentSubscriptionCard({
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-medium">Plan</p>
-                <p className="text-sm text-muted-foreground">
-                  {subscription.planType}
-                </p>
-              </div>
-              <Badge variant={getBadgeColor(subscription.status)}>
+            <div>
+              <p className="font-medium">Plan</p>
+              <p className="text-sm text-muted-foreground">
+                {subscription.planType}
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium">Status</p>
+              <Badge
+                variant={getBadgeColor(subscription.status)}
+                className="mt-1"
+              >
                 {subscription.status}
               </Badge>
             </div>
@@ -110,6 +116,29 @@ export function CurrentSubscriptionCard({
                 )}
               </p>
             </div>
+
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Need help? Email us at{" "}
+                <a
+                  href="mailto:iamdhritiman01@gmail.com"
+                  className="underline font-medium"
+                >
+                  iamdhritiman01@gmail.com
+                </a>
+              </p>
+            </div>
+
+            {isPending && (
+              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                <p className="font-medium">Payment Processing</p>
+                <p className="mt-1">
+                  Your subscription payment is being processed. This may take a
+                  few moments. The page will refresh automatically once the
+                  payment is confirmed.
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
@@ -117,6 +146,7 @@ export function CurrentSubscriptionCard({
             variant="outline"
             className="w-full sm:w-auto"
             onClick={onChangePlan}
+            disabled={isPending || loading}
           >
             Change Plan
           </Button>

@@ -21,6 +21,7 @@ import {
   DodoSubscriptionData,
   DodoPaymentData,
 } from "@/lib/payment/types";
+import { mapProductIdToPlanType } from "@/lib/payment/billing-service";
 
 interface WebhookEventType {
   type: string;
@@ -156,11 +157,19 @@ async function handleSubscriptionActive(event: WebhookEventType) {
     });
 
     if (existingSubscription) {
+      // Retrieve the pending plan type if it exists in metadata
+      const subscriptionMetadata =
+        (existingSubscription.metadata as Record<string, unknown>) || {};
+      const pendingPlanType =
+        (subscriptionMetadata.pendingPlanType as string) || planType;
+
       // Update existing subscription
       await prisma.subscription.update({
         where: { id: existingSubscription.id },
         data: {
           status: SubscriptionStatus.ACTIVE,
+          // If there was a pending plan type, apply it now
+          planType: pendingPlanType as PlanType,
           currentPeriodStart: subscriptionData.previous_billing_date
             ? new Date(subscriptionData.previous_billing_date)
             : new Date(),
@@ -168,6 +177,21 @@ async function handleSubscriptionActive(event: WebhookEventType) {
             ? new Date(subscriptionData.next_billing_date)
             : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days if not provided
           cancelAtPeriodEnd: !!subscriptionData.cancelled_at,
+          metadata: {
+            ...subscriptionMetadata,
+            pendingPlanType: null, // Clear the pending plan type
+            paymentInitiated: null, // Clear the payment initiated flag
+            paymentConfirmed: true,
+            paymentConfirmedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      // Update organization plan type only now that payment is confirmed
+      await prisma.organization.update({
+        where: { id: organizationId },
+        data: {
+          plan: pendingPlanType as PlanType,
         },
       });
     } else {
@@ -189,7 +213,11 @@ async function handleSubscriptionActive(event: WebhookEventType) {
             ? new Date(subscriptionData.next_billing_date)
             : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default to 30 days if not provided
           cancelAtPeriodEnd: !!subscriptionData.cancelled_at,
-          metadata: metadata,
+          metadata: {
+            ...metadata,
+            paymentConfirmed: true,
+            paymentConfirmedAt: new Date().toISOString(),
+          },
         },
       });
 
@@ -401,15 +429,20 @@ async function handleSubscriptionPlanChanged(event: WebhookEventType) {
     return;
   }
 
-  // Get plan type from metadata
-  const planType = metadata.planType;
+  // Instead of getting plan type from metadata, map it from the new product_id
+  // The product_id field contains the updated product after plan change
+  const productId = subscriptionData.product_id;
 
-  if (!planType) {
-    console.error("No planType in subscription metadata");
+  if (!productId) {
+    console.error("No product_id in subscription data");
     return;
   }
 
   try {
+    // First, map the product_id to a plan type
+    // This function should be similar to the reverse of getProductId in billing-service.ts
+    const newPlanType = await mapProductIdToPlanType(productId);
+
     // Get the existing subscription
     const existingSubscription = await prisma.subscription.findFirst({
       where: {
@@ -428,7 +461,7 @@ async function handleSubscriptionPlanChanged(event: WebhookEventType) {
     await prisma.subscription.update({
       where: { id: existingSubscription.id },
       data: {
-        planType: planType as PlanType,
+        planType: newPlanType as PlanType,
         currentPeriodStart: subscriptionData.previous_billing_date
           ? new Date(subscriptionData.previous_billing_date)
           : new Date(),
@@ -447,14 +480,14 @@ async function handleSubscriptionPlanChanged(event: WebhookEventType) {
     await prisma.organization.update({
       where: { id: organizationId },
       data: {
-        plan: planType as PlanType,
+        plan: newPlanType as PlanType,
       },
     });
 
     // If the new plan has message credits, grant them
     const planLimits = await prisma.planLimit.findFirst({
       where: {
-        planType: planType as PlanType,
+        planType: newPlanType as PlanType,
         feature: {
           name: "message_credits",
         },
@@ -485,7 +518,11 @@ async function handleSubscriptionPlanChanged(event: WebhookEventType) {
           proratedCredits,
           "PLAN_GRANT",
           "Plan change credit allocation (prorated)",
-          { subscriptionId: subscriptionData.subscription_id }
+          {
+            subscriptionId: subscriptionData.subscription_id,
+            previousPlanType: existingSubscription.planType,
+            newPlanType,
+          }
         );
       }
     }
@@ -506,6 +543,80 @@ async function handlePaymentSucceeded(event: WebhookEventType) {
   const metadata = paymentData.metadata || {};
 
   try {
+    // If this is a subscription payment, update subscription details
+    if (paymentData.subscription_id) {
+      // Find subscription by external ID
+      const subscription = await prisma.subscription.findFirst({
+        where: {
+          externalId: paymentData.subscription_id,
+        },
+      });
+
+      if (subscription) {
+        const subscriptionMetadata =
+          (subscription.metadata as Record<string, unknown>) || {};
+        const pendingPlanType = subscriptionMetadata.pendingPlanType as string;
+        const organizationId = subscription.organizationId;
+
+        // Update subscription status to active and apply any pending plan changes
+        await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            status: SubscriptionStatus.ACTIVE,
+            // If there was a pending plan type, apply it now
+            ...(pendingPlanType
+              ? { planType: pendingPlanType as PlanType }
+              : {}),
+            metadata: {
+              ...subscriptionMetadata,
+              pendingPlanType: null, // Clear the pending plan type
+              paymentInitiated: null, // Clear the payment initiated flag
+              paymentConfirmed: true,
+              paymentConfirmedAt: new Date().toISOString(),
+              lastPaymentId: paymentData.payment_id,
+            },
+          },
+        });
+
+        // If there was a pending plan type, update the organization plan as well
+        if (pendingPlanType) {
+          await prisma.organization.update({
+            where: { id: organizationId },
+            data: {
+              plan: pendingPlanType as PlanType,
+            },
+          });
+
+          // Check if credits need to be granted for the new plan
+          const planLimits = await prisma.planLimit.findFirst({
+            where: {
+              planType: pendingPlanType as PlanType,
+              feature: {
+                name: "message_credits",
+              },
+            },
+            include: {
+              feature: true,
+            },
+          });
+
+          if (planLimits && !planLimits.isUnlimited) {
+            // Grant credits for the new plan (only on plan change)
+            await createCreditTransaction(
+              organizationId,
+              planLimits.value,
+              "PLAN_GRANT",
+              "Plan upgrade credit allocation",
+              {
+                subscriptionId: paymentData.subscription_id,
+                paymentId: paymentData.payment_id,
+              }
+            );
+          }
+        }
+      }
+    }
+
     // Store customer ID if present
     if (
       metadata.organizationId &&
@@ -520,36 +631,14 @@ async function handlePaymentSucceeded(event: WebhookEventType) {
       );
     }
 
-    // Check if we have a valid subscription ID
-    const subscriptionId =
-      metadata.subscriptionId || paymentData.subscription_id;
-    let validSubscriptionId = null;
-
-    if (subscriptionId) {
-      // Verify that the subscription exists
-      const subscription = await prisma.subscription.findFirst({
-        where: {
-          externalId: subscriptionId,
-        },
-      });
-
-      if (subscription) {
-        validSubscriptionId = subscription.id;
-      } else {
-        console.log(
-          `Warning: Referenced subscription ${subscriptionId} not found in database`
-        );
-      }
-    }
-
     // Create invoice record
     await prisma.invoice.create({
       data: {
         organizationId: metadata.organizationId,
-        subscriptionId: validSubscriptionId, // Only use subscription ID if valid
+        subscriptionId: paymentData.subscription_id,
         amount: paymentData.total_amount,
         currency: paymentData.currency,
-        status: "paid",
+        status: paymentData.status,
         dueDate: new Date(),
         paidAt: new Date(),
         invoiceUrl: paymentData.payment_link,
@@ -568,7 +657,11 @@ async function handlePaymentSucceeded(event: WebhookEventType) {
         parseInt(metadata.creditAmount, 10),
         "PURCHASE",
         "Credit purchase",
-        { paymentId: paymentData.payment_id }
+        {
+          paymentId: paymentData.payment_id,
+          creditAmount: metadata.creditAmount,
+          planType: metadata.planType,
+        }
       );
     }
   } catch (error) {

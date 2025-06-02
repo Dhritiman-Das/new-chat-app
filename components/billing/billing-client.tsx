@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useQueryState } from "nuqs";
@@ -93,6 +93,7 @@ interface BillingClientProps {
       status: SubscriptionStatus;
       billingCycle: string;
       currentPeriodEnd: string;
+      externalId?: string;
     };
     creditBalance: number;
     usageData: {
@@ -124,11 +125,42 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
   const [tab, setTab] = useQueryState("tab", { defaultValue: "subscription" });
   const [showPlansDialog, setShowPlansDialog] = useState(false);
 
+  // Check for success query param which indicates a payment has been completed
+  const searchParams = new URLSearchParams(
+    typeof window !== "undefined" ? window.location.search : ""
+  );
+  const success = searchParams.get("success") === "true";
+
   // State initialized with server data
   const [subscription, setSubscription] = useState({
     ...initialData.subscription,
     currentPeriodEnd: new Date(initialData.subscription.currentPeriodEnd),
   });
+
+  // Check if subscription is pending
+  const isPendingSubscription =
+    subscription.status === SubscriptionStatus.PENDING;
+
+  // Effect to refresh the page after a short delay if we have a PENDING subscription
+  // This helps to catch the webhook update
+  useEffect(() => {
+    if (isPendingSubscription && success) {
+      const timer = setTimeout(() => {
+        router.refresh();
+      }, 5000); // Refresh after 5 seconds to check for webhook updates
+      return () => clearTimeout(timer);
+    }
+  }, [isPendingSubscription, success, router]);
+
+  // Display a toast message if we have a success query param and subscription is still pending
+  useEffect(() => {
+    if (success && isPendingSubscription) {
+      toast.info(
+        "Payment received! Your subscription will be updated shortly.",
+        { duration: 5000 }
+      );
+    }
+  }, [success, isPendingSubscription]);
 
   const [creditBalance] = useState(initialData.creditBalance);
   const [usageData] = useState(initialData.usageData);
@@ -179,7 +211,14 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
           subscriptionData &&
           subscriptionData.status === SubscriptionStatus.ACTIVE
         ) {
-          toast.success(`Successfully updated to ${planId} plan`);
+          // Handle case where user is transitioning from trial to paid
+          if (subscription.status === "TRIALING" || !subscription.externalId) {
+            toast.success(
+              `Successfully subscribed to the ${planId} plan! Your trial has been upgraded.`
+            );
+          } else {
+            toast.success(`Successfully updated to ${planId} plan`);
+          }
 
           // Update local state to reflect changes
           setSubscription({
@@ -188,6 +227,9 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
             planType: planType,
             status: subscriptionData.status || SubscriptionStatus.ACTIVE,
             billingCycle: cycle,
+            ...(subscriptionData.subscriptionId && {
+              externalId: subscriptionData.subscriptionId,
+            }),
           });
         } else {
           toast.success(`Successfully subscribed to ${planId} plan`);
@@ -288,6 +330,7 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
 
       const result = await reactivateSubscription({
         organizationId: orgId,
+        returnUrl: `${window.location.origin}/dashboard/${orgId}/billing?success=true`,
       });
 
       // Success case handling
@@ -295,6 +338,19 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
         const subscriptionData = result.data.data;
 
         if (subscriptionData) {
+          // Check if the reactivation requires payment
+          if (
+            "requiresPayment" in subscriptionData &&
+            subscriptionData.requiresPayment &&
+            subscriptionData.paymentLinkUrl
+          ) {
+            toast.info(
+              "Redirecting to payment page to complete reactivation..."
+            );
+            window.location.href = subscriptionData.paymentLinkUrl;
+            return;
+          }
+
           // Check if this is a new subscription
           if (subscriptionData.newSubscription) {
             toast.success(
@@ -307,7 +363,11 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
           // Update local state
           setSubscription({
             ...subscription,
-            status: SubscriptionStatus.ACTIVE,
+            status:
+              "requiresPayment" in subscriptionData &&
+              subscriptionData.requiresPayment
+                ? SubscriptionStatus.PENDING
+                : SubscriptionStatus.ACTIVE,
             // If we have a new subscription ID, update it
             ...(subscriptionData.newSubscription
               ? { id: subscriptionData.subscriptionId }
