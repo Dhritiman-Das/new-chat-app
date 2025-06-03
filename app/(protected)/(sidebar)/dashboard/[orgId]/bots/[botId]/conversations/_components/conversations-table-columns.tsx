@@ -6,7 +6,6 @@ import type { ColumnDef, Row } from "@tanstack/react-table";
 import { Icons } from "@/components/icons";
 import * as React from "react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
@@ -30,6 +29,7 @@ import {
   completeConversation,
   failConversation,
 } from "@/app/actions/conversation-tracking";
+import Link from "next/link";
 
 // Add interface for Conversation with count property
 interface ConversationWithCount extends Conversation {
@@ -60,7 +60,6 @@ export function getConversationsTableColumns({
   }: {
     row: Row<ConversationWithCount>;
   }) => {
-    const router = useRouter();
     const pathname = usePathname();
     const conversation = row.original;
     const [isCompletePending, startCompleteTransition] = React.useTransition();
@@ -74,12 +73,6 @@ export function getConversationsTableColumns({
     const orgIdIndex = pathSegments.indexOf("dashboard") + 1;
     const orgId = pathSegments[orgIdIndex];
 
-    const handleViewConversation = () => {
-      router.push(
-        `/dashboard/${orgId}/bots/${botId}/conversations/${conversation.id}`
-      );
-    };
-
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -92,8 +85,12 @@ export function getConversationsTableColumns({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[180px]">
-          <DropdownMenuItem onSelect={handleViewConversation}>
-            View Conversation
+          <DropdownMenuItem asChild>
+            <Link
+              href={`/dashboard/${orgId}/bots/${botId}/conversations/${conversation.id}`}
+            >
+              View Conversation
+            </Link>
           </DropdownMenuItem>
           {isActive && (
             <>
@@ -161,7 +158,9 @@ export function getConversationsTableColumns({
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={() => setRowAction({ row, variant: "delete" })}
+            onSelect={() => {
+              setRowAction({ row, variant: "delete" });
+            }}
             className="text-destructive focus:text-destructive"
           >
             Delete

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { processChatRequest } from "@/app/actions/ai/chat/process";
 import { addCorsHeaders } from "@/app/actions/ai/chat/cors";
 import { initializeTools } from "@/lib/tools";
+import { revalidateTag } from "next/cache";
+import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 // Initialize the tools
 initializeTools();
@@ -60,6 +62,8 @@ export async function POST(req: NextRequest) {
 
     // Add CORS headers
     await addCorsHeaders(headers, source, botId);
+
+    revalidateTag(CACHE_TAGS.BOT_CONVERSATIONS(botId));
 
     if (result.stream) {
       return new NextResponse(result.stream, {

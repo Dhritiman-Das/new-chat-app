@@ -74,6 +74,11 @@ const updateToolExecutionSchema = z.object({
   error: z.record(z.unknown()).optional(),
 });
 
+// Schema for deleteConversations
+const deleteConversationsSchema = z.object({
+  ids: z.array(z.string()).min(1, "At least one conversation ID is required"),
+});
+
 /**
  * Create a new conversation
  */
@@ -532,3 +537,60 @@ export async function activateConversation(conversationId: string) {
     };
   }
 }
+
+// Action to delete one or more conversations
+export const deleteConversations = createSafeActionClient()
+  .schema(deleteConversationsSchema)
+  .action(
+    async ({ parsedInput }): Promise<ActionResponse<{ count: number }>> => {
+      try {
+        const { ids } = parsedInput;
+
+        // Get the botId before deleting (we need it for cache invalidation)
+        const conversation = await prisma.conversation.findFirst({
+          where: { id: ids[0] },
+          select: { botId: true },
+        });
+
+        if (!conversation) {
+          return {
+            success: false,
+            error: { code: "NOT_FOUND", message: "Conversation not found" },
+          };
+        }
+
+        // Delete all related messages and tool executions first (cascade should handle this, but being explicit)
+        await prisma.$transaction([
+          prisma.toolExecution.deleteMany({
+            where: { conversationId: { in: ids } },
+          }),
+          prisma.message.deleteMany({
+            where: { conversationId: { in: ids } },
+          }),
+          prisma.conversation.deleteMany({
+            where: { id: { in: ids } },
+          }),
+        ]);
+
+        // Revalidate cache tags
+        revalidateTag(CACHE_TAGS.BOT_CONVERSATIONS(conversation.botId));
+        revalidateTag(CACHE_TAGS.BOT_CONVERSATION_SOURCES(conversation.botId));
+        revalidateTag(CACHE_TAGS.BOT_CONVERSATION_STATUS(conversation.botId));
+        revalidateTag(CACHE_TAGS.BOT_COUNTS(conversation.botId));
+
+        return {
+          success: true,
+          data: { count: ids.length },
+        };
+      } catch (error) {
+        console.error("Error deleting conversations:", error);
+        return {
+          success: false,
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "Failed to delete conversations",
+          },
+        };
+      }
+    }
+  );

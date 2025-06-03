@@ -401,10 +401,7 @@ export const getBotConversations = async (
     },
     [`bot_conversations_${botId}_page_${page}_size_${pageSize}`, userId],
     {
-      tags: [
-        CACHE_TAGS.BOT_CONVERSATIONS(botId),
-        CACHE_TAGS.USER_CONVERSATIONS(userId),
-      ],
+      tags: [CACHE_TAGS.BOT_CONVERSATIONS(botId)],
       revalidate: 30, // Cache for 30 seconds
     }
   )();

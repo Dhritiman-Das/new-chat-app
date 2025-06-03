@@ -166,10 +166,10 @@ export default async function ConversationDetailPage({ params }: PageProps) {
 
                   <div>
                     <div className="text-sm font-medium text-muted-foreground">
-                      Status
+                      Total messages
                     </div>
                     <div className="capitalize">
-                      {conversation.status.toLowerCase()}
+                      {conversation.messages.length}
                     </div>
                   </div>
 

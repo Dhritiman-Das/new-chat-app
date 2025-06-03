@@ -28,13 +28,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
-
-// This would be implemented in your actions file
-const deleteConversations = async (ids: string[]) => {
-  // Mock implementation - replace with actual delete logic
-  console.log("Delete conversations with IDs:", ids);
-  return { success: true, error: null };
-};
+import { deleteConversations } from "@/app/actions/conversation-tracking";
 
 interface DeleteConversationsDialogProps
   extends React.ComponentPropsWithoutRef<typeof Dialog> {
@@ -54,17 +48,19 @@ export function DeleteConversationsDialog({
 
   function onDelete() {
     startDeleteTransition(async () => {
-      const { error } = await deleteConversations(
-        conversations.map((conversation) => conversation.id)
-      );
+      const result = await deleteConversations({
+        ids: conversations.map((conversation) => conversation.id),
+      });
 
-      if (error) {
-        toast.error(error);
+      if (!result?.data?.success) {
+        toast.error(
+          result?.data?.error?.message || "Failed to delete conversations"
+        );
         return;
       }
 
       props.onOpenChange?.(false);
-      toast.success("Conversations deleted");
+      toast.success(`${result.data?.data?.count} conversation(s) deleted`);
       onSuccess?.();
     });
   }

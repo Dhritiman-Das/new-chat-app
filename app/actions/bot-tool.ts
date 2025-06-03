@@ -5,6 +5,8 @@ import { z } from "zod";
 import { ActionResponse } from "./types";
 import { createSafeActionClient } from "next-safe-action";
 import { auth } from "@/lib/auth";
+import { revalidateTag } from "next/cache";
+import { BOT_TOOLS } from "@/lib/constants/cache-tags";
 
 const actionClient = createSafeActionClient();
 
@@ -84,6 +86,8 @@ export const toggleBotToolActiveStatus = actionClient
             },
           });
         }
+
+        revalidateTag(BOT_TOOLS(botId));
 
         return {
           success: true,
