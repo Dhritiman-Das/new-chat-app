@@ -22,6 +22,14 @@ import { PlanType, SubscriptionStatus } from "@/lib/generated/prisma";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Icons } from "@/components/icons";
+import {
+  getConversationVolumeQuery,
+  getConversationStatusQuery,
+  getLeadGenerationQuery,
+  getAppointmentsQuery,
+  getMessagesHistogramQuery,
+  getPeakUsageQuery,
+} from "@/lib/queries/analytics-queries";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -36,7 +44,7 @@ export default async function AnalyticsPage({
   const { botId, orgId } = await params;
   const { timeFrame: rawTimeFrame } = await searchParams;
 
-  // Validate time frame from query params (but not used directly since we're using dummy data)
+  // Validate time frame from query params
   const timeFrame = ["7d", "30d", "90d", "all"].includes(rawTimeFrame || "")
     ? rawTimeFrame
     : "30d";
@@ -131,68 +139,29 @@ export default async function AnalyticsPage({
     );
   }
 
-  // Log timeFrame to prevent unused variable warning
-  console.log(`Rendering analytics for time frame: ${timeFrame}`);
+  // Fetch real analytics data from database
+  const [
+    conversationVolumeResponse,
+    conversationStatusResponse,
+    leadGenerationResponse,
+    appointmentsResponse,
+    messagesHistogramResponse,
+    peakUsageResponse,
+  ] = await Promise.all([
+    getConversationVolumeQuery(botId, timeFrame),
+    getConversationStatusQuery(botId, timeFrame),
+    getLeadGenerationQuery(botId, timeFrame),
+    getAppointmentsQuery(botId, timeFrame),
+    getMessagesHistogramQuery(botId, timeFrame),
+    getPeakUsageQuery(botId, timeFrame),
+  ]);
 
-  // HARDCODED DUMMY DATA INSTEAD OF FETCHING
-  // This simulates a very busy and successful bot
-
-  // Conversation volume data - showing increasing trend
-  const conversationVolumeData = generateDailyData(30, {
-    min: 75,
-    max: 150,
-    trend: "increasing",
-    volatility: 0.2,
-  }).map((item) => ({
-    date: item.date,
-    count: item.value,
-  }));
-
-  // Status data - mostly completed conversations
-  const conversationStatusData = [
-    { status: "COMPLETED", count: 2840 },
-    { status: "ABANDONED", count: 320 },
-    { status: "FAILED", count: 95 },
-    { status: "ACTIVE", count: 145 },
-  ];
-
-  // Lead generation - high conversion rate with improving trend
-  const leadGenerationData = {
-    currentRate: 68, // 68% conversion rate
-    timeSeriesData: generateDailyData(30, {
-      min: 0.5,
-      max: 0.7,
-      trend: "increasing",
-      volatility: 0.1,
-    }).map((item) => ({
-      date: item.date,
-      rate: item.value,
-    })),
-  };
-
-  // Appointments - many bookings with positive trend
-  const appointmentsData = generateDailyData(30, {
-    min: 10,
-    max: 35,
-    trend: "increasing",
-    volatility: 0.25,
-  }).map((item) => ({
-    date: item.date,
-    count: item.value,
-  }));
-
-  // Messages histogram - good engagement depth
-  const messagesHistogramData = [
-    { bucket: "1-3", count: 580 },
-    { bucket: "4-6", count: 920 },
-    { bucket: "7-10", count: 1120 },
-    { bucket: "11-15", count: 840 },
-    { bucket: "16-20", count: 380 },
-    { bucket: "21+", count: 160 },
-  ];
-
-  // Peak usage - business hours with some evening activity
-  const peakUsageData = generatePeakUsageData();
+  const conversationVolumeData = conversationVolumeResponse.data;
+  const conversationStatusData = conversationStatusResponse.data;
+  const leadGenerationData = leadGenerationResponse.data;
+  const appointmentsData = appointmentsResponse.data;
+  const messagesHistogramData = messagesHistogramResponse.data;
+  const peakUsageData = peakUsageResponse.data;
 
   return (
     <div>
@@ -280,101 +249,4 @@ export default async function AnalyticsPage({
       </Shell>
     </div>
   );
-}
-
-// Helper function to generate daily data over time
-function generateDailyData(
-  days: number,
-  options: {
-    min: number;
-    max: number;
-    trend: "increasing" | "decreasing" | "steady";
-    volatility: number;
-  }
-) {
-  const { min, max, trend, volatility } = options;
-  const result = [];
-  const now = new Date();
-
-  const baseValue = trend === "decreasing" ? max : min;
-  const trendFactor =
-    trend === "steady"
-      ? 0
-      : ((trend === "increasing" ? 1 : -1) * (max - min)) / days;
-
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-
-    // Calculate value with trend and random volatility
-    let value = baseValue + trendFactor * (days - i);
-
-    // Add controlled randomness
-    const randomness = (Math.random() - 0.5) * 2 * volatility * (max - min);
-    value = Math.max(min, Math.min(max, value + randomness));
-
-    // Round value to integer if likely to be integer
-    if (value > 10) {
-      value = Math.round(value);
-    }
-
-    result.push({
-      date: date.toISOString().split("T")[0],
-      value,
-    });
-  }
-
-  return result;
-}
-
-// Helper to generate peak usage data
-function generatePeakUsageData() {
-  const days = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
-  const data = [];
-
-  // Generate data for each day and hour
-  for (const day of days) {
-    for (let hour = 0; hour < 24; hour++) {
-      // Business hours pattern (9am-5pm) with highest activity
-      let value = 0;
-
-      if (hour >= 9 && hour <= 17) {
-        // Business hours
-        if (day !== "Saturday" && day !== "Sunday") {
-          // Higher values for weekdays during business hours
-          // Bell curve with peak around noon-2pm
-          const distance = Math.min(Math.abs(hour - 13), 4);
-          value = Math.round(50 + Math.random() * 30 - distance * 10);
-        } else {
-          // Lower weekend business hours
-          value = Math.round(10 + Math.random() * 15);
-        }
-      } else if (hour >= 18 && hour <= 22) {
-        // Evening hours - medium activity
-        value = Math.round(15 + Math.random() * 20);
-      } else {
-        // Night hours - low activity
-        value = Math.round(Math.random() * 8);
-      }
-
-      // Add some randomness
-      value = Math.max(0, value + Math.floor((Math.random() - 0.3) * 10));
-
-      data.push({
-        day,
-        hour,
-        value,
-      });
-    }
-  }
-
-  return data;
 }

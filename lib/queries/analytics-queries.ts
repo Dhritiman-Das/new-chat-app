@@ -1,22 +1,20 @@
+import { unstable_cache as cache } from "next/cache";
+import { requireAuth } from "@/utils/auth";
 import { prisma } from "@/lib/db/prisma";
+import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 import type {
   ConversationVolumeData,
   ConversationStatusData,
-  ResponseTimeData,
-  ToolUsageData,
   LeadGenerationData,
   AppointmentsData,
   HistogramData,
   PeakUsageData,
 } from "./index";
 
-// Define the time frames
-export type TimeFrame = "7d" | "30d" | "90d" | "all";
-
 // Helper function to get date range based on timeFrame
-export function getDateRange(timeFrame: TimeFrame) {
+function getDateRange(timeFrame: string) {
   const now = new Date();
-  const startDate = new Date();
+  const startDate = new Date(now);
 
   switch (timeFrame) {
     case "7d":
@@ -29,405 +27,443 @@ export function getDateRange(timeFrame: TimeFrame) {
       startDate.setDate(now.getDate() - 90);
       break;
     case "all":
-      // Return a date far in the past for "all time"
-      startDate.setFullYear(2000);
+      startDate.setFullYear(2020); // Far back date
       break;
+    default:
+      startDate.setDate(now.getDate() - 30); // Default to 30 days
   }
 
   return { startDate, endDate: now };
 }
 
-// Get conversation volume data
-export async function getConversationVolumeData(
-  botId: string,
-  timeFrame: TimeFrame
-): Promise<{ success: boolean; data: ConversationVolumeData[] }> {
-  try {
-    const { startDate, endDate } = getDateRange(timeFrame);
+// Helper function to generate date series for time range
+function generateDateSeries(startDate: Date, endDate: Date): string[] {
+  const dates: string[] = [];
+  const current = new Date(startDate);
 
-    // For daily data
-    const conversationsByDay = await prisma.$queryRaw<ConversationVolumeData[]>`
-      SELECT 
-        DATE(c."startedAt")::text as date,
-        COUNT(*)::int as count
-      FROM "conversations" c
-      WHERE c."botId" = ${botId}
-        AND c."startedAt" >= ${startDate}
-        AND c."startedAt" <= ${endDate}
-      GROUP BY DATE(c."startedAt")
-      ORDER BY date ASC
-    `;
-
-    return {
-      success: true,
-      data: conversationsByDay || [],
-    };
-  } catch (error) {
-    console.error("Error fetching conversation volume data:", error);
-    return {
-      success: false,
-      data: [],
-    };
+  while (current <= endDate) {
+    dates.push(current.toISOString().split("T")[0]);
+    current.setDate(current.getDate() + 1);
   }
+
+  return dates;
 }
 
-// Get conversation status breakdown
-export async function getConversationStatusData(
+/**
+ * Get conversation volume data over time
+ */
+export async function getConversationVolumeQuery(
   botId: string,
-  timeFrame: TimeFrame
-): Promise<{ success: boolean; data: ConversationStatusData[] }> {
-  try {
-    const { startDate, endDate } = getDateRange(timeFrame);
+  timeFrame: string = "30d"
+) {
+  await requireAuth();
 
-    const statusCounts = await prisma.conversation.groupBy({
-      by: ["status"],
-      where: {
-        botId,
-        startedAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      _count: true,
-    });
+  return cache(
+    async (): Promise<{ data: ConversationVolumeData[] }> => {
+      const { startDate, endDate } = getDateRange(timeFrame);
 
-    const formattedData: ConversationStatusData[] = statusCounts.map(
-      (item) => ({
-        status: item.status,
-        count: item._count,
-      })
-    );
-
-    return {
-      success: true,
-      data: formattedData,
-    };
-  } catch (error) {
-    console.error("Error fetching conversation status data:", error);
-    return {
-      success: false,
-      data: [],
-    };
-  }
-}
-
-// Get response time data
-export async function getResponseTimeData(
-  botId: string,
-  timeFrame: TimeFrame
-): Promise<{ success: boolean; data: ResponseTimeData[] }> {
-  try {
-    const { startDate, endDate } = getDateRange(timeFrame);
-
-    const responseTimeByDay = await prisma.$queryRaw<ResponseTimeData[]>`
-      SELECT 
-        DATE(m."timestamp")::text as date,
-        AVG(m."processingTime")::float as "avgResponseTime"
-      FROM "messages" m
-      JOIN "conversations" c ON m."conversationId" = c.id
-      WHERE c."botId" = ${botId}
-        AND m."role" = 'ASSISTANT'
-        AND m."processingTime" IS NOT NULL
-        AND c."startedAt" >= ${startDate}
-        AND c."startedAt" <= ${endDate}
-      GROUP BY DATE(m."timestamp")
-      ORDER BY date ASC
-    `;
-
-    return {
-      success: true,
-      data: responseTimeByDay || [],
-    };
-  } catch (error) {
-    console.error("Error fetching response time data:", error);
-    return {
-      success: false,
-      data: [],
-    };
-  }
-}
-
-// Get tool usage data
-export async function getToolUsageData(
-  botId: string,
-  timeFrame: TimeFrame
-): Promise<{ success: boolean; data: ToolUsageData[] }> {
-  try {
-    const { startDate, endDate } = getDateRange(timeFrame);
-
-    const toolUsage = await prisma.$queryRaw<ToolUsageData[]>`
-      SELECT 
-        t."name"::text as tool,
-        COUNT(*)::int as count
-      FROM "tool_executions" te
-      JOIN "conversations" c ON te."conversationId" = c.id
-      JOIN "tools" t ON te."toolId" = t.id
-      WHERE c."botId" = ${botId}
-        AND c."startedAt" >= ${startDate}
-        AND c."startedAt" <= ${endDate}
-      GROUP BY t."name"
-      ORDER BY count DESC
-    `;
-
-    return {
-      success: true,
-      data: toolUsage || [],
-    };
-  } catch (error) {
-    console.error("Error fetching tool usage data:", error);
-    return {
-      success: false,
-      data: [],
-    };
-  }
-}
-
-// Get lead generation data
-export async function getLeadGenerationData(
-  botId: string,
-  timeFrame: TimeFrame
-): Promise<{ success: boolean; data: LeadGenerationData }> {
-  try {
-    const { startDate, endDate } = getDateRange(timeFrame);
-
-    // Get total conversations in time period
-    const totalConversations = await prisma.conversation.count({
-      where: {
-        botId,
-        startedAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-    });
-
-    // Get conversations that generated leads
-    const conversationsWithLeads = await prisma.conversation.count({
-      where: {
-        botId,
-        startedAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-        leads: {
-          some: {},
-        },
-      },
-    });
-
-    // Calculate lead rate
-    const leadRate =
-      totalConversations > 0 ? conversationsWithLeads / totalConversations : 0;
-
-    // Using prisma instead of raw query to avoid field name mismatch issues
-    const conversations = await prisma.conversation.findMany({
-      where: {
-        botId,
-        startedAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      include: {
-        leads: {
-          select: {
-            id: true,
+      // Get conversation counts grouped by date
+      const conversationsData = await prisma.conversation.groupBy({
+        by: ["startedAt"],
+        where: {
+          botId,
+          startedAt: {
+            gte: startDate,
+            lte: endDate,
           },
         },
-      },
-      orderBy: {
-        startedAt: "asc",
-      },
-    });
-
-    // Process result to get daily lead rate
-    const dailyMap = new Map<string, { total: number; withLeads: number }>();
-
-    for (const conv of conversations) {
-      const date = conv.startedAt.toISOString().split("T")[0];
-      const hasLead = conv.leads.length > 0;
-
-      if (!dailyMap.has(date)) {
-        dailyMap.set(date, { total: 0, withLeads: 0 });
-      }
-
-      const current = dailyMap.get(date)!;
-      current.total += 1;
-      if (hasLead) current.withLeads += 1;
-    }
-
-    const dailyLeadRate = Array.from(dailyMap.entries()).map(
-      ([date, data]) => ({
-        date,
-        rate: data.total > 0 ? data.withLeads / data.total : 0,
-      })
-    );
-
-    return {
-      success: true,
-      data: {
-        currentRate: Math.round(leadRate * 100), // Convert to percentage
-        timeSeriesData: dailyLeadRate,
-      },
-    };
-  } catch (error) {
-    console.error("Error fetching lead generation data:", error);
-
-    // If the query fails, return a fallback empty dataset
-    return {
-      success: true,
-      data: {
-        currentRate: 0,
-        timeSeriesData: [],
-      },
-    };
-  }
-}
-
-// Get appointments data
-export async function getAppointmentsData(
-  botId: string,
-  timeFrame: TimeFrame
-): Promise<{ success: boolean; data: AppointmentsData[] }> {
-  try {
-    const { startDate, endDate } = getDateRange(timeFrame);
-
-    const appointmentsByDay = await prisma.$queryRaw<AppointmentsData[]>`
-      SELECT 
-        DATE(a."startTime")::text as date,
-        COUNT(*)::int as count
-      FROM "appointments" a
-      WHERE a."botId" = ${botId}
-        AND a."startTime" >= ${startDate}
-        AND a."startTime" <= ${endDate}
-      GROUP BY DATE(a."startTime")
-      ORDER BY date ASC
-    `;
-
-    return {
-      success: true,
-      data: appointmentsByDay || [],
-    };
-  } catch (error) {
-    console.error("Error fetching appointments data:", error);
-    return {
-      success: false,
-      data: [],
-    };
-  }
-}
-
-// Get messages per conversation histogram
-export async function getMessagesHistogramData(
-  botId: string,
-  timeFrame: TimeFrame
-): Promise<{ success: boolean; data: HistogramData[] }> {
-  try {
-    const { startDate, endDate } = getDateRange(timeFrame);
-
-    // Raw data: message count per conversation
-    const conversationMessageCounts = await prisma.conversation.findMany({
-      where: {
-        botId,
-        startedAt: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      include: {
         _count: {
-          select: {
-            messages: true,
-          },
+          id: true,
         },
-      },
-    });
+        orderBy: {
+          startedAt: "asc",
+        },
+      });
 
-    // Create buckets for the histogram
-    const buckets = [
-      { min: 1, max: 3, label: "1-3" },
-      { min: 4, max: 6, label: "4-6" },
-      { min: 7, max: 10, label: "7-10" },
-      { min: 11, max: 15, label: "11-15" },
-      { min: 16, max: 20, label: "16-20" },
-      { min: 21, max: Number.MAX_SAFE_INTEGER, label: "21+" },
-    ];
+      // Generate complete date series and fill in data
+      const dateSeries = generateDateSeries(startDate, endDate);
+      const dataMap = new Map<string, number>();
 
-    // Count conversations in each bucket
-    const histogramData: HistogramData[] = buckets.map((bucket) => {
-      const count = conversationMessageCounts.filter(
-        (c) =>
-          c._count.messages >= bucket.min && c._count.messages <= bucket.max
-      ).length;
+      // Group conversations by date (not datetime)
+      conversationsData.forEach((item) => {
+        const date = item.startedAt.toISOString().split("T")[0];
+        dataMap.set(date, (dataMap.get(date) || 0) + item._count.id);
+      });
 
-      return {
-        bucket: bucket.label,
-        count,
-      };
-    });
+      const data: ConversationVolumeData[] = dateSeries.map((date) => ({
+        date,
+        count: dataMap.get(date) || 0,
+      }));
 
-    return {
-      success: true,
-      data: histogramData,
-    };
-  } catch (error) {
-    console.error("Error fetching messages histogram data:", error);
-    return {
-      success: false,
-      data: [],
-    };
-  }
+      return { data };
+    },
+    [`analytics:conversation-volume:${botId}:${timeFrame}`],
+    {
+      tags: [
+        CACHE_TAGS.BOT_CONVERSATIONS(botId),
+        CACHE_TAGS.BOT_CONVERSATION_VOLUME(botId),
+        CACHE_TAGS.BOT_ANALYTICS(botId),
+      ],
+      revalidate: 300, // 5 minutes
+    }
+  )();
 }
 
-// Get peak usage times
-export async function getPeakUsageData(
+/**
+ * Get conversation status breakdown
+ */
+export async function getConversationStatusQuery(
   botId: string,
-  timeFrame: TimeFrame
-): Promise<{ success: boolean; data: PeakUsageData[] }> {
-  try {
-    const { startDate, endDate } = getDateRange(timeFrame);
+  timeFrame: string = "30d"
+) {
+  await requireAuth();
 
-    const peakUsage = await prisma.$queryRaw`
-      SELECT 
-        EXTRACT(DOW FROM c."startedAt")::int as day_of_week,
-        EXTRACT(HOUR FROM c."startedAt")::int as hour,
-        COUNT(*)::int as value
-      FROM "conversations" c
-      WHERE c."botId" = ${botId}
-        AND c."startedAt" >= ${startDate}
-        AND c."startedAt" <= ${endDate}
-      GROUP BY day_of_week, hour
-      ORDER BY day_of_week, hour
-    `;
+  return cache(
+    async (): Promise<{ data: ConversationStatusData[] }> => {
+      const { startDate, endDate } = getDateRange(timeFrame);
 
-    // Transform database day numbers (0-6, Sunday is 0) to day names
-    const dayMapping = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
+      const statusData = await prisma.conversation.groupBy({
+        by: ["status"],
+        where: {
+          botId,
+          startedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _count: {
+          id: true,
+        },
+        orderBy: {
+          _count: {
+            id: "desc",
+          },
+        },
+      });
 
-    const formattedData: PeakUsageData[] = (
-      peakUsage as { day_of_week: number; hour: number; value: number }[]
-    ).map((item) => ({
-      day: dayMapping[item.day_of_week],
-      hour: Math.floor(item.hour), // Ensure hour is an integer
-      value: Number(item.value),
-    }));
+      const data: ConversationStatusData[] = statusData.map((item) => ({
+        status: item.status,
+        count: item._count.id,
+      }));
 
-    return {
-      success: true,
-      data: formattedData,
-    };
-  } catch (error) {
-    console.error("Error fetching peak usage data:", error);
-    return {
-      success: false,
-      data: [],
-    };
-  }
+      return { data };
+    },
+    [`analytics:conversation-status:${botId}:${timeFrame}`],
+    {
+      tags: [
+        CACHE_TAGS.BOT_CONVERSATION_STATUS(botId),
+        CACHE_TAGS.BOT_ANALYTICS(botId),
+      ],
+      revalidate: 300, // 5 minutes
+    }
+  )();
+}
+
+/**
+ * Get lead generation data with time series and current rate
+ */
+export async function getLeadGenerationQuery(
+  botId: string,
+  timeFrame: string = "30d"
+) {
+  await requireAuth();
+
+  return cache(
+    async (): Promise<{ data: LeadGenerationData }> => {
+      const { startDate, endDate } = getDateRange(timeFrame);
+
+      // Get total conversations and leads for current rate
+      const [totalConversations, totalLeads] = await Promise.all([
+        prisma.conversation.count({
+          where: {
+            botId,
+            startedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        }),
+        prisma.lead.count({
+          where: {
+            botId,
+            createdAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+        }),
+      ]);
+
+      // Calculate current rate
+      const currentRate =
+        totalConversations > 0
+          ? Math.round((totalLeads / totalConversations) * 100)
+          : 0;
+
+      // Get daily lead generation rates
+      const dateSeries = generateDateSeries(startDate, endDate);
+      const dailyData = await Promise.all(
+        dateSeries.map(async (date) => {
+          const dayStart = new Date(date);
+          const dayEnd = new Date(date);
+          dayEnd.setDate(dayEnd.getDate() + 1);
+
+          const [dayConversations, dayLeads] = await Promise.all([
+            prisma.conversation.count({
+              where: {
+                botId,
+                startedAt: {
+                  gte: dayStart,
+                  lt: dayEnd,
+                },
+              },
+            }),
+            prisma.lead.count({
+              where: {
+                botId,
+                createdAt: {
+                  gte: dayStart,
+                  lt: dayEnd,
+                },
+              },
+            }),
+          ]);
+
+          const rate = dayConversations > 0 ? dayLeads / dayConversations : 0;
+          return { date, rate };
+        })
+      );
+
+      const data: LeadGenerationData = {
+        currentRate,
+        timeSeriesData: dailyData,
+      };
+
+      return { data };
+    },
+    [`analytics:lead-generation:${botId}:${timeFrame}`],
+    {
+      tags: [
+        CACHE_TAGS.BOT_CONVERSATIONS(botId),
+        CACHE_TAGS.BOT_LEAD_GENERATION(botId),
+        CACHE_TAGS.BOT_ANALYTICS(botId),
+      ],
+      revalidate: 300, // 5 minutes
+    }
+  )();
+}
+
+/**
+ * Get appointments data over time
+ */
+export async function getAppointmentsQuery(
+  botId: string,
+  timeFrame: string = "30d"
+) {
+  await requireAuth();
+
+  return cache(
+    async (): Promise<{ data: AppointmentsData[] }> => {
+      const { startDate, endDate } = getDateRange(timeFrame);
+
+      // Get appointments grouped by date
+      const appointmentsData = await prisma.appointment.groupBy({
+        by: ["createdAt"],
+        where: {
+          botId,
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        _count: {
+          id: true,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      });
+
+      // Generate complete date series and fill in data
+      const dateSeries = generateDateSeries(startDate, endDate);
+      const dataMap = new Map<string, number>();
+
+      // Group appointments by date (not datetime)
+      appointmentsData.forEach((item) => {
+        const date = item.createdAt.toISOString().split("T")[0];
+        dataMap.set(date, (dataMap.get(date) || 0) + item._count.id);
+      });
+
+      const data: AppointmentsData[] = dateSeries.map((date) => ({
+        date,
+        count: dataMap.get(date) || 0,
+      }));
+
+      return { data };
+    },
+    [`analytics:appointments:${botId}:${timeFrame}`],
+    {
+      tags: [
+        CACHE_TAGS.BOT_APPOINTMENTS(botId),
+        CACHE_TAGS.BOT_ANALYTICS(botId),
+      ],
+      revalidate: 300, // 5 minutes
+    }
+  )();
+}
+
+/**
+ * Get message distribution histogram (messages per conversation)
+ */
+export async function getMessagesHistogramQuery(
+  botId: string,
+  timeFrame: string = "30d"
+) {
+  await requireAuth();
+
+  return cache(
+    async (): Promise<{ data: HistogramData[] }> => {
+      const { startDate, endDate } = getDateRange(timeFrame);
+
+      // Get conversations with message counts
+      const conversationsWithMessageCounts = await prisma.conversation.findMany(
+        {
+          where: {
+            botId,
+            startedAt: {
+              gte: startDate,
+              lte: endDate,
+            },
+          },
+          include: {
+            _count: {
+              select: {
+                messages: true,
+              },
+            },
+          },
+        }
+      );
+
+      // Define buckets
+      const buckets = [
+        { name: "1-3", min: 1, max: 3 },
+        { name: "4-6", min: 4, max: 6 },
+        { name: "7-10", min: 7, max: 10 },
+        { name: "11-15", min: 11, max: 15 },
+        { name: "16-20", min: 16, max: 20 },
+        { name: "21+", min: 21, max: Infinity },
+      ];
+
+      // Count conversations in each bucket
+      const bucketCounts = buckets.map((bucket) => {
+        const count = conversationsWithMessageCounts.filter((conv) => {
+          const messageCount = conv._count.messages;
+          return messageCount >= bucket.min && messageCount <= bucket.max;
+        }).length;
+
+        return {
+          bucket: bucket.name,
+          count,
+        };
+      });
+
+      return { data: bucketCounts };
+    },
+    [`analytics:messages-histogram:${botId}:${timeFrame}`],
+    {
+      tags: [
+        CACHE_TAGS.BOT_CONVERSATIONS(botId),
+        CACHE_TAGS.BOT_MESSAGES_HISTOGRAM(botId),
+        CACHE_TAGS.BOT_ANALYTICS(botId),
+      ],
+      revalidate: 300, // 5 minutes
+    }
+  )();
+}
+
+/**
+ * Get peak usage data (by hour and day of week)
+ */
+export async function getPeakUsageQuery(
+  botId: string,
+  timeFrame: string = "30d"
+) {
+  await requireAuth();
+
+  return cache(
+    async (): Promise<{ data: PeakUsageData[] }> => {
+      const { startDate, endDate } = getDateRange(timeFrame);
+
+      // Get all conversations in the time range
+      const conversations = await prisma.conversation.findMany({
+        where: {
+          botId,
+          startedAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        select: {
+          startedAt: true,
+        },
+      });
+
+      // Days of the week - matching JavaScript's getDay() (0 = Sunday, 1 = Monday, etc.)
+      const dayNames = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
+
+      // Initialize data structure
+      const usageMap = new Map<string, number>();
+
+      // Initialize all day-hour combinations
+      dayNames.forEach((day) => {
+        for (let hour = 0; hour < 24; hour++) {
+          const key = `${day}-${hour}`;
+          usageMap.set(key, 0);
+        }
+      });
+
+      // Count conversations by day and hour
+      conversations.forEach((conv) => {
+        const date = new Date(conv.startedAt);
+        const dayName = dayNames[date.getDay()]; // getDay() returns 0-6 (Sun-Sat)
+        const hour = date.getHours();
+        const key = `${dayName}-${hour}`;
+
+        usageMap.set(key, (usageMap.get(key) || 0) + 1);
+      });
+
+      // Convert to the expected format
+      const data: PeakUsageData[] = [];
+      dayNames.forEach((day) => {
+        for (let hour = 0; hour < 24; hour++) {
+          const key = `${day}-${hour}`;
+          data.push({
+            day,
+            hour,
+            value: usageMap.get(key) || 0,
+          });
+        }
+      });
+
+      return { data };
+    },
+    [`analytics:peak-usage:${botId}:${timeFrame}`],
+    {
+      tags: [
+        CACHE_TAGS.BOT_CONVERSATIONS(botId),
+        CACHE_TAGS.BOT_PEAK_USAGE(botId),
+        `analytics:${botId}`,
+      ],
+      revalidate: 300, // 5 minutes
+    }
+  )();
 }

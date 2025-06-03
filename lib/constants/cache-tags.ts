@@ -40,6 +40,17 @@ export const BOT_INTEGRATIONS = (botId: string) => `bot:${botId}:integrations`;
 export const BOT_COUNTS = (botId: string) => `bot:${botId}:counts`;
 export const BOT_ALL_TOOLS = (botId: string) => `bot:${botId}:all-tools`;
 
+// Analytics related cache tags
+export const BOT_ANALYTICS = (botId: string) => `bot:${botId}:analytics`;
+export const BOT_CONVERSATION_VOLUME = (botId: string) =>
+  `bot:${botId}:analytics:conversation-volume`;
+export const BOT_LEAD_GENERATION = (botId: string) =>
+  `bot:${botId}:analytics:lead-generation`;
+export const BOT_MESSAGES_HISTOGRAM = (botId: string) =>
+  `bot:${botId}:analytics:messages-histogram`;
+export const BOT_PEAK_USAGE = (botId: string) =>
+  `bot:${botId}:analytics:peak-usage`;
+
 // Conversation related cache tags
 export const CONVERSATION = (conversationId: string) =>
   `conversation:${conversationId}`;
