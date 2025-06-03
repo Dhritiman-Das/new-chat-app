@@ -37,41 +37,25 @@ export function GoHighLevelConnectButton({
       });
 
       // Check if result exists and handle the response based on its structure
-      if (!result || typeof result !== "object" || !("data" in result)) {
-        toast.error("Failed to prepare GoHighLevel connection");
+      if (!result?.data?.success) {
+        toast.error(
+          result?.data?.error?.message ||
+            "Failed to prepare GoHighLevel connection"
+        );
         return;
       }
 
       // The action response may have different shapes, handle them safely
       if (
-        result.data &&
-        typeof result.data === "object" &&
-        "success" in result.data
+        typeof window !== "undefined" &&
+        result.data.data &&
+        typeof result.data.data === "object" &&
+        "state" in result.data.data
       ) {
-        if (!result.data.success) {
-          const errorMsg =
-            result.data.error?.message ||
-            "Failed to prepare GoHighLevel connection";
-          toast.error(errorMsg);
-          return;
-        }
-
-        // Safely store state if it exists
-        if (
-          typeof window !== "undefined" &&
-          result.data.data &&
-          typeof result.data.data === "object" &&
-          "state" in result.data.data
-        ) {
-          sessionStorage.setItem(
-            "goHighLevelOAuthState",
-            String(result.data.data.state)
-          );
-        }
-      } else {
-        // Handle different response format if needed
-        toast.error("Invalid response from server");
-        return;
+        sessionStorage.setItem(
+          "goHighLevelOAuthState",
+          String(result.data.data.state)
+        );
       }
 
       // Open the GoHighLevel OAuth window
@@ -97,7 +81,7 @@ export function GoHighLevelConnectButton({
         "",
         `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
       );
-
+      console.log("popup", popup);
       // The popup might have been blocked, so we redirect the user to the URL instead
       if (!popup) {
         window.location.href = url;

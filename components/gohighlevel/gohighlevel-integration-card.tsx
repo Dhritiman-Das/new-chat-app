@@ -33,6 +33,7 @@ import {
   removeCredential,
   reconnectIntegrationCredential,
 } from "@/app/actions/credentials";
+import { ConnectionStatus } from "@/lib/generated/prisma";
 
 interface GoHighLevelIntegrationProps {
   integration?: {
@@ -190,7 +191,7 @@ export function GoHighLevelIntegrationCard({
   };
 
   const isConnected =
-    integration && integration.connectionStatus === "CONNECTED";
+    integration && integration.connectionStatus === ConnectionStatus.CONNECTED;
 
   return (
     <>

@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import { revalidatePath } from "next/cache";
 import { getGoHighLevelIntegrationForBot } from "@/app/(protected)/(sidebar)/dashboard/[orgId]/bots/[botId]/deployments/gohighlevel/utils";
 import { GoHighLevelMessageType } from "@/lib/shared/types/gohighlevel";
-import { Prisma } from "@/lib/generated/prisma";
+import { DeploymentType, Prisma } from "@/lib/generated/prisma";
 import type { Calendar } from "@/components/tools/gohighlevel-calendar/types";
 import { TokenContext } from "@/lib/auth/types";
 import { createClient } from "@/lib/auth/provider-registry";
@@ -153,7 +153,7 @@ export const updateGoHighLevelChannels = action
           bot: true,
           deployments: {
             where: {
-              type: "GOHIGHLEVEL",
+              type: DeploymentType.GOHIGHLEVEL,
             },
           },
         },
@@ -207,7 +207,7 @@ export const updateGoHighLevelChannels = action
           data: {
             botId: integration.botId,
             integrationId: integration.id,
-            type: "GOHIGHLEVEL",
+            type: DeploymentType.GOHIGHLEVEL,
             config: deploymentConfig as unknown as Prisma.InputJsonValue,
           },
         });
@@ -267,12 +267,31 @@ export const removeGoHighLevelIntegration = action
           },
         };
       }
+      /**
+       * Check if the credential is used by GoHighLevel calendar for the bot:
+       * a. if yes then dont remove the credential
+       * b. if no then remove the credential
+       *  */
+      const botTool = await prisma.botTool.findFirst({
+        where: {
+          botId: integration.botId,
+          toolId: "gohighlevel-calendar",
+          credentialId: integration.credentialId,
+        },
+      });
+
+      if (!botTool && integration.credentialId) {
+        // Remove the credential
+        await prisma.credential.delete({
+          where: { id: integration.credentialId },
+        });
+      }
 
       // Delete associated deployments
       await prisma.deployment.deleteMany({
         where: {
           integrationId,
-          type: "GOHIGHLEVEL",
+          type: DeploymentType.GOHIGHLEVEL,
         },
       });
 

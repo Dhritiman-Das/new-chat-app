@@ -4,6 +4,9 @@ import { $Enums } from "@/lib/generated/prisma";
 import { createGoHighLevelClient } from "@/lib/auth/clients/gohighlevel/index";
 import { TokenContext } from "@/lib/auth/types";
 import { gohighlevelConfig } from "@/lib/auth/config/providers-config";
+import { revalidateTag } from "next/cache";
+import { BOT_INTEGRATIONS, BOT_DEPLOYMENTS } from "@/lib/constants/cache-tags";
+import { env } from "@/src/env";
 
 async function exchangeCodeForToken(code: string) {
   // Create form data with required parameters
@@ -78,9 +81,11 @@ export async function GET(request: NextRequest) {
 
       // Try to parse the metadata from the oauthState
       let botId = "";
+      let orgId = "";
       try {
         const metadata = JSON.parse(oauthState.metadata);
         botId = metadata.botId || "";
+        orgId = metadata.orgId || "";
       } catch (e) {
         console.error("Error parsing state metadata:", e);
       }
@@ -315,12 +320,22 @@ export async function GET(request: NextRequest) {
             },
           });
         }
+
+        // Revalidate cache tags for integrations and deployments
+        revalidateTag(BOT_INTEGRATIONS(botId));
+        revalidateTag(BOT_DEPLOYMENTS(botId));
       }
 
       // Clean up the state
       await prisma.oAuthState.delete({
         where: { state },
       });
+
+      // Construct the return URL for the Bonti App
+      const bontiAppUrl =
+        orgId && botId
+          ? `${env.NEXT_PUBLIC_APP_URL}/dashboard/${orgId}/bots/${botId}/deployments/gohighlevel`
+          : "/dashboard";
 
       // Return success HTML with script to notify parent window
       return new NextResponse(
@@ -336,6 +351,13 @@ export async function GET(request: NextRequest) {
                 padding: 2rem;
                 max-width: 500px;
                 margin: 0 auto;
+                background-color: #f9fafb;
+              }
+              .container {
+                background: white;
+                padding: 2rem;
+                border-radius: 0.75rem;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
               }
               .success {
                 color: #10B981;
@@ -345,40 +367,95 @@ export async function GET(request: NextRequest) {
               h1 {
                 color: #111827;
                 margin-bottom: 1rem;
+                font-size: 1.5rem;
+                font-weight: 600;
               }
               p {
                 color: #6B7280;
                 margin-bottom: 2rem;
+                line-height: 1.5;
+              }
+              .button-container {
+                display: flex;
+                gap: 1rem;
+                justify-content: center;
+                flex-wrap: wrap;
               }
               button {
-                background-color: #2563EB;
-                color: white;
                 border: none;
                 padding: 0.75rem 1.5rem;
                 border-radius: 0.375rem;
                 font-weight: 500;
                 cursor: pointer;
-                transition: background-color 0.2s;
+                transition: all 0.2s;
+                font-size: 0.875rem;
+                min-width: 140px;
               }
-              button:hover {
+              .btn-primary {
+                background-color: #2563EB;
+                color: white;
+              }
+              .btn-primary:hover {
                 background-color: #1D4ED8;
+                transform: translateY(-1px);
+              }
+              .btn-secondary {
+                background-color: #F3F4F6;
+                color: #374151;
+                border: 1px solid #D1D5DB;
+              }
+              .btn-secondary:hover {
+                background-color: #E5E7EB;
+                transform: translateY(-1px);
+              }
+              @media (max-width: 480px) {
+                .button-container {
+                  flex-direction: column;
+                  align-items: center;
+                }
+                button {
+                  width: 100%;
+                  max-width: 200px;
+                }
               }
             </style>
           </head>
           <body>
-            <div class="success">✓</div>
-            <h1>Successfully connected to GoHighLevel</h1>
-            <p>You can close this window and return to the application.</p>
-            <button onclick="closeWindow()">Close Window</button>
+            <div class="container">
+              <div class="success">✓</div>
+              <h1>Successfully connected to GoHighLevel!</h1>
+              <p>Your GoHighLevel integration is now active and ready to use. You can now close this window or return to your dashboard.</p>
+              <div class="button-container">
+                <button class="btn-primary" onclick="goToBontiApp()">Go to Bonti App</button>
+                <button class="btn-secondary" onclick="closeWindow()">Close Window</button>
+              </div>
+            </div>
             <script>
               function closeWindow() {
-                window.opener && window.opener.postMessage('ghl_oauth_completed', '*');
+                // Notify parent window that OAuth is completed
+                if (window.opener) {
+                  window.opener.postMessage('app_oauth_completed', '*');
+                }
                 window.close();
               }
               
-              // Auto notify parent
+              function goToBontiApp() {
+                // Notify parent window that OAuth is completed and redirect
+                if (window.opener) {
+                  window.opener.postMessage('app_oauth_completed', '*');
+                  window.opener.location.href = '${bontiAppUrl}';
+                  window.close();
+                } else {
+                  // If no opener, redirect this window
+                  window.location.href = '${bontiAppUrl}';
+                }
+              }
+              
+              // Auto notify parent on load
               document.addEventListener('DOMContentLoaded', function() {
-                window.opener && window.opener.postMessage('ghl_oauth_completed', '*');
+                if (window.opener) {
+                  window.opener.postMessage('app_oauth_completed', '*');
+                }
               });
             </script>
           </body>

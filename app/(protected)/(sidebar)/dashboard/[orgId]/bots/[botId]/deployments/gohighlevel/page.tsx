@@ -35,7 +35,7 @@ export default async function GoHighLevelDeploymentsPage({
     await Promise.all([
       getBotById(botId),
       getOrganizationById(orgId),
-      getGoHighLevelIntegrations(orgId),
+      getGoHighLevelIntegrations(botId),
     ]);
 
   const bot = botResponse?.data;
