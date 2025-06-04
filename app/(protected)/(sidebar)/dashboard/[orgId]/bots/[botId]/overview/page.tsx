@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
@@ -25,6 +26,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ConversationItem } from "./_components/conversation-item";
+import Link from "next/link";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -153,7 +155,7 @@ export default async function Dashboard({ params }: PageProps) {
           ))}
         </div>
 
-        {recentConversations.length > 0 && (
+        {recentConversations.length > 0 ? (
           <Card>
             <CardHeader>
               <CardTitle>Recent Conversations</CardTitle>
@@ -172,6 +174,29 @@ export default async function Dashboard({ params }: PageProps) {
                   />
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>No Conversations Yet</CardTitle>
+              <CardDescription>
+                This bot hasn&apos;t had any conversations yet. Start chatting
+                to see interactions here.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center py-8">
+              <Icons.MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground text-center mb-6 max-w-sm">
+                Get started by testing your bot in the playground. You can have
+                conversations and see how it responds.
+              </p>
+              <Button asChild>
+                <Link href={`/dashboard/${orgId}/bots/${botId}/playground`}>
+                  <Icons.Terminal className="h-4 w-4 mr-2" />
+                  Try in Playground
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         )}
