@@ -18,6 +18,7 @@ import {
 } from "@/lib/payment/credit-service";
 import { withSubscriptionCheck } from "@/lib/auth/check-subscription-access";
 import { SubscriptionStatus } from "@/lib/generated/prisma";
+import { redis } from "@/lib/db/kv";
 
 // Initialize the tools and get tool services
 const toolExecutionService = new ToolExecutionService();
@@ -49,6 +50,60 @@ interface UsageInfo {
 
 // Define response messages type - using Record for flexibility to match any structure
 type ResponseMessages = Record<string, unknown>[];
+
+// Redis-based conversation locking functions
+async function acquireConversationLock(
+  conversationId: string
+): Promise<boolean> {
+  try {
+    // Try to set a lock with 60 second expiration (auto-cleanup)
+    // NX means "only set if not exists" - atomic operation
+    const result = await redis.set(
+      `conversation_lock:${conversationId}`,
+      "processing",
+      {
+        ex: 60, // 60 seconds TTL
+        nx: true, // Only set if key doesn't exist
+      }
+    );
+
+    return result === "OK";
+  } catch (error) {
+    console.error("Error acquiring conversation lock:", error);
+    return false;
+  }
+}
+
+async function releaseConversationLock(conversationId: string): Promise<void> {
+  try {
+    await redis.del(`conversation_lock:${conversationId}`);
+  } catch (error) {
+    console.error("Error releasing conversation lock:", error);
+  }
+}
+
+async function waitForConversationLock(conversationId: string): Promise<void> {
+  const maxAttempts = 30; // 30 seconds max wait
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    const lockExists = await redis.exists(
+      `conversation_lock:${conversationId}`
+    );
+
+    if (!lockExists) {
+      return; // Lock is not held, we can proceed
+    }
+
+    // Wait 1 second before checking again
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    attempts++;
+  }
+
+  // If we get here, we've waited too long - force release the lock
+  console.warn(`Conversation ${conversationId} lock timeout, forcing release`);
+  await releaseConversationLock(conversationId);
+}
 
 /**
  * Process a chat request with or without streaming
@@ -120,6 +175,25 @@ export async function processChatRequest(
         } catch (error) {
           console.error("Error creating conversation:", error);
           // Continue even if conversation tracking fails
+        }
+      }
+
+      // Wait for any existing conversation processing to complete and acquire lock
+      if (currentConversationId) {
+        try {
+          // First wait for any existing processing to complete
+          await waitForConversationLock(currentConversationId);
+
+          // Then try to acquire the lock for our processing
+          const lockAcquired = await acquireConversationLock(
+            currentConversationId
+          );
+          if (!lockAcquired) {
+            throw new Error("Could not acquire conversation lock");
+          }
+        } catch (error) {
+          console.error("Error with conversation lock:", error);
+          // Continue processing even if lock fails, but this might cause race conditions
         }
       }
 
@@ -300,7 +374,7 @@ export async function processChatRequest(
 
         // Save conversation and tool calls/results here
         if (currentConversationId) {
-          addMessage({
+          await addMessage({
             role: "ASSISTANT",
             content: text,
             conversationId: currentConversationId,
@@ -324,8 +398,17 @@ export async function processChatRequest(
         }
       };
 
+      // Create a promise to track the completion of this conversation processing
+      let completionPromise: Promise<void> = Promise.resolve();
+
       // Choose between streaming and non-streaming based on option
       if (useStreaming) {
+        // Create a promise that will be resolved when onFinish is called
+        let resolveCompletion: () => void;
+        completionPromise = new Promise<void>((resolve) => {
+          resolveCompletion = resolve;
+        });
+
         // Stream the AI response
         const response = streamText({
           model: aiModel,
@@ -334,13 +417,23 @@ export async function processChatRequest(
           tools: hasTools ? (enabledTools as ToolSet) : undefined,
           maxSteps: 5, // Allow multiple tool calls if needed
           onFinish({ response, usage, text }) {
+            // Handle the completion asynchronously
             handleFinish(
               text,
               usage,
               JSON.parse(JSON.stringify(response.messages))
-            );
+            ).finally(() => {
+              resolveCompletion();
+            });
           },
         });
+
+        // Clean up the lock after completion
+        if (currentConversationId) {
+          completionPromise.finally(() => {
+            releaseConversationLock(currentConversationId!);
+          });
+        }
 
         return {
           stream: response.toDataStreamResponse().body,
@@ -357,12 +450,22 @@ export async function processChatRequest(
           maxSteps: 5, // Allow multiple tool calls if needed
         });
 
-        // Handle the completion
-        await handleFinish(
+        // Handle the completion and wait for it
+        completionPromise = handleFinish(
           response.text,
           response.usage,
           response.response.messages
         );
+
+        // Clean up the lock after completion
+        if (currentConversationId) {
+          completionPromise.finally(() => {
+            releaseConversationLock(currentConversationId!);
+          });
+        }
+
+        // Wait for the message to be saved before returning
+        await completionPromise;
 
         return {
           stream: null,
