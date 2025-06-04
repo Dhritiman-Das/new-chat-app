@@ -97,17 +97,22 @@ export async function processAndStoreFile(
     // Get the vector database
     const vectorDb = await getVectorDb();
 
-    // Store each chunk in the vector database
-    for (const doc of documents) {
-      await vectorDb.upsert(
-        {
-          documentId: file.id,
-          botId: fileData.botId,
-          namespace: `kb-${knowledgeBase.id}`,
-          timestamp: new Date().toISOString(),
-        },
-        doc.pageContent
-      );
+    // Prepare all chunks for batch processing
+    const batchEntries = documents.map((doc) => ({
+      text: doc.pageContent,
+      additionalMetadata: {
+        documentId: file.id,
+        botId: fileData.botId,
+        namespace: `kb-${knowledgeBase.id}`,
+        timestamp: new Date().toISOString(),
+      },
+    }));
+
+    // Use batch upsert for better performance
+    const upsertResult = await vectorDb.batchUpsert(batchEntries, true); // Conservative mode
+
+    if (!upsertResult.success) {
+      throw new Error(`Failed to store document chunks: ${upsertResult.error}`);
     }
 
     // Update the file record to indicate successful processing

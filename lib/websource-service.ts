@@ -227,23 +227,26 @@ export async function processAndStoreWebsite(
         // Split the document into chunks
         const documents = await splitDocument(page.content);
 
-        // Store each chunk in the vector database with the page URL
-        for (const doc of documents) {
-          // Store metadata within the document's chunk
-          const pageTitle = (page.metadata?.title as string) || "";
+        // Prepare batch entries for this page
+        const pageTitle = (page.metadata?.title as string) || "";
+        const batchEntries = documents.map((doc) => ({
+          text: doc.pageContent,
+          additionalMetadata: {
+            documentId: website.id,
+            botId: websiteData.botId,
+            namespace: `kb-${knowledgeBase.id}`,
+            timestamp: new Date().toISOString(),
+            sourceUrl: page.url,
+            sourceType: "website",
+            pageTitle: pageTitle,
+          },
+        }));
 
-          await vectorDb.upsert(
-            {
-              documentId: website.id,
-              botId: websiteData.botId,
-              namespace: `kb-${knowledgeBase.id}`,
-              timestamp: new Date().toISOString(),
-              // Additional custom fields passed through the metadata
-              sourceUrl: page.url,
-              sourceType: "website",
-              pageTitle: pageTitle,
-            },
-            doc.pageContent
+        // Use batch upsert for this page's chunks
+        const upsertResult = await vectorDb.batchUpsert(batchEntries, false);
+        if (!upsertResult.success) {
+          throw new Error(
+            `Failed to store chunks for page ${page.url}: ${upsertResult.error}`
           );
         }
       }
@@ -266,20 +269,25 @@ export async function processAndStoreWebsite(
       // Get the vector database
       const vectorDb = await getVectorDb();
 
-      // Store each chunk in the vector database
-      for (const doc of documents) {
-        await vectorDb.upsert(
-          {
-            documentId: website.id,
-            botId: websiteData.botId,
-            namespace: `kb-${knowledgeBase.id}`,
-            timestamp: new Date().toISOString(),
-            // Additional custom fields passed through the metadata
-            sourceUrl: websiteData.url,
-            sourceType: "website",
-            pageTitle: title,
-          },
-          doc.pageContent
+      // Prepare all chunks for batch processing
+      const batchEntries = documents.map((doc) => ({
+        text: doc.pageContent,
+        additionalMetadata: {
+          documentId: website.id,
+          botId: websiteData.botId,
+          namespace: `kb-${knowledgeBase.id}`,
+          timestamp: new Date().toISOString(),
+          sourceUrl: websiteData.url,
+          sourceType: "website",
+          pageTitle: title,
+        },
+      }));
+
+      // Use batch upsert for better performance
+      const upsertResult = await vectorDb.batchUpsert(batchEntries, false);
+      if (!upsertResult.success) {
+        throw new Error(
+          `Failed to store document chunks: ${upsertResult.error}`
         );
       }
     }

@@ -8,6 +8,13 @@ export interface EmbeddingProvider {
    * @returns A promise that resolves to an array of numbers representing the embedding
    */
   getEmbeddings(text: string): Promise<number[]>;
+
+  /**
+   * Generate embeddings for multiple texts in batch
+   * @param texts - Array of texts to embed
+   * @returns A promise that resolves to an array of embedding arrays
+   */
+  getBatchEmbeddings(texts: string[]): Promise<number[][]>;
 }
 
 /**
@@ -41,4 +48,16 @@ export async function getEmbeddings(text: string): Promise<number[]> {
     defaultProvider = await EmbeddingFactory.getProvider("openai");
   }
   return defaultProvider.getEmbeddings(text);
+}
+
+/**
+ * Generate embeddings for multiple texts in batch using the default provider
+ * @param texts - Array of texts to embed
+ * @returns A promise that resolves to an array of embedding arrays
+ */
+export async function getBatchEmbeddings(texts: string[]): Promise<number[][]> {
+  if (!defaultProvider) {
+    defaultProvider = await EmbeddingFactory.getProvider("openai");
+  }
+  return defaultProvider.getBatchEmbeddings(texts);
 }

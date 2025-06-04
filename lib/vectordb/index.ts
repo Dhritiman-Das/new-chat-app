@@ -45,6 +45,19 @@ export interface VectorDbService {
   ): Promise<VectorDbResponse>;
 
   /**
+   * High-performance batch upsert for multiple texts
+   * @param textEntries - Array of objects containing text and metadata
+   * @param useParallelUpsert - Whether to use full parallelization for maximum speed
+   */
+  batchUpsert(
+    textEntries: Array<{
+      text: string;
+      additionalMetadata: AdditionalMetadata;
+    }>,
+    useParallelUpsert?: boolean
+  ): Promise<VectorDbResponse>;
+
+  /**
    * Delete records by account IDs
    * @param accountIds - Account IDs to delete records for
    */

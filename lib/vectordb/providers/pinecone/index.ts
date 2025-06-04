@@ -17,7 +17,7 @@ import {
   VectorDbFilter,
   VectorDbResponse,
 } from "../../types";
-import { getEmbeddings } from "../../embedding";
+import { getEmbeddings, getBatchEmbeddings } from "../../embedding";
 import { truncateStringByBytes } from "../../utils";
 import * as pineconeUtils from "./utils";
 import { VectorDbService } from "../..";
@@ -192,19 +192,19 @@ export class PineconeVectorDb implements VectorDbService {
       // Split the text into chunks
       const documents = await this.prepareDocument(text, additionalMetadata);
 
-      // Create vectors for each document
-      const records = await Promise.all(
-        documents.map((doc) =>
-          this.createPineconeRecord(doc, additionalMetadata)
-        )
+      // Create vectors for each document using batch embedding generation
+      const records = await this.createPineconeRecordsBatch(
+        documents,
+        additionalMetadata
       );
 
-      // Upsert the vectors
+      // Upsert the vectors using optimized batch processing
       await pineconeUtils.chunkedUpsert(
         this.index!,
         records,
         this.config.namespace,
-        this.config.upsertBatchSize
+        undefined, // Let it calculate optimal batch size
+        this.config.dimensions
       );
 
       return {
@@ -216,6 +216,106 @@ export class PineconeVectorDb implements VectorDbService {
       };
     } catch (error) {
       console.error("Error upserting to Pinecone:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+  }
+
+  /**
+   * High-performance batch upsert for multiple texts
+   * Use this when you need to process many files or texts simultaneously
+   * @param textEntries - Array of objects containing text and metadata
+   * @param useParallelUpsert - Whether to use full parallelization (default: false for rate limit safety)
+   * @returns A promise that resolves to a VectorDbResponse
+   */
+  async batchUpsert(
+    textEntries: Array<{
+      text: string;
+      additionalMetadata: AdditionalMetadata;
+    }>,
+    useParallelUpsert: boolean = false
+  ): Promise<VectorDbResponse> {
+    if (!this.index) {
+      await this.initialize();
+    }
+
+    try {
+      console.log(`Starting batch upsert for ${textEntries.length} texts...`);
+
+      // Process all texts to create documents
+      const allDocuments: Array<{
+        doc: Document;
+        metadata: AdditionalMetadata;
+      }> = [];
+
+      for (const entry of textEntries) {
+        const documents = await this.prepareDocument(
+          entry.text,
+          entry.additionalMetadata
+        );
+        documents.forEach((doc) => {
+          allDocuments.push({ doc, metadata: entry.additionalMetadata });
+        });
+      }
+
+      console.log(
+        `Prepared ${allDocuments.length} document chunks from ${textEntries.length} texts`
+      );
+
+      // Create all records using batch embedding generation
+      const allTexts = allDocuments.map((item) => item.doc.pageContent);
+      const embeddings = await getBatchEmbeddings(allTexts);
+
+      const records: PineconeRecord<RecordMetadata>[] = allDocuments.map(
+        (item, index) => {
+          const hash = item.doc.metadata.hash || md5(item.doc.pageContent);
+          const metadata: Metadata = {
+            chunk: item.doc.pageContent,
+            hash: hash as string,
+            ...item.metadata,
+          };
+
+          return {
+            id: hash as string,
+            values: embeddings[index],
+            metadata: metadata as RecordMetadata,
+          };
+        }
+      );
+
+      // Choose upsert strategy based on performance requirements
+      if (useParallelUpsert) {
+        console.log("Using parallel upsert for maximum speed...");
+        await pineconeUtils.parallelUpsert(
+          this.index!,
+          records,
+          this.config.namespace,
+          undefined,
+          this.config.dimensions
+        );
+      } else {
+        console.log("Using controlled concurrency upsert...");
+        await pineconeUtils.chunkedUpsert(
+          this.index!,
+          records,
+          this.config.namespace,
+          undefined,
+          this.config.dimensions
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          recordCount: records.length,
+          namespace: this.config.namespace,
+          textCount: textEntries.length,
+        },
+      };
+    } catch (error) {
+      console.error("Error in batch upsert to Pinecone:", error);
       return {
         success: false,
         error: error instanceof Error ? error : new Error(String(error)),
@@ -315,34 +415,46 @@ export class PineconeVectorDb implements VectorDbService {
   }
 
   /**
-   * Create a Pinecone record from a document
-   * @param doc - The document to create a record from
+   * Create Pinecone records from documents using batch embedding generation
+   * @param docs - The documents to create records from
    * @param additionalMetadata - Additional metadata to include
-   * @returns A promise that resolves to a PineconeRecord
+   * @returns A promise that resolves to an array of PineconeRecord objects
    */
-  private async createPineconeRecord(
-    doc: Document,
+  private async createPineconeRecordsBatch(
+    docs: Document[],
     additionalMetadata: AdditionalMetadata
-  ): Promise<PineconeRecord<RecordMetadata>> {
-    // Generate embeddings for the document
-    const embedding = await getEmbeddings(doc.pageContent);
+  ): Promise<PineconeRecord<RecordMetadata>[]> {
+    // Extract all text content for batch embedding
+    const textContents = docs.map((doc) => doc.pageContent);
 
-    // Create hash for the ID
-    const hash = doc.metadata.hash || md5(doc.pageContent);
+    console.log(
+      `Generating embeddings for ${textContents.length} document chunks...`
+    );
 
-    // Create metadata
-    const metadata: Metadata = {
-      chunk: doc.pageContent,
-      hash: hash as string,
-      ...additionalMetadata,
-    };
+    // Generate embeddings in batch - much more efficient
+    const embeddings = await getBatchEmbeddings(textContents);
 
-    // Create the record
-    return {
-      id: hash as string,
-      values: embedding,
-      metadata: metadata as RecordMetadata,
-    };
+    console.log(`✓ Generated ${embeddings.length} embeddings`);
+
+    // Create records with the batch-generated embeddings
+    return docs.map((doc, index): PineconeRecord<RecordMetadata> => {
+      // Create hash for the ID
+      const hash = doc.metadata.hash || md5(doc.pageContent);
+
+      // Create metadata
+      const metadata: Metadata = {
+        chunk: doc.pageContent,
+        hash: hash as string,
+        ...additionalMetadata,
+      };
+
+      // Create the record
+      return {
+        id: hash as string,
+        values: embeddings[index],
+        metadata: metadata as RecordMetadata,
+      };
+    });
   }
 
   /**
