@@ -4,6 +4,9 @@ import {
   getBotTool,
   getOrganizationById,
 } from "@/lib/queries/cached-queries";
+import { prisma } from "@/lib/db/prisma";
+import React from "react";
+import { z } from "zod";
 import { Icons } from "@/components/icons";
 import {
   Breadcrumb,
@@ -57,10 +60,34 @@ export default async function ToolDetailPage({ params }: PageProps) {
   }
 
   // Initialize and get specific tool from registry
-  const { toolRegistry } = initializeTools();
-  const tool = toolRegistry.get(toolSlug);
+  const { toolRegistry } = await initializeTools();
+  let tool = toolRegistry.get(toolSlug);
 
-  // If tool not found in registry, return 404
+  // If tool not found in registry, check if it's a custom tool
+  if (!tool) {
+    const customTool = await prisma.tool.findUnique({
+      where: { id: toolSlug, type: "CUSTOM" },
+    });
+
+    if (customTool) {
+      // Create a tool-like object for custom tools (partial for UI display)
+      tool = {
+        id: customTool.id,
+        name: customTool.name,
+        description: customTool.description || "",
+        type: "CUSTOM",
+        version: customTool.version,
+        icon: <Icons.Settings className="w-[32px] h-[32px]" />,
+        functions: {},
+        integrationType: customTool.integrationType || undefined,
+        defaultConfig: customTool.requiredConfigs as Record<string, unknown>,
+        configSchema: z.object({}), // Add missing required property
+        getCredentialSchema: () => z.object({}), // Add missing required method
+      };
+    }
+  }
+
+  // If tool still not found, return 404
   if (!tool) {
     notFound();
   }

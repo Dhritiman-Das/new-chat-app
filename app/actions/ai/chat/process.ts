@@ -261,14 +261,37 @@ export async function processChatRequest(
 
       // Create enabled tools for the bot
       const enabledTools: Record<string, unknown> = {};
-      const { toolRegistry } = initializeTools();
+      const { toolRegistry } = await initializeTools();
       // Process enabled tools
       for (const botTool of bot.botTools) {
         // Skip tools that aren't active globally
         if (!botTool.tool.isActive) continue;
 
         // Get tool definition from the registry
-        const toolDef = toolRegistry.get(botTool.tool.id);
+        let toolDef = toolRegistry.get(botTool.tool.id);
+
+        // If not found in registry and it's a custom tool, create it dynamically
+        if (!toolDef && botTool.tool.type === "CUSTOM") {
+          const { createCustomToolDefinition } = await import(
+            "@/lib/tools/custom-tool"
+          );
+
+          toolDef = createCustomToolDefinition({
+            id: botTool.tool.id,
+            name: botTool.tool.name,
+            description: botTool.tool.description || "",
+            functions: botTool.tool.functions as Record<string, unknown>,
+            functionsSchema: botTool.tool.functionsSchema as Record<
+              string,
+              unknown
+            >,
+            requiredConfigs: botTool.tool.requiredConfigs as Record<
+              string,
+              unknown
+            >,
+          });
+        }
+
         if (!toolDef) continue;
 
         // Add each function from the tool

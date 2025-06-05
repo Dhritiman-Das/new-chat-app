@@ -3,6 +3,7 @@ import { ToolContext } from "../definitions/tool-interface";
 import { prisma } from "@/lib/db/prisma";
 import { toolCredentialsService } from "./credentials-service";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
+import { createCustomToolDefinition } from "../custom-tool";
 
 export class ToolExecutionService {
   async executeTool(
@@ -13,7 +14,32 @@ export class ToolExecutionService {
   ) {
     try {
       // Get the tool definition
-      const tool = toolRegistry.get(toolId);
+      let tool = toolRegistry.get(toolId);
+
+      // If tool not found in registry, check if it's a custom tool in the database
+      if (!tool) {
+        const customTool = await prisma.tool.findUnique({
+          where: { id: toolId, type: "CUSTOM" },
+        });
+
+        if (customTool) {
+          tool = createCustomToolDefinition({
+            id: customTool.id,
+            name: customTool.name,
+            description: customTool.description || "",
+            functions: customTool.functions as Record<string, unknown>,
+            functionsSchema: customTool.functionsSchema as Record<
+              string,
+              unknown
+            >,
+            requiredConfigs: customTool.requiredConfigs as Record<
+              string,
+              unknown
+            >,
+          });
+        }
+      }
+
       if (!tool) {
         throw new Error(`Tool not found: ${toolId}`);
       }

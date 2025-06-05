@@ -6,13 +6,13 @@ import { revalidateTag } from "next/cache";
 import { ActionResponse, appErrors } from "./types";
 import { prisma } from "@/lib/db/prisma";
 import { toolRegistry } from "@/lib/tools";
-import { initializeTools } from "@/lib/tools";
+import { initializeToolsSync } from "@/lib/tools";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
 import { hasAvailableBotSlots } from "@/lib/payment/bot-limit-service";
 import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 // Initialize tools
-initializeTools();
+initializeToolsSync();
 
 // Types for bot actions
 type CreateBotInput = {

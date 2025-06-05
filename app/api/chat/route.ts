@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processChatRequest } from "@/app/actions/ai/chat/process";
 import { addCorsHeaders } from "@/app/actions/ai/chat/cors";
-import { initializeTools } from "@/lib/tools";
+import { initializeToolsSync } from "@/lib/tools";
 import { revalidateTag } from "next/cache";
 import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 // Initialize the tools
-initializeTools();
+initializeToolsSync();
 
 export async function OPTIONS(req: NextRequest) {
   const headers = new Headers();

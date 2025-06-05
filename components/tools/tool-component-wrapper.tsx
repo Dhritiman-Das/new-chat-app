@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Icons } from "@/components/icons";
 import GoHighLevelCalendarTool from "./gohighlevel-calendar";
+import CustomToolComponent from "./custom-tool-component";
 
 // Define a serializable tool interface
 interface SerializableTool {
@@ -123,6 +124,11 @@ export default function ToolComponentWrapper({
   botId,
   orgId,
 }: ToolComponentWrapperProps) {
+  // Check if this is a custom tool
+  if (tool.type === "CUSTOM") {
+    return <CustomToolComponent tool={tool} botId={botId} orgId={orgId} />;
+  }
+
   // Render the appropriate component based on toolSlug
   switch (toolSlug) {
     case "google-calendar":

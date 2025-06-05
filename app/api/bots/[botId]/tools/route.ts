@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { toolRegistry } from "@/lib/tools";
-import { initializeTools } from "@/lib/tools";
+import { initializeToolsSync } from "@/lib/tools";
 
 // Initialize tools
-initializeTools();
+initializeToolsSync();
 
 interface Params {
   params: Promise<{ botId: string }>;
@@ -95,7 +95,24 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     // Get tool definition from registry
-    const toolDef = toolRegistry.get(toolId);
+    let toolDef = toolRegistry.get(toolId);
+
+    // If not found in registry, check if it's a custom tool
+    if (!toolDef && tool.type === "CUSTOM") {
+      // Import here to avoid circular dependencies
+      const { createCustomToolDefinition } = await import(
+        "@/lib/tools/custom-tool"
+      );
+
+      toolDef = createCustomToolDefinition({
+        id: tool.id,
+        name: tool.name,
+        description: tool.description || "",
+        functions: tool.functions as Record<string, unknown>,
+        functionsSchema: tool.functionsSchema as Record<string, unknown>,
+        requiredConfigs: tool.requiredConfigs as Record<string, unknown>,
+      });
+    }
 
     if (!toolDef) {
       return NextResponse.json(

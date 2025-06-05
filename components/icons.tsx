@@ -84,6 +84,9 @@ import {
   Minimize,
   Maximize,
   Globe,
+  Pen,
+  Eye,
+  History,
 } from "lucide-react";
 import { AiOutlineOpenAI } from "react-icons/ai";
 import {
@@ -273,6 +276,9 @@ export const Icons = {
   Gemini: RiGeminiFill,
   Perplexity: RiPerplexityFill,
   Globe,
+  Pen,
+  Eye,
+  History,
 };
 
 // Export individual icons for direct imports

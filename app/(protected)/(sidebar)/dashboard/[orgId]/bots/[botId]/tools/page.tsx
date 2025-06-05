@@ -54,8 +54,14 @@ export default async function ToolsPage({ params }: PageProps) {
   );
 
   // Initialize and get tools from registry
-  const { toolRegistry } = initializeTools();
-  const tools = toolRegistry.getAll();
+  const { toolRegistry } = await initializeTools();
+  const registryTools = toolRegistry.getAll();
+
+  // Custom tools are already included in registryTools after initializeTools()
+  // Remove the separate database query to avoid duplicates
+  const tools = registryTools;
+
+  console.log({ tools });
 
   return (
     <div>
@@ -104,10 +110,20 @@ export default async function ToolsPage({ params }: PageProps) {
       </header>
 
       <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Bot Tools</h1>
-        <p className="text-muted-foreground mb-8">
-          Configure and manage tools that your bot can use to perform actions.
-        </p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">Bot Tools</h1>
+            <p className="text-muted-foreground">
+              Configure and manage tools that your bot can use to perform
+              actions.
+            </p>
+          </div>
+          <Button asChild>
+            <Link href={`/dashboard/${orgId}/bots/${botId}/tools/new`}>
+              Create Custom Tool
+            </Link>
+          </Button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tools.map((tool) => {

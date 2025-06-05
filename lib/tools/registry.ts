@@ -20,6 +20,19 @@ class ToolRegistry {
     return this.getAll().filter((tool) => tool.type === type);
   }
 
+  remove(id: string): boolean {
+    return this.tools.delete(id);
+  }
+
+  clear(): void {
+    this.tools.clear();
+    this.initialized = false;
+  }
+
+  getAllIds(): string[] {
+    return Array.from(this.tools.keys());
+  }
+
   isInitialized(): boolean {
     return this.initialized;
   }
