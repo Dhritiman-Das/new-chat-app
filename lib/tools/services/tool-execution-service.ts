@@ -18,9 +18,32 @@ export class ToolExecutionService {
 
       // If tool not found in registry, check if it's a custom tool in the database
       if (!tool) {
-        const customTool = await prisma.tool.findUnique({
-          where: { id: toolId, type: "CUSTOM" },
-        });
+        let customTool = null;
+
+        // If we have a botId, check bot access for custom tools
+        if (context.botId) {
+          // Allow access to tools that are either public (createdByBotId: null)
+          // or created by the same bot
+          customTool = await prisma.tool.findFirst({
+            where: {
+              id: toolId,
+              type: "CUSTOM",
+              OR: [
+                { createdByBotId: null }, // Public tools
+                { createdByBotId: context.botId }, // Bot-specific tools
+              ],
+            },
+          });
+        } else {
+          // If no botId, only allow access to public custom tools
+          customTool = await prisma.tool.findFirst({
+            where: {
+              id: toolId,
+              type: "CUSTOM",
+              createdByBotId: null,
+            },
+          });
+        }
 
         if (customTool) {
           tool = createCustomToolDefinition({

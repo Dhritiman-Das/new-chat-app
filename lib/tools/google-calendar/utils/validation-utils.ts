@@ -136,7 +136,7 @@ export function validateAppointmentTime(
       `Appointment time is outside available hours. Available times on ${format(
         parsedStartTime,
         "EEEE"
-      )} are between ${daySlot.startTime} and ${daySlot.endTime} IST.`,
+      )} are between ${daySlot.startTime} and ${daySlot.endTime} ${timeZone}.`,
       "OUTSIDE_AVAILABLE_HOURS"
     );
   }
@@ -147,7 +147,7 @@ export function validateAppointmentTime(
       `Appointment would end outside available hours. Available times on ${format(
         parsedStartTime,
         "EEEE"
-      )} are between ${daySlot.startTime} and ${daySlot.endTime} IST.`,
+      )} are between ${daySlot.startTime} and ${daySlot.endTime} ${timeZone}.`,
       "OUTSIDE_AVAILABLE_HOURS"
     );
   }

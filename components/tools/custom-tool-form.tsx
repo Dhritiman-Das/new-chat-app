@@ -221,7 +221,6 @@ export default function CustomToolForm({
         result = await createCustomTool({
           ...values,
           botId,
-          organizationId: orgId,
         });
       } else if (mode === "edit" && initialData?.toolId) {
         result = await updateCustomTool({

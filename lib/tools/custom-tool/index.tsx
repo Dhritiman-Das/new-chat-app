@@ -54,10 +54,10 @@ const executeCustomTool: ToolFunction = {
           userId: context.userId,
           organizationId: context.organizationId,
           conversationId: context.conversationId,
+          webhookPayload: context.webhookPayload,
         },
         metadata: {
           timestamp: new Date().toISOString(),
-          toolVersion: "1.0.0",
         },
       };
 

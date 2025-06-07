@@ -13,8 +13,8 @@ export async function initializeTools() {
   toolRegistry.register(googleCalendarTool);
   toolRegistry.register(leadCaptureTool);
   toolRegistry.register(gohighlevelCalendarTool);
-  toolRegistry.register(highlevelAddContactFieldTool);
-  toolRegistry.register(highlevelAddTagTool);
+  // toolRegistry.register(highlevelAddContactFieldTool);
+  // toolRegistry.register(highlevelAddTagTool);
 
   // Load and synchronize custom tools from database
   try {
@@ -22,6 +22,7 @@ export async function initializeTools() {
       where: {
         type: "CUSTOM",
         isActive: true,
+        createdByBotId: null, // Only load public/admin tools (not bot-specific)
       },
     });
 

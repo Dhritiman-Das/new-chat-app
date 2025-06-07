@@ -63,10 +63,17 @@ export default async function ToolDetailPage({ params }: PageProps) {
   const { toolRegistry } = await initializeTools();
   let tool = toolRegistry.get(toolSlug);
 
-  // If tool not found in registry, check if it's a custom tool
+  // If tool not found in registry, check if it's a custom tool (public tools or tools created by this bot)
   if (!tool) {
-    const customTool = await prisma.tool.findUnique({
-      where: { id: toolSlug, type: "CUSTOM" },
+    const customTool = await prisma.tool.findFirst({
+      where: {
+        id: toolSlug,
+        type: "CUSTOM",
+        OR: [
+          { createdByBotId: null }, // Public/admin tools
+          { createdByBotId: botId }, // Tools created by this bot
+        ],
+      },
     });
 
     if (customTool) {

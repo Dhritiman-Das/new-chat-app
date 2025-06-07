@@ -31,11 +31,6 @@ export async function POST(request: NextRequest) {
 
     const body = JSON.parse(rawBody) as GoHighLevelWebhookPayload;
 
-    // Remove this in production
-    if (body.contactId !== "o8tiH6Hriwpyfl6pt2Vy") {
-      return NextResponse.json({ success: true });
-    }
-
     // Validate timestamp to prevent replay attacks
     if (body.timestamp) {
       const timestampMs = new Date(body.timestamp).getTime();

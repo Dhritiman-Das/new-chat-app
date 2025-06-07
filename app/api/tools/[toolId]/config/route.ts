@@ -121,8 +121,8 @@ export async function PATCH(
     // Create the updated functions object
     const functions = {
       execute: {
-        name: "execute",
-        description: `Execute ${name}`,
+        name,
+        description,
         async: isAsync,
         strict,
         parameters,

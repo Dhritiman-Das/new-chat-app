@@ -62,7 +62,6 @@ function generateZodSchemaFromParameters(
 // Schema for creating a custom tool
 const createCustomToolSchema = customToolSchema.extend({
   botId: z.string(),
-  organizationId: z.string(),
 });
 
 // Schema for updating a custom tool
@@ -105,15 +104,13 @@ export const createCustomTool = actionClient
           timeout,
           httpHeaders,
           botId,
-          organizationId,
         } = parsedInput;
 
-        // Verify that the user has access to this bot and organization
+        // Verify that the user has access to this bot
         const bot = await prisma.bot.findFirst({
           where: {
             id: botId,
             userId: session.user.id,
-            organizationId,
           },
         });
 
@@ -132,8 +129,8 @@ export const createCustomTool = actionClient
 
         // Create the tool function configuration
         const functionConfig = {
-          name: "execute",
-          description: `Execute ${name}`,
+          name,
+          description,
           parameters: parameters,
           schema: functionSchema,
         };
@@ -156,6 +153,7 @@ export const createCustomTool = actionClient
             type: "CUSTOM",
             isActive: true,
             version: "1.0.0",
+            createdByBotId: botId,
             functions: JSON.parse(
               JSON.stringify({
                 execute: functionConfig,
@@ -294,8 +292,8 @@ export const updateCustomTool = actionClient
 
         // Create the updated function configuration
         const functionConfig = {
-          name: "execute",
-          description: `Execute ${name}`,
+          name,
+          description,
           parameters: parameters,
           schema: functionSchema,
         };

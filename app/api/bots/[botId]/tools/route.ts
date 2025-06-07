@@ -29,9 +29,12 @@ export async function GET(req: NextRequest, { params }: Params) {
       include: { tool: true },
     });
 
-    // Get all available tools from database
+    // Get all available tools from database (only public/admin tools)
     const dbTools = await prisma.tool.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        createdByBotId: null, // Only show public/admin tools
+      },
       include: { category: true },
     });
 

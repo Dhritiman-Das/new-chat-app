@@ -17,7 +17,7 @@ import {
   processModelCreditUsage,
 } from "@/lib/payment/credit-service";
 import { withSubscriptionCheck } from "@/lib/auth/check-subscription-access";
-import { SubscriptionStatus } from "@/lib/generated/prisma";
+import { SubscriptionStatus, ToolType } from "@/lib/generated/prisma";
 import { redis } from "@/lib/db/kv";
 
 // Initialize the tools and get tool services
@@ -296,7 +296,20 @@ export async function processChatRequest(
 
         // Add each function from the tool
         for (const [functionName, func] of Object.entries(toolDef.functions)) {
-          enabledTools[`${botTool.tool.id}_${functionName}`] = {
+          // For custom tools, use the function name from the config, otherwise use the standard format
+          let toolKey: string;
+          if (botTool.tool.type === ToolType.CUSTOM) {
+            // Get the function name from the stored function config
+            const functionConfig = (
+              botTool.tool.functions as Record<string, unknown>
+            )?.execute as Record<string, unknown>;
+            const customFunctionName = functionConfig?.name as string;
+            toolKey = customFunctionName || functionName;
+          } else {
+            toolKey = `${botTool.tool.id}_${functionName}`;
+          }
+
+          enabledTools[toolKey] = {
             description: func.description,
             parameters: func.parameters,
             execute: async (params: Record<string, unknown>) => {

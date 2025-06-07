@@ -27,6 +27,9 @@ import {
   getOrganizationById,
 } from "@/lib/queries/cached-queries";
 import { requireAuth } from "@/utils/auth";
+import { Icons } from "@/components/icons";
+import { prisma } from "@/lib/db/prisma";
+import { createCustomToolDefinition } from "@/lib/tools/custom-tool";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
@@ -53,13 +56,34 @@ export default async function ToolsPage({ params }: PageProps) {
     botTools.map((botTool) => [botTool.toolId, botTool.isEnabled])
   );
 
-  // Initialize and get tools from registry
+  // Initialize and get tools from registry (public tools only)
   const { toolRegistry } = await initializeTools();
   const registryTools = toolRegistry.getAll();
 
-  // Custom tools are already included in registryTools after initializeTools()
-  // Remove the separate database query to avoid duplicates
-  const tools = registryTools;
+  // Also fetch custom tools created by this specific bot
+  const botSpecificTools = await prisma.tool.findMany({
+    where: {
+      type: "CUSTOM",
+      isActive: true,
+      createdByBotId: botId,
+    },
+  });
+
+  // Convert bot-specific tools to the same format as registry tools
+  const botSpecificToolsFormatted = botSpecificTools.map((tool) => {
+    return createCustomToolDefinition({
+      id: tool.id,
+      name: tool.name,
+      description: tool.description || "",
+      functions: tool.functions as Record<string, unknown>,
+      functionsSchema: tool.functionsSchema as Record<string, unknown>,
+      requiredConfigs: tool.requiredConfigs as Record<string, unknown>,
+    });
+  });
+
+  // Combine public tools and bot-specific tools
+  // This shows: 1) Public/admin tools (available to all bots) 2) Custom tools created by this specific bot
+  const tools = [...registryTools, ...botSpecificToolsFormatted];
 
   console.log({ tools });
 
@@ -120,6 +144,7 @@ export default async function ToolsPage({ params }: PageProps) {
           </div>
           <Button asChild>
             <Link href={`/dashboard/${orgId}/bots/${botId}/tools/new`}>
+              <Icons.Add className="w-4 h-4 mr-2" />
               Create Custom Tool
             </Link>
           </Button>

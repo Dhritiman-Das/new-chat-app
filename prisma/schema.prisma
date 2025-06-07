@@ -105,6 +105,7 @@ model Bot {
   integrations     Integration[]
   appointments     Appointment[]
   credentials      Credential[] // New relation to Credential
+  createdTools     Tool[]            @relation("CreatedTools") // Tools created by this bot
 
   @@index([userId])
   @@index([organizationId])
@@ -140,16 +141,19 @@ model Tool {
   functionsSchema Json?    @map("functions_schema") // Optional schema definition for available functions
   version         String   @default("1.0.0")
   categoryId      String?  @map("category_id")
+  createdByBotId  String?  @map("created_by_bot_id") // null for public/admin tools, set for bot-specific tools
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   // Relations
   category         ToolCategory?        @relation(fields: [categoryId], references: [id])
+  createdByBot     Bot?                 @relation(fields: [createdByBotId], references: [id], onDelete: Cascade, name: "CreatedTools")
   botTools         BotTool[]
   toolUsageMetrics ToolUsageMetric[]
   executionErrors  ToolExecutionError[]
 
   @@index([categoryId])
+  @@index([createdByBotId])
   @@map("tools")
 }
 
