@@ -1,4 +1,4 @@
-import image from "./assets/image.png";
+import highlevelPreview from "./assets/highlevel-preview.png";
 import { onInitialize } from "./initialize";
 
 export default {
@@ -12,7 +12,7 @@ export default {
     "Automate marketing, CRM, and client management by connecting with GoHighLevel's all-in-one sales & marketing platform.",
   description:
     "Integration with GoHighLevel enables unified control over marketing automation, lead nurturing, and multi-channel campaigns through its CRM, workflow builder, and reputation management tools. This bridges communication gaps between sales pipelines, customer interactions, and marketing analytics.",
-  images: [image],
+  images: [highlevelPreview],
   settings: [
     {
       id: "channels",

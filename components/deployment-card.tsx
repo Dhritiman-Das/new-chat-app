@@ -151,7 +151,7 @@ export function DeploymentCard({
                   </div>
 
                   <span className="text-xs text-muted-foreground">
-                    {category} • Published by Midday
+                    {category} • Published by Bonti
                   </span>
                 </div>
               </div>
@@ -203,7 +203,10 @@ export function DeploymentCard({
                 </AccordionItem>
 
                 {settings && (
-                  <AccordionItem value="settings" className="border-none">
+                  <AccordionItem
+                    value="settings"
+                    className="border-none hidden"
+                  >
                     <AccordionTrigger>Settings</AccordionTrigger>
                     <AccordionContent className="text-muted-foreground text-sm">
                       {/* Placeholder for AppSettings - replace with actual component */}
@@ -271,19 +274,17 @@ export function DeploymentCard({
 
           <div className="px-6 py-4 border-t border-border mt-auto">
             <p className="text-[10px] text-muted-foreground">
-              All apps on the Midday App Store are open-source and
-              peer-reviewed. Midday Labs AB maintains high standards but
-              doesn&apos;t endorse third-party apps. Apps published by Midday
-              are officially certified. Report any concerns about app content or
-              behavior.
+              All apps on the Bonti App Store are reviewed by Bonti. Bonti
+              maintains high standards but doesn&apos;t endorse third-party
+              apps. Apps published by Bonti are officially certified. Report any
+              concerns about app content or behavior.{" "}
+              <a
+                href="mailto:iamdhritiman01@gmail.com"
+                className="text-[10px] text-destructive mt-2 inline-block"
+              >
+                Report app
+              </a>
             </p>
-
-            <a
-              href="mailto:support@midday.dev"
-              className="text-[10px] text-destructive mt-2 inline-block"
-            >
-              Report app
-            </a>
           </div>
         </SheetContent>
       </Sheet>

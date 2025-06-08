@@ -1,4 +1,4 @@
-import image from "./assets/image.png";
+import slackAction from "./assets/slack-action.png";
 import { onInitialize } from "./initialize";
 
 export interface SlackConfig {
@@ -21,7 +21,7 @@ export default {
     "Seamlessly connect your workflows with Slack's messaging platform for real-time team collaboration and notifications.",
   description:
     "Integrating with Slack allows direct interaction with the app through channels and DMs, enabling automated alerts, data sharing, and collaborative workflows. This enhances cross-team coordination and keeps stakeholders informed through centralized communication.",
-  images: [image],
+  images: [slackAction],
   settings: [], // Ignore this for now
   onInitialize,
 };

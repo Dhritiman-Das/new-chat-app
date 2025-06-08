@@ -1,4 +1,5 @@
-import image from "./assets/image.png";
+import iframeApp from "./assets/iframe-app.png";
+import iframeActions from "./assets/iframe-action.png";
 
 export default {
   name: "Iframe",
@@ -12,6 +13,6 @@ export default {
   description:
     "Iframe integration provides direct embedding capabilities, allowing users to interact with the app without leaving their current web environment. This maintains brand consistency while enabling core functionality through a secure, contained frame.",
 
-  images: [image],
+  images: [iframeApp, iframeActions],
   settings: [], // Ignore this for now
 };
