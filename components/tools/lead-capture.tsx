@@ -36,6 +36,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState, useEffect, useCallback } from "react";
+import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import {
   updateLeadCaptureConfig,
@@ -130,7 +131,9 @@ export default function LeadCaptureTool({
   botId,
   orgId,
 }: LeadCaptureToolProps) {
-  const [activeTab, setActiveTab] = useState("settings");
+  const [activeTab, setActiveTab] = useQueryState("tab", {
+    defaultValue: "settings",
+  });
   const [newTrigger, setNewTrigger] = useState("");
   const [newCustomTrigger, setNewCustomTrigger] = useState("");
   const [isLoading, setIsLoading] = useState(true);

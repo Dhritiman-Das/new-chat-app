@@ -2,8 +2,6 @@ import { toolRegistry } from "./registry";
 import { googleCalendarTool } from "./google-calendar";
 import { leadCaptureTool } from "./lead-capture";
 import { gohighlevelCalendarTool } from "./gohighlevel-calendar";
-import { highlevelAddContactFieldTool } from "./gohighlevel-add-contact-field";
-import { highlevelAddTagTool } from "./gohighlevel-add-tag";
 import { prisma } from "@/lib/db/prisma";
 import { createCustomToolDefinition } from "./custom-tool";
 
@@ -86,8 +84,8 @@ export function initializeToolsSync() {
   toolRegistry.register(googleCalendarTool);
   toolRegistry.register(leadCaptureTool);
   toolRegistry.register(gohighlevelCalendarTool);
-  toolRegistry.register(highlevelAddContactFieldTool);
-  toolRegistry.register(highlevelAddTagTool);
+  // toolRegistry.register(highlevelAddContactFieldTool);
+  // toolRegistry.register(highlevelAddTagTool);
 
   toolRegistry.setInitialized(true);
 

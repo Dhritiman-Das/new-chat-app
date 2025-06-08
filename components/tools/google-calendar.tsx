@@ -33,6 +33,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState, useEffect, useCallback } from "react";
+import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import {
   connectGoogleCalendar,
@@ -188,7 +189,9 @@ export default function GoogleCalendarTool({
   botId,
   orgId,
 }: GoogleCalendarToolProps) {
-  const [activeTab, setActiveTab] = useState("settings");
+  const [activeTab, setActiveTab] = useQueryState("tab", {
+    defaultValue: "settings",
+  });
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryState } from "nuqs";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Appointment } from "./gohighlevel-calendar/types";
 import { SerializableTool } from "./gohighlevel-calendar/types";
@@ -21,7 +22,9 @@ export default function GoHighLevelCalendarTool({
   botId,
   orgId,
 }: GoHighLevelCalendarToolProps) {
-  const [activeTab, setActiveTab] = useState("settings");
+  const [activeTab, setActiveTab] = useQueryState("tab", {
+    defaultValue: "settings",
+  });
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
   const [isAppointmentDetailsOpen, setIsAppointmentDetailsOpen] =

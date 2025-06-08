@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -108,7 +109,9 @@ export default function CustomToolComponent({
   botId,
   orgId,
 }: CustomToolComponentProps) {
-  const [activeTab, setActiveTab] = useState("configuration");
+  const [activeTab, setActiveTab] = useQueryState("tab", {
+    defaultValue: "configuration",
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
