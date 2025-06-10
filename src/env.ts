@@ -8,6 +8,7 @@ export const env = createEnv({
   server: {
     // Database
     DATABASE_URL: z.string().url(),
+    DIRECT_URL: z.string().url(),
     SUPABASE_DATABASE_URL: z.string().url(),
     SUPABASE_SERVICE_KEY: z.string().min(1),
 
