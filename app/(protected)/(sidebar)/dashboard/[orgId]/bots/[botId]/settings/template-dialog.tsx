@@ -44,9 +44,15 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   PlaceholderItem,
   PlaceholderSchema,
 } from "../templates/create-template-dialog";
+import { CreateTemplateForm } from "./create-template-form";
 
 interface TemplateDialogProps {
   orgId: string;
@@ -72,7 +78,7 @@ export function TemplateDialog({
   onApplyTemplate,
 }: TemplateDialogProps) {
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<"browse" | "edit">("browse");
+  const [step, setStep] = useState<"browse" | "edit" | "create">("browse");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
@@ -149,10 +155,10 @@ export function TemplateDialog({
       }
     };
 
-    if (open) {
+    if (open && step === "browse") {
       fetchTemplates();
     }
-  }, [tab, search, category, orgId, open]);
+  }, [tab, search, category, orgId, open, step]);
 
   // Reset everything when dialog closes
   const handleDialogChange = (isOpen: boolean) => {
@@ -209,6 +215,16 @@ export function TemplateDialog({
         );
       }
 
+      // Increment usage count
+      try {
+        await fetch(`/api/templates/${selectedTemplate.id}/increment-usage`, {
+          method: "POST",
+        });
+      } catch (error) {
+        console.error("Failed to increment usage count:", error);
+        // Don't block the template application if usage tracking fails
+      }
+
       // Pass the formatted prompt to the parent component
       onApplyTemplate(formattedPrompt);
 
@@ -251,6 +267,50 @@ export function TemplateDialog({
     setSearch(e.target.value || null);
   };
 
+  // Handle create template navigation
+  const handleCreateTemplate = () => {
+    setStep("create");
+    // Switch to the appropriate tab for new templates
+    if (tab === "public") {
+      setTab("my");
+    }
+  };
+
+  // Handle successful template creation
+  const handleCreateSuccess = () => {
+    // Reset and go back to browse
+    setStep("browse");
+
+    // Refresh templates list
+    const refetchTemplates = async () => {
+      let url = "/api/templates";
+      if (tab === "organization") {
+        url += `/organization/${orgId}`;
+      } else if (tab === "my") {
+        url += "/user";
+      } else {
+        url += "/public";
+      }
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.success) {
+          setTemplates(data.data);
+        }
+      } catch (error) {
+        console.error("Error refetching templates:", error);
+      }
+    };
+
+    refetchTemplates();
+  };
+
+  // Handle create template cancel
+  const handleCreateCancel = () => {
+    setStep("browse");
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogTrigger asChild>
@@ -260,7 +320,7 @@ export function TemplateDialog({
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[900px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[1200px] max-h-[80vh] overflow-y-auto">
         {step === "browse" ? (
           <>
             <DialogHeader>
@@ -295,6 +355,10 @@ export function TemplateDialog({
                   ))}
                 </SelectContent>
               </Select>
+              <Button onClick={handleCreateTemplate} type="button">
+                <Icons.Add className="mr-2 h-4 w-4" />
+                New Template
+              </Button>
             </div>
 
             <Tabs value={tab || "public"} onValueChange={setTab}>
@@ -323,7 +387,7 @@ export function TemplateDialog({
               </TabsContent>
             </Tabs>
           </>
-        ) : (
+        ) : step === "edit" ? (
           <>
             <DialogHeader>
               <DialogTitle>
@@ -353,6 +417,9 @@ export function TemplateDialog({
                           <FormLabel>
                             {field.name}
                             {field.required && " *"}
+                            <Badge variant="secondary" className="">
+                              {field.id}
+                            </Badge>
                           </FormLabel>
                           <FormDescription>{field.description}</FormDescription>
                           {field.type === "string" && (
@@ -436,6 +503,25 @@ export function TemplateDialog({
               </div>
             </Form>
           </>
+        ) : (
+          // Create template step
+          <>
+            <DialogHeader>
+              <DialogTitle>Create New Template</DialogTitle>
+              <DialogDescription>
+                Create a reusable template with placeholders for your bot
+                prompts.
+              </DialogDescription>
+            </DialogHeader>
+
+            <CreateTemplateForm
+              orgId={orgId}
+              onSuccess={handleCreateSuccess}
+              onCancel={handleCreateCancel}
+              isSubmitting={isSubmitting}
+              onSubmittingChange={setIsSubmitting}
+            />
+          </>
         )}
       </DialogContent>
     </Dialog>
@@ -470,13 +556,19 @@ export function TemplateDialog({
         <div className="text-center py-8">
           <Icons.File className="mx-auto h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 text-lg font-semibold">No templates found</h3>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-4">
             {tab === "public"
               ? "There are no public templates available yet."
               : tab === "organization"
               ? "Your organization has not created any templates yet."
               : "You haven't created any templates yet."}
           </p>
+          {(tab === "organization" || tab === "my") && (
+            <Button onClick={handleCreateTemplate} type="button">
+              <Icons.Add className="mr-2 h-4 w-4" />
+              Create Template
+            </Button>
+          )}
         </div>
       );
     }
@@ -484,27 +576,39 @@ export function TemplateDialog({
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {templates.map((template) => (
-          <Card key={template.id} className="overflow-hidden">
+          <Card
+            key={template.id}
+            className="overflow-hidden flex flex-col h-full"
+          >
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{template.name}</CardTitle>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {template.categories.map((category) => (
-                  <Badge
-                    key={category.id}
-                    variant="secondary"
-                    className="text-xs"
-                  >
-                    {category.name}
-                  </Badge>
-                ))}
+              <CardTitle className="text-lg line-clamp-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="line-clamp-1">{template.name}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>{template.name}</TooltipContent>
+                </Tooltip>
+              </CardTitle>
+              <div className="flex gap-1 mt-1 overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+                <div className="flex gap-1 min-w-max">
+                  {template.categories.map((category) => (
+                    <Badge
+                      key={category.id}
+                      variant="secondary"
+                      className="text-xs whitespace-nowrap"
+                    >
+                      {category.name}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground line-clamp-3">
+            <CardContent className="flex-1">
+              <p className="text-sm text-muted-foreground line-clamp-2 h-10 overflow-hidden">
                 {template.description}
               </p>
             </CardContent>
-            <CardFooter className="flex justify-between">
+            <CardFooter className="flex justify-between mt-auto">
               <div className="text-sm text-muted-foreground">
                 Used {template.usageCount} times
               </div>
@@ -513,7 +617,7 @@ export function TemplateDialog({
                 onClick={() => selectTemplate(template)}
                 size="sm"
               >
-                Use Template
+                View Template
               </Button>
             </CardFooter>
           </Card>
