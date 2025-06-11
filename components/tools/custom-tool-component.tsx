@@ -266,9 +266,9 @@ export default function CustomToolComponent({
               </p>
             </div>
 
-            <Separator />
+            {/* <Separator /> */}
 
-            <div>
+            {/* <div>
               <h4 className="font-medium text-sm mb-2">Available Functions</h4>
               <div className="space-y-2">
                 {Object.entries(tool.functionsMeta).map(([name, func]) => (
@@ -283,7 +283,7 @@ export default function CustomToolComponent({
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
           </div>
         </CardContent>
       </Card>
@@ -663,7 +663,7 @@ export default function CustomToolComponent({
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium">Status:</span>
+                    <span className="text-sm font-medium block">Status:</span>
                     <Badge className={getStatusColor(selectedExecution.status)}>
                       {selectedExecution.status}
                     </Badge>

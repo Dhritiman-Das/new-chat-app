@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { auth } from "@/lib/auth";
+import { ToolType } from "@/lib/generated/prisma";
 
 export async function GET(
   request: NextRequest,
@@ -18,11 +19,18 @@ export async function GET(
       );
     }
 
-    // Fetch the custom tool
-    const tool = await prisma.tool.findUnique({
+    // Fetch the custom tool and verify access
+    const tool = await prisma.tool.findFirst({
       where: {
         id: toolId,
-        type: "CUSTOM",
+        type: ToolType.CUSTOM,
+      },
+      include: {
+        botTools: {
+          include: {
+            bot: true,
+          },
+        },
       },
     });
 
@@ -33,29 +41,39 @@ export async function GET(
       );
     }
 
-    // Parse the tool data with proper typing
-    const functions = tool.functions as Record<string, unknown> | null;
-    const executeFunc = functions?.execute as
-      | Record<string, unknown>
-      | undefined;
-    const requiredConfigs = tool.requiredConfigs as Record<
-      string,
-      unknown
-    > | null;
+    // Verify that the user has access to at least one bot using this tool
+    const hasAccess = tool.botTools.some(
+      (botTool) => botTool.bot.userId === session.user?.id
+    );
 
+    if (!hasAccess) {
+      return NextResponse.json(
+        { success: false, error: { message: "Access denied" } },
+        { status: 403 }
+      );
+    }
+
+    // Extract configuration from the tool's requiredConfigs
+    const config = tool.requiredConfigs as Record<string, unknown>;
+    const functions = tool.functions as Record<string, unknown>;
+    const executeConfig = functions?.execute as Record<string, unknown>;
+    const parameters = executeConfig?.parameters as Array<
+      Record<string, unknown>
+    >;
+
+    // Format the response
     const toolData = {
       id: tool.id,
       name: tool.name,
       description: tool.description || "",
-      async: (requiredConfigs?.async as boolean) || false,
-      strict: (requiredConfigs?.strict as boolean) || false,
-      parameters:
-        (executeFunc?.parameters as Array<Record<string, unknown>>) || [],
-      serverUrl: (requiredConfigs?.serverUrl as string) || "",
-      secretToken: (requiredConfigs?.secretToken as string) || "",
-      timeout: (requiredConfigs?.timeout as number) || 30,
+      async: (config?.async as boolean) || false,
+      strict: (config?.strict as boolean) || false,
+      parameters: parameters || [],
+      serverUrl: (config?.serverUrl as string) || "",
+      secretToken: "••••••••••••••••••••", // Masked for security
+      timeout: (config?.timeout as number) || 30,
       httpHeaders:
-        (requiredConfigs?.httpHeaders as Array<Record<string, string>>) || [],
+        (config?.httpHeaders as Array<{ name: string; value: string }>) || [],
       createdAt: tool.createdAt,
       updatedAt: tool.updatedAt,
     };
@@ -65,7 +83,7 @@ export async function GET(
       data: toolData,
     });
   } catch (error) {
-    console.error("Error fetching tool configuration:", error);
+    console.error("Error fetching tool config:", error);
     return NextResponse.json(
       { success: false, error: { message: "Internal server error" } },
       { status: 500 }

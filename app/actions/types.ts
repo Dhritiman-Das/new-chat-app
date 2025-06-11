@@ -68,7 +68,7 @@ export interface MessageData {
 }
 
 export interface ToolExecutionData {
-  messageId: string;
+  messageId: string | null;
   conversationId: string;
   toolId: string;
   functionName: string;
