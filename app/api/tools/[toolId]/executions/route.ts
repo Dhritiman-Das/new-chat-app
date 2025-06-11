@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { auth } from "@/lib/auth";
+import { ToolType } from "@/lib/generated/prisma";
 
 export async function GET(
   request: NextRequest,
@@ -24,7 +25,7 @@ export async function GET(
     const tool = await prisma.tool.findUnique({
       where: {
         id: toolId,
-        type: "CUSTOM",
+        type: ToolType.CUSTOM,
       },
     });
 
@@ -58,21 +59,17 @@ export async function GET(
     // Fetch tool executions
     const whereClause: {
       toolId: string;
-      message?: {
-        conversation: {
-          botId: string;
-        };
+      conversation?: {
+        botId: string;
       };
     } = {
       toolId: toolId,
     };
 
-    // If botId is provided, filter by bot
+    // If botId is provided, filter by bot using conversation relationship
     if (botId) {
-      whereClause.message = {
-        conversation: {
-          botId: botId,
-        },
+      whereClause.conversation = {
+        botId: botId,
       };
     }
 
@@ -87,6 +84,12 @@ export async function GET(
                 botId: true,
               },
             },
+          },
+        },
+        conversation: {
+          select: {
+            id: true,
+            botId: true,
           },
         },
       },

@@ -4,14 +4,20 @@ import { prisma } from "@/lib/db/prisma";
 import { toolCredentialsService } from "./credentials-service";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
 import { createCustomToolDefinition } from "../custom-tool";
+import { ExecutionStatus, ToolType } from "@/lib/generated/prisma";
 
 export class ToolExecutionService {
   async executeTool(
     toolId: string,
     functionName: string,
     params: Record<string, unknown>,
-    context: Omit<ToolContext, "credentialId" | "config" | "credentials">
+    context: Omit<ToolContext, "credentialId" | "config" | "credentials"> & {
+      messageId?: string;
+    }
   ) {
+    const startTime = new Date();
+    let executionId: string | null = null;
+
     try {
       // Get the tool definition
       let tool = toolRegistry.get(toolId);
@@ -128,6 +134,27 @@ export class ToolExecutionService {
         credentials = credential.credentials;
       }
 
+      // Track execution start for custom tools (if we have conversation context)
+      if (tool.type === ToolType.CUSTOM && context.conversationId) {
+        try {
+          const execution = await prisma.toolExecution.create({
+            data: {
+              messageId: context.messageId || null,
+              conversationId: context.conversationId,
+              toolId,
+              functionName: tool.name,
+              params: params as InputJsonValue,
+              status: ExecutionStatus.IN_PROGRESS,
+              startTime,
+            },
+          });
+          executionId = execution.id;
+        } catch (error) {
+          console.error("Failed to create tool execution record:", error);
+          // Continue execution even if tracking fails
+        }
+      }
+
       // Log tool usage
       await this.logToolUsage(toolId, context.botId, functionName);
 
@@ -142,9 +169,67 @@ export class ToolExecutionService {
         credentials: credentials as Record<string, unknown>,
       });
 
+      // Update execution record with success result for custom tools
+      if (executionId && tool.type === ToolType.CUSTOM) {
+        const endTime = new Date();
+        const executionTime = endTime.getTime() - startTime.getTime();
+
+        try {
+          // Type-safe handling of the result
+          const typedResult = result as {
+            success?: boolean;
+            error?: Record<string, unknown>;
+          };
+
+          await prisma.toolExecution.update({
+            where: { id: executionId },
+            data: {
+              result: result as Record<string, unknown> as InputJsonValue,
+              status: typedResult?.success
+                ? ExecutionStatus.COMPLETED
+                : ExecutionStatus.FAILED,
+              endTime,
+              executionTime,
+              error: typedResult?.success
+                ? undefined
+                : (typedResult?.error as InputJsonValue),
+            },
+          });
+        } catch (error) {
+          console.error("Failed to update tool execution record:", error);
+        }
+      }
+
       return result;
     } catch (error) {
       console.error(`Error executing tool ${toolId}:${functionName}:`, error);
+
+      // Update execution record with error for custom tools
+      if (executionId) {
+        const endTime = new Date();
+        const executionTime = endTime.getTime() - startTime.getTime();
+
+        try {
+          await prisma.toolExecution.update({
+            where: { id: executionId },
+            data: {
+              status: ExecutionStatus.FAILED,
+              endTime,
+              executionTime,
+              error: {
+                code: "EXECUTION_FAILED",
+                message: (error as Error).message || "Tool execution failed",
+                stack: (error as Error).stack,
+              } as InputJsonValue,
+            },
+          });
+        } catch (updateError) {
+          console.error(
+            "Failed to update tool execution record with error:",
+            updateError
+          );
+        }
+      }
 
       // Log the error
       await this.logToolError(

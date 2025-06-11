@@ -402,7 +402,7 @@ model Message {
 // Tool execution details
 model ToolExecution {
   id             String          @id @default(uuid())
-  messageId      String          @map("message_id")
+  messageId      String?         @map("message_id")
   conversationId String          @map("conversation_id")
   toolId         String          @map("tool_id")
   functionName   String          @map("function_name")
@@ -415,7 +415,7 @@ model ToolExecution {
   error          Json? // Error information if the execution failed
 
   // Relations
-  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  message      Message?     @relation(fields: [messageId], references: [id], onDelete: Cascade)
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([messageId])
