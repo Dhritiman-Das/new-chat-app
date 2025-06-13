@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { KnowledgeBase, KnowledgeFile } from "@/lib/types/prisma";
+import { KnowledgeBase } from "@/lib/types/prisma";
 import { ActionResponse as BaseActionResponse } from "@/app/actions/types";
 import { Icons } from "../icons";
+import { useKnowledge } from "./knowledge-context";
 
 // Define the actual API response structure
 interface ApiResponse extends Omit<BaseActionResponse, "success"> {
@@ -60,28 +61,28 @@ interface KnowledgeFileListProps {
   botId: string;
   orgId: string;
   knowledgeBase: KnowledgeBase;
-  onFileChange?: (files: KnowledgeFile[]) => void;
 }
 
 export function KnowledgeFileList({
   botId,
   orgId,
   knowledgeBase,
-  onFileChange,
 }: KnowledgeFileListProps) {
-  const [files, setFiles] = useState<KnowledgeFile[]>(knowledgeBase.files);
-  const [fileToDelete, setFileToDelete] = useState<KnowledgeFile | null>(null);
+  const { files, removeFile, rollbackFileRemoval } = useKnowledge();
+  const [fileToDelete, setFileToDelete] = useState<(typeof files)[0] | null>(
+    null
+  );
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Update local state when knowledgeBase.files changes (e.g., after a new upload)
-  useEffect(() => {
-    setFiles(knowledgeBase.files);
-  }, [knowledgeBase.files]);
 
   const handleDelete = async () => {
     if (!fileToDelete) return;
 
     setIsDeleting(true);
+
+    // Optimistically remove the file from the UI
+    removeFile(fileToDelete.id);
+    const removedFile = fileToDelete;
+
     try {
       const result = await deleteFile({
         fileId: fileToDelete.id,
@@ -91,23 +92,16 @@ export function KnowledgeFileList({
       });
 
       if (result.data?.success) {
-        // Update local state by filtering out the deleted file
-        const updatedFiles = files.filter(
-          (file) => file.id !== fileToDelete.id
-        );
-        setFiles(updatedFiles);
-
-        // Notify parent component about the change if callback exists
-        if (onFileChange) {
-          onFileChange(updatedFiles);
-        }
-
         toast.success(`Deleted ${fileToDelete.fileName}`);
         setFileToDelete(null);
       } else {
+        // Rollback the optimistic update
+        rollbackFileRemoval(removedFile);
         toast.error(result?.error?.message || "Failed to delete file");
       }
     } catch (error) {
+      // Rollback the optimistic update
+      rollbackFileRemoval(removedFile);
       toast.error("An unexpected error occurred");
       console.error(error);
     } finally {
@@ -148,13 +142,25 @@ export function KnowledgeFileList({
           {files.map((file) => (
             <div
               key={file.id}
-              className="flex items-center justify-between p-4 border rounded-md hover:bg-muted/30 transition-colors"
+              className={cn(
+                "flex items-center justify-between p-4 border rounded-md hover:bg-muted/30 transition-colors",
+                file.isOptimistic && "opacity-70"
+              )}
             >
               <div className="flex items-center space-x-4">
-                {getFileIcon(file.fileType)}
+                {file.isUploading ? (
+                  <Icons.Spinner className="h-8 w-8 text-blue-500 animate-spin" />
+                ) : (
+                  getFileIcon(file.fileType)
+                )}
                 <div>
                   <p className="font-medium truncate max-w-[200px] sm:max-w-[300px] md:max-w-[400px]">
                     {file.fileName}
+                    {file.isUploading && (
+                      <span className="text-sm text-muted-foreground ml-2">
+                        (uploading...)
+                      </span>
+                    )}
                   </p>
                   <div className="flex flex-wrap text-xs text-muted-foreground gap-2">
                     <span>{formatFileSize(file.fileSize)}</span>
@@ -183,23 +189,31 @@ export function KnowledgeFileList({
                 <div
                   className={cn(
                     "px-2 py-1 rounded-full text-xs",
-                    file.embeddingStatus === "COMPLETED" &&
+                    file.isUploading && "bg-blue-100 text-blue-800",
+                    !file.isUploading &&
+                      file.embeddingStatus === "COMPLETED" &&
                       "bg-green-100 text-green-800",
-                    file.embeddingStatus === "PROCESSING" &&
+                    !file.isUploading &&
+                      file.embeddingStatus === "PROCESSING" &&
                       "bg-yellow-100 text-yellow-800",
-                    file.embeddingStatus === "PENDING" &&
+                    !file.isUploading &&
+                      file.embeddingStatus === "PENDING" &&
                       "bg-blue-100 text-blue-800",
-                    file.embeddingStatus === "FAILED" &&
+                    !file.isUploading &&
+                      file.embeddingStatus === "FAILED" &&
                       "bg-red-100 text-red-800"
                   )}
                 >
-                  {file.embeddingStatus.charAt(0) +
-                    file.embeddingStatus.slice(1).toLowerCase()}
+                  {file.isUploading
+                    ? "Uploading"
+                    : file.embeddingStatus.charAt(0) +
+                      file.embeddingStatus.slice(1).toLowerCase()}
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setFileToDelete(file)}
+                  disabled={file.isUploading}
                 >
                   <Icons.Trash className="h-4 w-4 text-muted-foreground" />
                 </Button>

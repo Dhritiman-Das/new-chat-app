@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Icons } from "@/components/icons";
+import { useKnowledge } from "./knowledge-context";
 
 interface UploadResponse {
   success: boolean;
@@ -49,6 +50,8 @@ export function FileUploader({
 }: FileUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const { addOptimisticFile, updateFileAfterUpload, removeOptimisticFile } =
+    useKnowledge();
 
   // Mock progress update
   const updateProgress = useCallback(() => {
@@ -75,49 +78,61 @@ export function FileUploader({
 
       try {
         for (const file of acceptedFiles) {
-          const uploadPromise = new Promise<string>(async (resolve, reject) => {
-            try {
-              // Create form data with the file and metadata
-              const formData = new FormData();
-              formData.append("file", file);
-              formData.append("botId", botId);
-              formData.append("orgId", orgId);
-              formData.append("knowledgeBaseId", knowledgeBaseId);
+          // Add optimistic file immediately
+          const tempId = addOptimisticFile(file, botId, knowledgeBaseId);
 
-              // Upload the file
-              const response = await fetch("/api/knowledge/upload", {
-                method: "POST",
-                body: formData,
+          try {
+            // Create form data with the file and metadata
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("botId", botId);
+            formData.append("orgId", orgId);
+            formData.append("knowledgeBaseId", knowledgeBaseId);
+
+            // Upload the file
+            const response = await fetch("/api/knowledge/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (!response.ok) {
+              throw new Error(`Upload failed with status: ${response.status}`);
+            }
+
+            const result = (await response.json()) as UploadResponse;
+
+            if (result.success && result.data) {
+              // Update the optimistic file with the real data
+              updateFileAfterUpload(tempId, {
+                id: result.data.fileId,
+                knowledgeBaseId,
+                fileName: file.name,
+                fileType: file.type,
+                filePath: "",
+                fileSize: file.size,
+                embeddingStatus: "COMPLETED" as const,
+                metadata: { characterCount: result.data.characterCount },
+                createdAt: new Date(),
+                updatedAt: new Date(),
               });
 
-              if (!response.ok) {
-                throw new Error(
-                  `Upload failed with status: ${response.status}`
-                );
-              }
-
-              const result = (await response.json()) as UploadResponse;
-
-              if (result.success && result.data) {
-                resolve(
-                  `Uploaded ${
-                    file.name
-                  } (${result.data.characterCount.toLocaleString()} characters)`
-                );
-              } else {
-                reject(result.error?.message || "Failed to upload file");
-              }
-            } catch (error) {
-              reject(error instanceof Error ? error.message : "Unknown error");
+              toast.success(
+                `Uploaded ${
+                  file.name
+                } (${result.data.characterCount.toLocaleString()} characters)`
+              );
+            } else {
+              throw new Error(result.error?.message || "Failed to upload file");
             }
-          });
-
-          // Handle file upload with toast
-          toast.promise(uploadPromise, {
-            loading: `Uploading ${file.name}...`,
-            success: (message) => message,
-            error: (error) => `Error: ${error}`,
-          });
+          } catch (error) {
+            // Remove the optimistic file on error
+            removeOptimisticFile(tempId);
+            toast.error(
+              `Error uploading ${file.name}: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`
+            );
+          }
         }
       } catch (error) {
         console.error("Upload error:", error);
@@ -132,7 +147,15 @@ export function FileUploader({
         }, 1000);
       }
     },
-    [botId, orgId, knowledgeBaseId, updateProgress]
+    [
+      botId,
+      orgId,
+      knowledgeBaseId,
+      updateProgress,
+      addOptimisticFile,
+      updateFileAfterUpload,
+      removeOptimisticFile,
+    ]
   );
 
   const { getRootProps, getInputProps, isDragActive, fileRejections } =
