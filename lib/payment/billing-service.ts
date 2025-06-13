@@ -13,6 +13,7 @@ import {
   Customer,
   BillingAddress,
 } from "./types";
+import { enforceBotLimitsOnPlanChange } from "./bot-limit-service";
 import { CountryCode } from "dodopayments/resources/misc.mjs";
 import { cache } from "react";
 import { revalidatePath } from "next/cache";
@@ -547,6 +548,22 @@ export async function updateOrganizationSubscription(
             plan: options.planType as PlanType,
           },
         });
+
+        // Enforce bot limits for the new plan (important for downgrades)
+        const botLimitResult = await enforceBotLimitsOnPlanChange(
+          organizationId,
+          options.planType as PlanType
+        );
+
+        if (botLimitResult.success && botLimitResult.deactivatedBots > 0) {
+          console.log(
+            `Immediate plan change for org ${organizationId}: ${botLimitResult.message}`
+          );
+        } else if (!botLimitResult.success) {
+          console.error(
+            `Failed to enforce bot limits for immediate plan change for org ${organizationId}: ${botLimitResult.message}`
+          );
+        }
       } else if (options.billingCycle) {
         // If only changing billing cycle, we need to get the product ID for current plan with new cycle
         const planProductId = await getProductId(
@@ -597,6 +614,22 @@ export async function updateOrganizationSubscription(
             plan: options.planType as PlanType,
           },
         });
+
+        // Enforce bot limits for the new plan (important for downgrades)
+        const botLimitResult = await enforceBotLimitsOnPlanChange(
+          organizationId,
+          options.planType as PlanType
+        );
+
+        if (botLimitResult.success && botLimitResult.deactivatedBots > 0) {
+          console.log(
+            `Plan update for org ${organizationId}: ${botLimitResult.message}`
+          );
+        } else if (!botLimitResult.success) {
+          console.error(
+            `Failed to enforce bot limits for org ${organizationId}: ${botLimitResult.message}`
+          );
+        }
       }
     } catch (dbError) {
       console.error("Error updating local subscription record:", dbError);

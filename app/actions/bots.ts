@@ -8,7 +8,10 @@ import { prisma } from "@/lib/db/prisma";
 import { toolRegistry } from "@/lib/tools";
 import { initializeToolsSync } from "@/lib/tools";
 import { InputJsonValue } from "@/lib/generated/prisma/runtime/library";
-import { hasAvailableBotSlots } from "@/lib/payment/bot-limit-service";
+import {
+  hasAvailableBotSlots,
+  canActivateBot,
+} from "@/lib/payment/bot-limit-service";
 import * as CACHE_TAGS from "@/lib/constants/cache-tags";
 
 // Initialize tools
@@ -127,18 +130,11 @@ export async function createBot(data: CreateBotInput): Promise<ActionResponse> {
 
     // Check if the organization has available bot slots
     const hasAvailable = await hasAvailableBotSlots(data.organizationId);
-    if (!hasAvailable) {
-      return {
-        success: false,
-        error: {
-          code: "BOT_LIMIT_EXCEEDED",
-          message:
-            "You have reached the maximum number of bots allowed for your plan. Please upgrade to create more bots.",
-        },
-      };
-    }
 
-    // Create the bot
+    // Determine if bot should be created as active based on available slots
+    const shouldBeActive = hasAvailable;
+
+    // Create the bot - if no slots available, create as inactive
     const bot = await prisma.bot.create({
       data: {
         name: data.name,
@@ -146,6 +142,7 @@ export async function createBot(data: CreateBotInput): Promise<ActionResponse> {
         systemPrompt: data.systemPrompt,
         userId: user.id,
         organizationId: data.organizationId,
+        isActive: shouldBeActive,
       },
     });
 
@@ -155,7 +152,14 @@ export async function createBot(data: CreateBotInput): Promise<ActionResponse> {
 
     return {
       success: true,
-      data: bot,
+      data: {
+        ...bot,
+        // Include a flag to indicate if the bot was created as inactive due to limits
+        createdAsInactive: !shouldBeActive,
+        message: !shouldBeActive
+          ? "Bot created successfully but set to inactive due to plan limits. Please upgrade your plan or deactivate other bots to activate this one."
+          : undefined,
+      },
     };
   } catch (error) {
     console.error("Error creating bot:", error);
@@ -192,6 +196,24 @@ export async function updateBot(data: UpdateBotInput): Promise<ActionResponse> {
         success: false,
         error: appErrors.NOT_FOUND,
       };
+    }
+
+    // If trying to activate the bot, check if it would exceed the plan limits
+    if (data.isActive === true && !existingBot.isActive) {
+      const canActivate = await canActivateBot(
+        existingBot.organizationId,
+        data.id
+      );
+      if (!canActivate) {
+        return {
+          success: false,
+          error: {
+            code: "BOT_LIMIT_EXCEEDED",
+            message:
+              "You have reached the maximum number of active bots allowed for your plan. Please upgrade or deactivate other bots first.",
+          },
+        };
+      }
     }
 
     // Update the bot
