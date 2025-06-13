@@ -139,4 +139,14 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Toast description styling */
+  [data-sonner-toast] [data-description] {
+    color: hsl(var(--muted-foreground)) !important; /* or any color you want */
+  }
+
+  /* For dark mode support */
+  .dark [data-sonner-toast] [data-description] {
+    color: hsl(var(--muted-foreground)) !important;
+  }
 }
