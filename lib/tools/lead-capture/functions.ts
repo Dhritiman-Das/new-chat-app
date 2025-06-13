@@ -97,7 +97,7 @@ export const saveLead: ToolFunction = {
           return acc;
         }, {} as Record<string, unknown>);
 
-        await prisma.lead.create({
+        const savedLead = await prisma.lead.create({
           data: {
             botId: toolContext.botId,
             name: String(name) || null,
@@ -119,19 +119,38 @@ export const saveLead: ToolFunction = {
           },
         });
 
-        // Generate a unique lead ID for reference
-        const leadId = `lead_${Date.now()}`;
-
         // Check if we should send notifications based on config
         const shouldNotify = config.leadNotifications !== false;
+        let notificationSent = false;
+
         if (shouldNotify) {
-          // In a real implementation, you would send notifications here
-          console.log("Would send lead notification");
+          try {
+            // Import notification service dynamically to avoid circular dependencies
+            const { notifyLeadCapture } = await import(
+              "@/lib/services/notifications/lead-notification-service"
+            );
+
+            // Send notification asynchronously (don't await to avoid blocking the response)
+            notifyLeadCapture(savedLead.id, toolContext.botId)
+              .then((success) => {
+                console.log(
+                  `Lead notification sent: ${success ? "success" : "failed"}`
+                );
+              })
+              .catch((error) => {
+                console.error("Error sending lead notification:", error);
+              });
+
+            notificationSent = true;
+          } catch (error) {
+            console.error("Error importing notification service:", error);
+            notificationSent = false;
+          }
         }
 
         return {
           success: true,
-          leadId: leadId,
+          leadId: savedLead.id,
           message: `Successfully saved lead information for ${name}.`,
           data: {
             name: String(name),
@@ -139,7 +158,7 @@ export const saveLead: ToolFunction = {
             phone: String(phone),
             company: company ? String(company) : null,
             conversationId: conversationId || null,
-            notificationSent: shouldNotify,
+            notificationSent: notificationSent,
           },
         };
       } catch (dbError) {

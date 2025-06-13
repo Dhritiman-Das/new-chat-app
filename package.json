@@ -110,6 +110,7 @@
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.2",
     "remark-gfm": "^4.0.0",
+    "resend": "^4.5.2",
     "sonner": "^2.0.3",
     "standardwebhooks": "^1.0.0",
     "tailwind-merge": "^3.2.0",
