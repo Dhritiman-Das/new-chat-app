@@ -612,6 +612,7 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
         onPlanChange={handlePlanChange}
         loading={loading}
         hasSubscription={!!subscription.id}
+        organizationId={orgId}
       />
     </div>
   );

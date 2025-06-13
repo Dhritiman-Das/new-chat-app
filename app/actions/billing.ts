@@ -12,6 +12,8 @@ import {
   activateOrganizationSubscription,
 } from "@/lib/payment/billing-service";
 import { BillingCycle } from "@/lib/payment/types";
+import { getDowngradeImpact } from "@/lib/payment/bot-limit-service";
+import { PlanType } from "@/lib/generated/prisma";
 
 // Create safe action client
 const action = createSafeActionClient();
@@ -410,6 +412,47 @@ export const reactivateSubscription = action
             error instanceof Error
               ? error.message
               : "Failed to reactivate subscription",
+        },
+      };
+    }
+  });
+
+// Schema for checking downgrade impact
+const checkDowngradeImpactSchema = z.object({
+  organizationId: z.string(),
+  targetPlanType: z.nativeEnum(PlanType),
+});
+
+/**
+ * Server action to check what would happen if a plan is downgraded
+ */
+export const checkDowngradeImpact = action
+  .schema(checkDowngradeImpactSchema)
+  .action(async ({ parsedInput }) => {
+    try {
+      const { organizationId, targetPlanType } = parsedInput;
+
+      // Check authentication
+      await requireAuth();
+
+      // Get the downgrade impact
+      const impact = await getDowngradeImpact(organizationId, targetPlanType);
+
+      return {
+        success: true,
+        data: impact,
+      };
+    } catch (error) {
+      console.error("Error checking downgrade impact:", error);
+
+      return {
+        success: false,
+        error: {
+          code: "DOWNGRADE_CHECK_FAILED",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to check downgrade impact",
         },
       };
     }

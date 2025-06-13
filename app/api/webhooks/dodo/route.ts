@@ -10,6 +10,7 @@ import {
   createCreditTransaction,
   savePaymentCustomer,
 } from "@/lib/payment/billing-service";
+import { enforceBotLimitsOnPlanChange } from "@/lib/payment/bot-limit-service";
 import { redis } from "@/lib/db/kv";
 
 // Initialize Prisma client
@@ -483,6 +484,22 @@ async function handleSubscriptionPlanChanged(event: WebhookEventType) {
         plan: newPlanType as PlanType,
       },
     });
+
+    // Enforce bot limits for the new plan (especially important for downgrades)
+    const botLimitResult = await enforceBotLimitsOnPlanChange(
+      organizationId,
+      newPlanType as PlanType
+    );
+
+    if (botLimitResult.success && botLimitResult.deactivatedBots > 0) {
+      console.log(
+        `Plan change for org ${organizationId}: ${botLimitResult.message}`
+      );
+    } else if (!botLimitResult.success) {
+      console.error(
+        `Failed to enforce bot limits for org ${organizationId}: ${botLimitResult.message}`
+      );
+    }
 
     // If the new plan has message credits, grant them
     const planLimits = await prisma.planLimit.findFirst({

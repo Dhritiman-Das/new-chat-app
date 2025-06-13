@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,6 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Icons } from "@/components/icons";
+import { DowngradeWarningDialog } from "./downgrade-warning-dialog";
+import { checkDowngradeImpact } from "@/app/actions/billing";
+import { toast } from "sonner";
+import { PlanType } from "@/lib/generated/prisma";
 
 export type Plan = {
   id: string;
@@ -31,6 +36,7 @@ interface PlansGridProps {
   loading: boolean;
   isDialog?: boolean;
   hasSubscription?: boolean;
+  organizationId?: string;
 }
 
 export function PlansGrid({
@@ -44,7 +50,104 @@ export function PlansGrid({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isDialog = false,
   hasSubscription = false,
+  organizationId,
 }: PlansGridProps) {
+  const [showDowngradeWarning, setShowDowngradeWarning] = useState(false);
+  const [pendingDowngrade, setPendingDowngrade] = useState<{
+    planId: string;
+    planName: string;
+    impact: {
+      wouldRequireDeactivation: boolean;
+      currentActiveBots: number;
+      newPlanLimit: number;
+      botsToDeactivate: number;
+      botNamesToDeactivate: string[];
+      success: boolean;
+      error?: string;
+    };
+  } | null>(null);
+  const [checking, setChecking] = useState<string | null>(null);
+
+  // Function to get plan hierarchy for determining if it's a downgrade
+  const getPlanHierarchy = (planType: string): number => {
+    const hierarchy: Record<string, number> = {
+      HOBBY: 1,
+      STANDARD: 2,
+      PRO: 3,
+      CUSTOM: 4,
+    };
+    return hierarchy[planType.toUpperCase()] || 0;
+  };
+
+  // Function to check if the plan change is a downgrade
+  const isDowngrade = (currentPlan: string, targetPlan: string): boolean => {
+    return getPlanHierarchy(currentPlan) > getPlanHierarchy(targetPlan);
+  };
+
+  // Function to handle plan selection with downgrade check
+  const handlePlanSelection = async (planId: string) => {
+    // If no organization ID is provided, proceed without downgrade check
+    if (!organizationId) {
+      onPlanChange(planId);
+      return;
+    }
+
+    // Check if this would be a downgrade
+    if (!isDowngrade(currentPlanType, planId)) {
+      // Not a downgrade, proceed normally
+      onPlanChange(planId);
+      return;
+    }
+
+    // This is a potential downgrade, check the impact
+    setChecking(planId);
+    try {
+      const result = await checkDowngradeImpact({
+        organizationId,
+        targetPlanType: planId.toUpperCase() as PlanType,
+      });
+      console.log("result", result);
+
+      if (result?.data?.success && result.data.data) {
+        const impact = result.data.data;
+
+        // If no deactivation is required, proceed normally
+        if (!impact.wouldRequireDeactivation) {
+          onPlanChange(planId);
+          return;
+        }
+
+        // Show downgrade warning with impact details
+        const selectedPlan = plans.find((p) => p.id === planId);
+        setPendingDowngrade({
+          planId,
+          planName: selectedPlan?.name || planId,
+          impact,
+        });
+        setShowDowngradeWarning(true);
+      } else {
+        // If we can't check the impact, show a generic error
+        toast.error("Unable to check downgrade impact. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error checking downgrade impact:", error);
+      toast.error("Error checking downgrade impact. Please try again.");
+    } finally {
+      setChecking(null);
+    }
+  };
+
+  // Function to confirm downgrade after warning
+  const handleConfirmDowngrade = async () => {
+    if (!pendingDowngrade) return;
+
+    try {
+      await onPlanChange(pendingDowngrade.planId);
+    } finally {
+      setPendingDowngrade(null);
+    }
+  };
+
   return (
     <div>
       {/* <div className="flex justify-between items-center mb-6">
@@ -108,11 +211,14 @@ export function PlansGrid({
                 disabled={
                   loading ||
                   plan.id.toUpperCase() === currentPlanType.toUpperCase() ||
-                  !hasSubscription
+                  !hasSubscription ||
+                  checking === plan.id
                 }
-                onClick={() => onPlanChange(plan.id)}
+                onClick={() => handlePlanSelection(plan.id)}
               >
-                {plan.id.toUpperCase() === currentPlanType
+                {checking === plan.id
+                  ? "Checking..."
+                  : plan.id.toUpperCase() === currentPlanType
                   ? "Current Plan"
                   : plan.buttonText}
               </Button>
@@ -120,6 +226,21 @@ export function PlansGrid({
           </Card>
         ))}
       </div>
+
+      {/* Downgrade Warning Dialog */}
+      {pendingDowngrade && (
+        <DowngradeWarningDialog
+          open={showDowngradeWarning}
+          onOpenChange={setShowDowngradeWarning}
+          planName={pendingDowngrade.planName}
+          currentActiveBots={pendingDowngrade.impact.currentActiveBots}
+          newPlanLimit={pendingDowngrade.impact.newPlanLimit}
+          botsToDeactivate={pendingDowngrade.impact.botsToDeactivate}
+          botNamesToDeactivate={pendingDowngrade.impact.botNamesToDeactivate}
+          onConfirm={handleConfirmDowngrade}
+          loading={loading}
+        />
+      )}
     </div>
   );
 }

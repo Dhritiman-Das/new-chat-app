@@ -19,6 +19,7 @@ interface PlansDialogProps {
   onPlanChange: (planId: string) => Promise<void>;
   loading: boolean;
   hasSubscription?: boolean;
+  organizationId?: string;
 }
 
 export function PlansDialog({
@@ -31,6 +32,7 @@ export function PlansDialog({
   onPlanChange,
   loading,
   hasSubscription = false,
+  organizationId,
 }: PlansDialogProps) {
   // When a plan is selected, close the dialog after the plan change is successful
   const handlePlanChange = async (planId: string) => {
@@ -57,6 +59,7 @@ export function PlansDialog({
             loading={loading}
             isDialog={true}
             hasSubscription={hasSubscription}
+            organizationId={organizationId}
           />
         </div>
       </DialogContent>
