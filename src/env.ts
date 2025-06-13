@@ -28,6 +28,9 @@ export const env = createEnv({
     UPSTASH_REDIS_REST_URL: z.string().url(),
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
 
+    // Resend
+    RESEND_API_KEY: z.string().min(1),
+
     // Payment
     PAYMENT_PROVIDER: z.string().default("dodo"),
     DODO_PAYMENTS_API_KEY: z.string().min(1),
