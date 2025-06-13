@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
+import { useKnowledge } from "./knowledge-context";
 
 // Form schema
 const websiteSourceSchema = z.object({
@@ -46,7 +47,6 @@ interface WebsiteSourceFormProps {
   botId: string;
   orgId: string;
   knowledgeBaseId: string;
-  onWebsiteAdded?: () => void;
   websiteLinkLimit?: number;
   websiteLinkUsage?: number;
 }
@@ -55,7 +55,6 @@ export function WebsiteSourceForm({
   botId,
   orgId,
   knowledgeBaseId,
-  onWebsiteAdded,
   websiteLinkLimit = 0,
   websiteLinkUsage = 0,
 }: WebsiteSourceFormProps) {
@@ -63,6 +62,11 @@ export function WebsiteSourceForm({
   const [progress, setProgress] = useState(0);
   const [limitError, setLimitError] = useState<string | null>(null);
   const router = useRouter();
+  const {
+    addOptimisticWebsite,
+    updateWebsiteAfterAdd,
+    removeOptimisticWebsite,
+  } = useKnowledge();
 
   // Form setup
   const form = useForm<WebsiteSourceFormValues>({
@@ -95,6 +99,14 @@ export function WebsiteSourceForm({
     setLimitError(null);
     const progressInterval = updateProgress();
 
+    // Add optimistic website immediately
+    const tempId = addOptimisticWebsite(
+      data.url,
+      data.isDomain,
+      botId,
+      knowledgeBaseId
+    );
+
     try {
       const response = await fetch("/api/knowledge/website/add", {
         method: "POST",
@@ -112,6 +124,9 @@ export function WebsiteSourceForm({
       const result = await response.json();
 
       if (!response.ok) {
+        // Remove the optimistic website on error
+        removeOptimisticWebsite(tempId);
+
         // Check for specific error codes
         if (response.status === 403) {
           // Handle limit exceeded or subscription issues
@@ -148,22 +163,37 @@ export function WebsiteSourceForm({
       }
 
       if (result.success) {
+        // Update the optimistic website with the real data
+        updateWebsiteAfterAdd(tempId, {
+          id: result.websiteId,
+          knowledgeBaseId,
+          url: data.url,
+          isDomain: data.isDomain,
+          title: new URL(data.url).hostname,
+          description: null,
+          scrapingStatus: "COMPLETED" as const,
+          embeddingStatus: "COMPLETED" as const,
+          lastScrapedAt: new Date(),
+          metadata: { pagesProcessed: result.pagesProcessed },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
         toast.success("Website source added successfully", {
           description: `Processed ${result.pagesProcessed} pages from ${data.url}`,
         });
 
         // Reset form
         form.reset();
-
-        // Call the callback if provided
-        if (onWebsiteAdded) {
-          onWebsiteAdded();
-        }
       } else {
+        // Remove the optimistic website on error
+        removeOptimisticWebsite(tempId);
         throw new Error(result.error || "Failed to add website source");
       }
     } catch (error) {
       console.error("Error adding website source:", error);
+      // Remove the optimistic website on error if not already removed
+      removeOptimisticWebsite(tempId);
       toast.error("Failed to add website source", {
         description: error instanceof Error ? error.message : "Unknown error",
       });

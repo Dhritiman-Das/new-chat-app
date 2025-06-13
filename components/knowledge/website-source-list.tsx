@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import {
-  KnowledgeBase,
-  WebsiteSource as WebsiteSourceType,
-} from "@/lib/types/prisma";
+import { KnowledgeBase } from "@/lib/types/prisma";
 import { ActionResponse as BaseActionResponse } from "@/app/actions/types";
 import { Icons } from "../icons";
+import { useKnowledge } from "./knowledge-context";
 
 // Define the actual API response structure
 interface ApiResponse extends Omit<BaseActionResponse, "success"> {
@@ -62,32 +60,29 @@ const deleteWebsite = async (data: {
 interface WebsiteSourceListProps {
   botId: string;
   orgId: string;
-  knowledgeBase: KnowledgeBase & { websiteSources?: WebsiteSourceType[] };
-  onWebsiteChange?: (websites: WebsiteSourceType[]) => void;
+  knowledgeBase: KnowledgeBase;
 }
 
 export function WebsiteSourceList({
   botId,
   orgId,
   knowledgeBase,
-  onWebsiteChange,
 }: WebsiteSourceListProps) {
-  const [websites, setWebsites] = useState<WebsiteSourceType[]>(
-    knowledgeBase.websiteSources || []
-  );
-  const [websiteToDelete, setWebsiteToDelete] =
-    useState<WebsiteSourceType | null>(null);
+  const { websites, removeWebsite, rollbackWebsiteRemoval } = useKnowledge();
+  const [websiteToDelete, setWebsiteToDelete] = useState<
+    (typeof websites)[0] | null
+  >(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Update local state when knowledgeBase.websiteSources changes (e.g., after a new addition)
-  useEffect(() => {
-    setWebsites(knowledgeBase.websiteSources || []);
-  }, [knowledgeBase.websiteSources]);
 
   const handleDelete = async () => {
     if (!websiteToDelete) return;
 
     setIsDeleting(true);
+
+    // Optimistically remove the website from the UI
+    removeWebsite(websiteToDelete.id);
+    const removedWebsite = websiteToDelete;
+
     try {
       const result = await deleteWebsite({
         websiteId: websiteToDelete.id,
@@ -97,23 +92,16 @@ export function WebsiteSourceList({
       });
 
       if (result.data?.success) {
-        // Update local state by filtering out the deleted website
-        const updatedWebsites = websites.filter(
-          (website) => website.id !== websiteToDelete.id
-        );
-        setWebsites(updatedWebsites);
-
-        // Notify parent component about the change if callback exists
-        if (onWebsiteChange) {
-          onWebsiteChange(updatedWebsites);
-        }
-
         toast.success(`Deleted ${websiteToDelete.url}`);
         setWebsiteToDelete(null);
       } else {
+        // Rollback the optimistic update
+        rollbackWebsiteRemoval(removedWebsite);
         toast.error(result?.error?.message || "Failed to delete website");
       }
     } catch (error) {
+      // Rollback the optimistic update
+      rollbackWebsiteRemoval(removedWebsite);
       toast.error("An unexpected error occurred");
       console.error(error);
     } finally {
@@ -142,13 +130,25 @@ export function WebsiteSourceList({
           {websites.map((website) => (
             <div
               key={website.id}
-              className="flex items-center justify-between p-4 border rounded-md hover:bg-muted/30 transition-colors"
+              className={cn(
+                "flex items-center justify-between p-4 border rounded-md hover:bg-muted/30 transition-colors",
+                website.isOptimistic && "opacity-70"
+              )}
             >
               <div className="flex items-center space-x-4">
-                <Icons.Globe className="h-8 w-8 text-blue-500" />
+                {website.isProcessing ? (
+                  <Icons.Spinner className="h-8 w-8 text-blue-500 animate-spin" />
+                ) : (
+                  <Icons.Globe className="h-8 w-8 text-blue-500" />
+                )}
                 <div>
                   <p className="font-medium truncate max-w-[200px] sm:max-w-[300px] md:max-w-[400px]">
                     {website.title || formatUrl(website.url)}
+                    {website.isProcessing && (
+                      <span className="text-sm text-muted-foreground ml-2">
+                        (processing...)
+                      </span>
+                    )}
                   </p>
                   <div className="flex flex-wrap text-xs text-muted-foreground gap-2">
                     <span>{website.isDomain ? "Domain" : "Single page"}</span>
@@ -181,23 +181,31 @@ export function WebsiteSourceList({
                 <div
                   className={cn(
                     "px-2 py-1 rounded-full text-xs",
-                    website.embeddingStatus === "COMPLETED" &&
+                    website.isProcessing && "bg-blue-100 text-blue-800",
+                    !website.isProcessing &&
+                      website.embeddingStatus === "COMPLETED" &&
                       "bg-green-100 text-green-800",
-                    website.embeddingStatus === "PROCESSING" &&
+                    !website.isProcessing &&
+                      website.embeddingStatus === "PROCESSING" &&
                       "bg-yellow-100 text-yellow-800",
-                    website.embeddingStatus === "PENDING" &&
+                    !website.isProcessing &&
+                      website.embeddingStatus === "PENDING" &&
                       "bg-blue-100 text-blue-800",
-                    website.embeddingStatus === "FAILED" &&
+                    !website.isProcessing &&
+                      website.embeddingStatus === "FAILED" &&
                       "bg-red-100 text-red-800"
                   )}
                 >
-                  {website.embeddingStatus.charAt(0) +
-                    website.embeddingStatus.slice(1).toLowerCase()}
+                  {website.isProcessing
+                    ? "Processing"
+                    : website.embeddingStatus.charAt(0) +
+                      website.embeddingStatus.slice(1).toLowerCase()}
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setWebsiteToDelete(website)}
+                  disabled={website.isProcessing}
                 >
                   <Icons.Trash className="h-4 w-4 text-muted-foreground" />
                 </Button>
