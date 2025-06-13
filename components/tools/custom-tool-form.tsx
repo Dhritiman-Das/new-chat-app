@@ -791,51 +791,6 @@ export default function CustomToolForm({
           </div>
         </form>
       </Form>
-
-      {/* Information Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>How Custom Tools Work</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="font-medium">Request Format</h4>
-            <p className="text-sm text-muted-foreground">
-              Your server will receive POST requests with the following
-              structure:
-            </p>
-            <pre className="mt-2 p-3 bg-muted rounded-md text-sm overflow-x-auto">
-              {`{
-  "parameters": { /* user input */ },
-  "context": {
-    "botId": "...",
-    "userId": "...",
-    "organizationId": "...",
-    "conversationId": "..."
-  },
-  "metadata": {
-    "timestamp": "...",
-    "toolVersion": "1.0.0"
-  }
-}`}
-            </pre>
-          </div>
-
-          <div>
-            <h4 className="font-medium">Expected Response</h4>
-            <p className="text-sm text-muted-foreground">
-              Your server should respond with:
-            </p>
-            <pre className="mt-2 p-3 bg-muted rounded-md text-sm overflow-x-auto">
-              {`{
-  "success": true,
-  "data": { /* your response data */ },
-  "message": "Optional success message"
-}`}
-            </pre>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
