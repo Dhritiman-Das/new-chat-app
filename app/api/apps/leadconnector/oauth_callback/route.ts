@@ -142,6 +142,121 @@ export async function GET(request: NextRequest) {
         where: { id: tempCredential.id },
       });
 
+      // Check if this GoHighLevel location is already connected to another bot BEFORE creating credentials
+      if (tokenData.locationId) {
+        const existingIntegrationWithSameLocation =
+          await prisma.integration.findFirst({
+            where: {
+              provider: "gohighlevel",
+              metadata: {
+                path: ["locationId"],
+                equals: tokenData.locationId,
+              },
+              botId: {
+                not: botId, // Exclude the current bot
+              },
+            },
+            include: {
+              bot: {
+                select: { name: true },
+              },
+            },
+          });
+
+        if (existingIntegrationWithSameLocation) {
+          return new NextResponse(
+            `
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <title>GoHighLevel Connection Failed</title>
+                <style>
+                  body {
+                    font-family: system-ui, -apple-system, sans-serif;
+                    text-align: center;
+                    padding: 2rem;
+                    max-width: 500px;
+                    margin: 0 auto;
+                    background-color: #f9fafb;
+                  }
+                  .container {
+                    background: white;
+                    padding: 2rem;
+                    border-radius: 0.75rem;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                  }
+                  .error {
+                    color: #DC2626;
+                    font-size: 4rem;
+                    margin-bottom: 1rem;
+                  }
+                  h1 {
+                    color: #111827;
+                    margin-bottom: 1rem;
+                    font-size: 1.5rem;
+                    font-weight: 600;
+                  }
+                  p {
+                    color: #6B7280;
+                    margin-bottom: 1rem;
+                    line-height: 1.5;
+                  }
+                  button {
+                    border: none;
+                    padding: 0.75rem 1.5rem;
+                    border-radius: 0.375rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    font-size: 0.875rem;
+                    background-color: #F3F4F6;
+                    color: #374151;
+                    border: 1px solid #D1D5DB;
+                  }
+                  button:hover {
+                    background-color: #E5E7EB;
+                    transform: translateY(-1px);
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <h1>Connection Failed</h1>
+                  <p>This GoHighLevel location (${
+                    locationInfo.name || "Unknown"
+                  }) is already connected to another bot: "${
+              existingIntegrationWithSameLocation.bot?.name || "Unknown Bot"
+            }".</p>
+                  <p>Each GoHighLevel location can only be connected to one bot at a time.</p>
+                  <button onclick="closeWindow()">Close Window</button>
+                </div>
+                <script>
+                  function closeWindow() {
+                    if (window.opener) {
+                      window.opener.postMessage('app_oauth_failed', '*');
+                    }
+                    window.close();
+                  }
+                  
+                  // Auto notify parent on load
+                  document.addEventListener('DOMContentLoaded', function() {
+                    if (window.opener) {
+                      window.opener.postMessage('app_oauth_failed', '*');
+                    }
+                  });
+                </script>
+              </body>
+            </html>
+            `,
+            {
+              headers: {
+                "Content-Type": "text/html",
+              },
+            }
+          );
+        }
+      }
+
       // Check if credential already exists for this bot and provider
       let credential = await prisma.credential.findFirst({
         where: {
@@ -422,7 +537,6 @@ export async function GET(request: NextRequest) {
           </head>
           <body>
             <div class="container">
-              <div class="success">✓</div>
               <h1>Successfully connected to GoHighLevel!</h1>
               <p>Your GoHighLevel integration is now active and ready to use. You can now close this window or return to your dashboard.</p>
               <div class="button-container">

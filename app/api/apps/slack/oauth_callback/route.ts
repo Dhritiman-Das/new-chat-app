@@ -153,6 +153,56 @@ export async function GET(request: Request) {
       });
     }
 
+    // Check if this Slack team is already connected to another bot
+    if (response.team?.id && !metadata.isAddingChannel) {
+      const existingIntegrationWithSameTeam =
+        await prisma.integration.findFirst({
+          where: {
+            provider: "slack",
+            metadata: {
+              path: ["team_id"],
+              equals: response.team.id,
+            },
+            botId: {
+              not: metadata.botId, // Exclude the current bot
+            },
+          },
+          include: {
+            bot: {
+              select: { name: true },
+            },
+          },
+        });
+
+      if (existingIntegrationWithSameTeam) {
+        const htmlResponse = `
+          <html>
+            <head>
+              <title>Slack Connection Failed</title>
+              <script>
+                window.opener.postMessage('app_oauth_failed', '*');
+                window.close();
+              </script>
+            </head>
+            <body>
+              <h1>Connection Failed</h1>
+              <p>This Slack workspace (${
+                response.team.name || "Unknown"
+              }) is already connected to another bot: "${
+          existingIntegrationWithSameTeam.bot?.name || "Unknown Bot"
+        }".</p>
+              <p>Each Slack workspace can only be connected to one bot at a time.</p>
+            </body>
+          </html>
+        `;
+        return new NextResponse(htmlResponse, {
+          headers: {
+            "Content-Type": "text/html",
+          },
+        });
+      }
+    }
+
     // Get bot name for credential name
     const bot = await prisma.bot.findUnique({
       where: { id: metadata.botId },
