@@ -41,7 +41,7 @@ export class DodoPaymentsProvider implements PaymentProvider {
 
     this.client = new DodoPayments({
       bearerToken: apiKey,
-      environment: "test_mode",
+      environment: env.NODE_ENV === "production" ? "live_mode" : "test_mode",
     });
 
     // Initialize webhook verification
