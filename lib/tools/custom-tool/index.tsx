@@ -138,7 +138,7 @@ export function createCustomToolDefinition(toolData: {
   const functionConfig =
     (toolData.functions as Record<string, unknown>)?.execute || {};
 
-  // Convert the stored schema to a Zod schema
+  // Convert the stored schema to a Zod schema with enhanced type support
   let parametersSchema = z.object({});
 
   if (functionConfig && typeof functionConfig === "object") {
@@ -161,7 +161,17 @@ export function createCustomToolDefinition(toolData: {
 
             switch (prop.type) {
               case "string":
-                propSchema = z.string();
+                if (
+                  prop.enum &&
+                  Array.isArray(prop.enum) &&
+                  prop.enum.length > 0
+                ) {
+                  // Handle string enums
+                  const enumValues = prop.enum as string[];
+                  propSchema = z.enum(enumValues as [string, ...string[]]);
+                } else {
+                  propSchema = z.string();
+                }
                 break;
               case "number":
                 propSchema = z.number();
@@ -173,7 +183,27 @@ export function createCustomToolDefinition(toolData: {
                 propSchema = z.record(z.unknown());
                 break;
               case "array":
-                propSchema = z.array(z.unknown());
+                let itemSchema: z.ZodType = z.unknown();
+                if (prop.items && typeof prop.items === "object") {
+                  const items = prop.items as Record<string, unknown>;
+                  switch (items.type) {
+                    case "string":
+                      itemSchema = z.string();
+                      break;
+                    case "number":
+                      itemSchema = z.number();
+                      break;
+                    case "boolean":
+                      itemSchema = z.boolean();
+                      break;
+                    case "object":
+                      itemSchema = z.record(z.unknown());
+                      break;
+                    default:
+                      itemSchema = z.unknown();
+                  }
+                }
+                propSchema = z.array(itemSchema);
                 break;
               default:
                 propSchema = z.unknown();
@@ -209,7 +239,17 @@ export function createCustomToolDefinition(toolData: {
 
           switch (param.type) {
             case "string":
-              propSchema = z.string();
+              if (
+                param.enumValues &&
+                Array.isArray(param.enumValues) &&
+                param.enumValues.length > 0
+              ) {
+                // Handle string enums
+                const enumValues = param.enumValues as string[];
+                propSchema = z.enum(enumValues as [string, ...string[]]);
+              } else {
+                propSchema = z.string();
+              }
               break;
             case "number":
               propSchema = z.number();
@@ -221,7 +261,26 @@ export function createCustomToolDefinition(toolData: {
               propSchema = z.record(z.unknown());
               break;
             case "array":
-              propSchema = z.array(z.unknown());
+              let itemSchema: z.ZodType = z.unknown();
+              if (param.itemsType) {
+                switch (param.itemsType) {
+                  case "string":
+                    itemSchema = z.string();
+                    break;
+                  case "number":
+                    itemSchema = z.number();
+                    break;
+                  case "boolean":
+                    itemSchema = z.boolean();
+                    break;
+                  case "object":
+                    itemSchema = z.record(z.unknown());
+                    break;
+                  default:
+                    itemSchema = z.unknown();
+                }
+              }
+              propSchema = z.array(itemSchema);
               break;
             default:
               propSchema = z.unknown();
