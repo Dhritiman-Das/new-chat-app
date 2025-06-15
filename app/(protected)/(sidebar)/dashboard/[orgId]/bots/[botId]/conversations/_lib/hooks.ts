@@ -82,7 +82,6 @@ export function useDataTable<TData, TValue>({
   pageCount = 0,
   getRowId,
   initialState,
-  enableAdvancedFilter = false,
   shallow = true,
   //   clearOnDefault = false,
   debounceMs = 500,
@@ -131,6 +130,50 @@ export function useDataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
+
+  // Initialize column filters from URL
+  React.useEffect(() => {
+    if (filters) {
+      try {
+        const parsedFilters = JSON.parse(filters);
+        const columnFiltersFromURL: ColumnFiltersState = [];
+
+        // Convert URL filters to column filter format
+        for (const [id, value] of Object.entries(parsedFilters)) {
+          if (value !== undefined && value !== null) {
+            // Special handling for date range filters (startedAt)
+            if (
+              id === "startedAt" &&
+              typeof value === "object" &&
+              !Array.isArray(value)
+            ) {
+              const dateRange = value as { from?: string; to?: string };
+              const timestamps: (number | undefined)[] = [];
+
+              if (dateRange.from) {
+                timestamps[0] = new Date(dateRange.from).getTime();
+              }
+              if (dateRange.to) {
+                timestamps[1] = new Date(dateRange.to).getTime();
+              }
+
+              if (timestamps.length > 0) {
+                columnFiltersFromURL.push({ id, value: timestamps });
+              }
+            } else {
+              columnFiltersFromURL.push({ id, value });
+            }
+          }
+        }
+
+        setColumnFilters(columnFiltersFromURL);
+      } catch (error) {
+        console.error("Error parsing filters from URL:", error);
+      }
+    } else {
+      setColumnFilters([]);
+    }
+  }, [filters]);
 
   // Set up pagination state
   const pagination = React.useMemo<PaginationState>(
@@ -194,8 +237,7 @@ export function useDataTable<TData, TValue>({
 
   // Update URL with filters
   React.useEffect(() => {
-    if (!enableAdvancedFilter) return;
-
+    // Always update URL with filters, regardless of enableAdvancedFilter setting
     // Choose which state to use based on filter type
     const filtersToUse =
       debouncedColumnFilters.length > 0
@@ -208,7 +250,22 @@ export function useDataTable<TData, TValue>({
 
     // Build filter object
     for (const filter of filtersToUse) {
-      if (typeof filter.value === "object" && filter.value !== null) {
+      // Special handling for date range filters (startedAt)
+      if (filter.id === "startedAt" && Array.isArray(filter.value)) {
+        const [fromTimestamp, toTimestamp] = filter.value;
+        const dateRange: { from?: string; to?: string } = {};
+
+        if (fromTimestamp) {
+          dateRange.from = new Date(fromTimestamp).toISOString();
+        }
+        if (toTimestamp) {
+          dateRange.to = new Date(toTimestamp).toISOString();
+        }
+
+        if (dateRange.from || dateRange.to) {
+          nextFilters[filter.id] = dateRange;
+        }
+      } else if (typeof filter.value === "object" && filter.value !== null) {
         nextFilters[filter.id] = filter.value;
       } else if (Array.isArray(filter.value)) {
         nextFilters[filter.id] = filter.value;
@@ -231,7 +288,6 @@ export function useDataTable<TData, TValue>({
   }, [
     debouncedColumnFilters,
     throttledColumnFilters,
-    enableAdvancedFilter,
     router,
     pathname,
     createQueryString,

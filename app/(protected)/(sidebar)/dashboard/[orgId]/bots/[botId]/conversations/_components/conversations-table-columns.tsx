@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/format";
 
-import { formatDuration, formatSource, getStatusIcon } from "../_lib/utils";
+import { formatSource, getStatusIcon } from "../_lib/utils";
 import {
   abandonConversation,
   activateConversation,
@@ -310,32 +310,6 @@ export function getConversationsTableColumns({
       meta: {
         label: "Tool Uses",
         icon: Icons.Hammer,
-      },
-    },
-    {
-      id: "duration",
-      accessorFn: (row) => {
-        const startDate = row.startedAt;
-        const endDate = row.endedAt;
-        if (!endDate) return 0; // Ongoing
-        return endDate.getTime() - startDate.getTime();
-      },
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Duration" />
-      ),
-      cell: ({ row }) => {
-        const startDate = row.original.startedAt;
-        const endDate = row.original.endedAt;
-        return (
-          <div className="flex items-center gap-2">
-            <Icons.Clock className="h-4 w-4 text-muted-foreground" />
-            <span>{formatDuration(startDate, endDate)}</span>
-          </div>
-        );
-      },
-      meta: {
-        label: "Duration",
-        icon: Icons.Clock,
       },
     },
     {

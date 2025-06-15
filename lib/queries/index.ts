@@ -573,7 +573,8 @@ export async function getConversationsQuery(
   page = 1,
   per_page = 10,
   sort?: string,
-  filters?: string | object
+  filters?: string | object,
+  search?: string
 ) {
   // Parse sort parameter
   let orderBy: PrismaTypes.ConversationOrderByWithRelationInput = {
@@ -597,6 +598,31 @@ export async function getConversationsQuery(
   // Parse filters
   const where: PrismaTypes.ConversationWhereInput = { botId };
 
+  // Add search functionality
+  if (search && search.trim()) {
+    const searchTerm = search.trim();
+
+    // Search in conversation ID or messages
+    where.OR = [
+      {
+        id: {
+          contains: searchTerm,
+          mode: "insensitive",
+        },
+      },
+      {
+        messages: {
+          some: {
+            content: {
+              contains: searchTerm,
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+    ];
+  }
+
   if (filters) {
     try {
       // Handle the case where filters is already an object
@@ -611,15 +637,16 @@ export async function getConversationsQuery(
         where.source = { in: parsedFilters.source };
       }
 
-      if (parsedFilters.date?.from || parsedFilters.date?.to) {
+      // Fix date filter to use startedAt instead of date
+      if (parsedFilters.startedAt?.from || parsedFilters.startedAt?.to) {
         where.startedAt = {};
 
-        if (parsedFilters.date.from) {
-          where.startedAt.gte = new Date(parsedFilters.date.from);
+        if (parsedFilters.startedAt.from) {
+          where.startedAt.gte = new Date(parsedFilters.startedAt.from);
         }
 
-        if (parsedFilters.date.to) {
-          where.startedAt.lte = new Date(parsedFilters.date.to);
+        if (parsedFilters.startedAt.to) {
+          where.startedAt.lte = new Date(parsedFilters.startedAt.to);
         }
       }
     } catch (error) {
