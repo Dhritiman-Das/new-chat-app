@@ -134,6 +134,56 @@ export class ToolExecutionService {
         credentials = credential.credentials;
       }
 
+      // Get tool configuration
+      const config =
+        (botTool?.config as Record<string, unknown>) ||
+        tool.defaultConfig ||
+        {};
+
+      // Strict validation for custom tools
+      if (tool.type === ToolType.CUSTOM && config.strict === true) {
+        try {
+          // Validate parameters against the function's schema
+          if (func.parameters) {
+            const validationResult = func.parameters.safeParse(params);
+            if (!validationResult.success) {
+              const errorDetails = validationResult.error.issues.map(
+                (issue) => ({
+                  path: issue.path.join("."),
+                  message: issue.message,
+                  expected: issue.code,
+                })
+              );
+
+              return {
+                success: false,
+                error: {
+                  code: "VALIDATION_ERROR",
+                  message: "Parameter validation failed in strict mode",
+                  details: errorDetails,
+                },
+              };
+            }
+            // Use validated params for execution
+            params = validationResult.data;
+          }
+        } catch (validationError) {
+          return {
+            success: false,
+            error: {
+              code: "VALIDATION_ERROR",
+              message: `Strict validation failed: ${
+                (validationError as Error).message
+              }`,
+            },
+          };
+        }
+      }
+
+      // Check if this is an async custom tool
+      const isAsyncTool =
+        tool.type === ToolType.CUSTOM && config.async === true;
+
       // Track execution start for custom tools (if we have conversation context)
       if (tool.type === ToolType.CUSTOM && context.conversationId) {
         try {
@@ -158,14 +208,40 @@ export class ToolExecutionService {
       // Log tool usage
       await this.logToolUsage(toolId, context.botId, functionName);
 
-      // Execute the function with the context
+      // For async tools, handle execution differently
+      if (isAsyncTool) {
+        // Start async execution without waiting
+        this.executeToolAsync(
+          func,
+          params,
+          {
+            ...context,
+            credentialId: credentialId || undefined,
+            config,
+            credentials: credentials as Record<string, unknown>,
+          },
+          executionId,
+          toolId,
+          context.botId,
+          functionName,
+          startTime
+        );
+
+        // Return immediate response for async tools
+        return {
+          success: true,
+          async: true,
+          status: "processing",
+          message: "Tool execution started asynchronously",
+          executionId,
+        };
+      }
+
+      // Execute the function synchronously for non-async tools
       const result = await func.execute(params, {
         ...context,
         credentialId: credentialId || undefined,
-        config:
-          (botTool?.config as Record<string, unknown>) ||
-          tool.defaultConfig ||
-          {},
+        config,
         credentials: credentials as Record<string, unknown>,
       });
 
@@ -248,6 +324,106 @@ export class ToolExecutionService {
           message: (error as Error).message || "Tool execution failed",
         },
       };
+    }
+  }
+
+  // New method to handle async tool execution
+  private async executeToolAsync(
+    func: {
+      execute: (
+        params: Record<string, unknown>,
+        context: ToolContext
+      ) => Promise<unknown>;
+    },
+    params: Record<string, unknown>,
+    context: ToolContext,
+    executionId: string | null,
+    toolId: string,
+    botId: string,
+    functionName: string,
+    startTime: Date
+  ) {
+    try {
+      // Execute the function asynchronously
+      const result = await func.execute(params, context);
+
+      // Update execution record with success result
+      if (executionId) {
+        const endTime = new Date();
+        const executionTime = endTime.getTime() - startTime.getTime();
+
+        try {
+          const typedResult = result as {
+            success?: boolean;
+            error?: Record<string, unknown>;
+          };
+
+          await prisma.toolExecution.update({
+            where: { id: executionId },
+            data: {
+              result: result as Record<string, unknown> as InputJsonValue,
+              status: typedResult?.success
+                ? ExecutionStatus.COMPLETED
+                : ExecutionStatus.FAILED,
+              endTime,
+              executionTime,
+              error: typedResult?.success
+                ? undefined
+                : (typedResult?.error as InputJsonValue),
+            },
+          });
+        } catch (error) {
+          console.error("Failed to update async tool execution record:", error);
+        }
+      }
+
+      // TODO: Consider adding webhook or real-time notification here
+      // to notify the client when async execution completes
+      console.log(
+        `Async tool execution completed for ${toolId}:${functionName}`
+      );
+    } catch (error) {
+      console.error(
+        `Error in async tool execution ${toolId}:${functionName}:`,
+        error
+      );
+
+      // Update execution record with error
+      if (executionId) {
+        const endTime = new Date();
+        const executionTime = endTime.getTime() - startTime.getTime();
+
+        try {
+          await prisma.toolExecution.update({
+            where: { id: executionId },
+            data: {
+              status: ExecutionStatus.FAILED,
+              endTime,
+              executionTime,
+              error: {
+                code: "ASYNC_EXECUTION_FAILED",
+                message:
+                  (error as Error).message || "Async tool execution failed",
+                stack: (error as Error).stack,
+              } as InputJsonValue,
+            },
+          });
+        } catch (updateError) {
+          console.error(
+            "Failed to update async tool execution record with error:",
+            updateError
+          );
+        }
+      }
+
+      // Log the error
+      await this.logToolError(
+        toolId,
+        botId,
+        functionName,
+        error as Error,
+        params
+      );
     }
   }
 

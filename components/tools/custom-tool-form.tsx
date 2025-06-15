@@ -40,6 +40,12 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { createCustomTool, updateCustomTool } from "@/app/actions/custom-tools";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 
 interface Parameter {
   name: string;
@@ -319,7 +325,31 @@ export default function CustomToolForm({
                       <div className="space-y-0.5">
                         <FormLabel className="text-base">Async</FormLabel>
                         <FormDescription>
-                          Tool executes asynchronously
+                          Enables asynchronous execution. The tool will return
+                          immediately with a processing status, allowing for
+                          long-running operations. Learn{" "}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="underline">
+                                more
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[300px]">
+                                <p>
+                                  When enabled, the tool execution starts in the
+                                  background and returns immediately with a
+                                  processing status. This is useful for
+                                  long-running operations like file processing,
+                                  complex calculations, or external API calls
+                                  that might take several seconds to complete.
+                                </p>
+                                <br />
+                                <p>
+                                  The tool execution status can be tracked using
+                                  the execution ID returned in the response.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </FormDescription>
                       </div>
                       <FormControl>
@@ -340,7 +370,38 @@ export default function CustomToolForm({
                       <div className="space-y-0.5">
                         <FormLabel className="text-base">Strict</FormLabel>
                         <FormDescription>
-                          Enforces strict parameter validation
+                          Enforces strict parameter validation against the
+                          tool&apos;s schema. Learn{" "}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger className="underline">
+                                more
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-[300px]">
+                                <p>
+                                  Strict parameter validation ensures that all
+                                  input parameters exactly match the defined
+                                  schema including:
+                                </p>
+                                <br />
+                                <ul className="list-disc pl-4 space-y-1">
+                                  <li>Required parameters must be provided</li>
+                                  <li>
+                                    Data types must match exactly (string,
+                                    number, boolean, etc.)
+                                  </li>
+                                  <li>Enum values must be from allowed list</li>
+                                  <li>Array items must match specified type</li>
+                                  <li>Extra parameters are rejected</li>
+                                </ul>
+                                <br />
+                                <p>
+                                  When disabled, the tool accepts any parameters
+                                  without validation.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </FormDescription>
                       </div>
                       <FormControl>

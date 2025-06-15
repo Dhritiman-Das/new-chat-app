@@ -122,7 +122,7 @@ export default async function CreateNewToolPage({ params }: PageProps) {
                   Learn how to build and integrate custom tools with your bot
                 </SheetDescription>
               </SheetHeader>
-              <div className="mt-6 space-y-6 px-4 overflow-y-auto">
+              <div className="my-2 space-y-6 px-4 overflow-y-auto">
                 <div>
                   <h4 className="font-medium mb-2">Request Format</h4>
                   <p className="text-sm text-muted-foreground mb-3">

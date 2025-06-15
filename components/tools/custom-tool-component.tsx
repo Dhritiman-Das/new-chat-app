@@ -689,7 +689,7 @@ export default function CustomToolComponent({
                 {/* Parameters */}
                 <div>
                   <h4 className="font-medium mb-2">Parameters</h4>
-                  <pre className="bg-muted p-3 rounded-md text-sm overflow-auto">
+                  <pre className="bg-muted p-3 rounded-md text-sm overflow-auto max-w-full whitespace-pre-wrap break-all">
                     {JSON.stringify(selectedExecution.params, null, 2)}
                   </pre>
                 </div>
@@ -700,7 +700,7 @@ export default function CustomToolComponent({
                     <Separator />
                     <div>
                       <h4 className="font-medium mb-2">Result</h4>
-                      <pre className="bg-muted p-3 rounded-md text-sm overflow-auto">
+                      <pre className="bg-muted p-3 rounded-md text-sm overflow-auto max-w-full whitespace-pre-wrap break-all">
                         {JSON.stringify(selectedExecution.result, null, 2)}
                       </pre>
                     </div>
@@ -715,7 +715,7 @@ export default function CustomToolComponent({
                       <h4 className="font-medium mb-2 text-destructive">
                         Error
                       </h4>
-                      <pre className="bg-destructive/10 p-3 rounded-md text-sm overflow-auto">
+                      <pre className="bg-destructive/10 p-3 rounded-md text-sm overflow-auto max-w-full whitespace-pre-wrap break-all">
                         {JSON.stringify(selectedExecution.error, null, 2)}
                       </pre>
                     </div>
