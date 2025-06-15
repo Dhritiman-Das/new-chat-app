@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,8 @@ import {
 import { CancelSubscriptionDialog } from "./cancel-subscription-dialog";
 import { ReactivateSubscriptionDialog } from "./reactivate-subscription-dialog";
 import { SubscriptionStatus } from "@/lib/generated/prisma";
+import { toast } from "sonner";
+import { resetAbandonedSubscriptionAction } from "@/app/actions/billing";
 
 interface CurrentSubscriptionCardProps {
   subscription: {
@@ -22,11 +24,13 @@ interface CurrentSubscriptionCardProps {
     status: SubscriptionStatus;
     billingCycle: string;
     currentPeriodEnd: Date;
+    updatedAt?: Date;
   };
   onCancelSubscription: () => Promise<void>;
   onReactivateSubscription?: () => Promise<void>;
   onChangePlan: () => void;
   loading: boolean;
+  organizationId: string;
 }
 
 export function CurrentSubscriptionCard({
@@ -35,15 +39,36 @@ export function CurrentSubscriptionCard({
   onReactivateSubscription,
   onChangePlan,
   loading,
+  organizationId,
 }: CurrentSubscriptionCardProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showReactivateDialog, setShowReactivateDialog] = useState(false);
+  const [isAbandoned, setIsAbandoned] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const isCanceled =
     subscription.status === SubscriptionStatus.CANCELED ||
     subscription.status === SubscriptionStatus.PAUSED;
   const isActive = subscription.status === SubscriptionStatus.ACTIVE;
   const isPending = subscription.status === SubscriptionStatus.PENDING;
+
+  // Check if the subscription is abandoned (PENDING for more than 30 minutes)
+  useEffect(() => {
+    if (isPending && subscription.updatedAt) {
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      const subscriptionUpdatedAt = new Date(subscription.updatedAt);
+      setIsAbandoned(subscriptionUpdatedAt < thirtyMinutesAgo);
+      console.log(
+        "logic",
+        subscriptionUpdatedAt < thirtyMinutesAgo,
+        thirtyMinutesAgo,
+        subscriptionUpdatedAt,
+        subscription
+      );
+    } else {
+      setIsAbandoned(false);
+    }
+  }, [isPending, subscription.updatedAt]);
 
   const getBadgeColor = (status: SubscriptionStatus) => {
     switch (status) {
@@ -65,6 +90,33 @@ export function CurrentSubscriptionCard({
         return "default";
       default:
         return "default";
+    }
+  };
+
+  const handleResetAbandonedSubscription = async () => {
+    try {
+      setResetLoading(true);
+
+      const result = await resetAbandonedSubscriptionAction({
+        organizationId,
+      });
+
+      if (result?.data?.success) {
+        toast.success(
+          "Subscription has been reset. You can now select a new plan."
+        );
+        // Refresh the page to show the updated subscription state
+        window.location.reload();
+      } else {
+        const errorMessage =
+          result?.data?.error?.message || "Failed to reset subscription";
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Error resetting subscription:", error);
+      toast.error("Failed to reset subscription. Please try again.");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -129,13 +181,24 @@ export function CurrentSubscriptionCard({
               </p>
             </div>
 
-            {isPending && (
+            {isPending && !isAbandoned && (
               <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
                 <p className="font-medium">Payment Processing</p>
                 <p className="mt-1">
-                  Your subscription payment is being processed. This may take a
-                  few moments. The page will refresh automatically once the
-                  payment is confirmed.
+                  Your subscription payment is being processed. This may take up
+                  to 30 minutes. If you don&apos;t see your subscription
+                  activated, please contact us.
+                </p>
+              </div>
+            )}
+
+            {isPending && isAbandoned && (
+              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
+                <p className="font-medium">Payment Incomplete</p>
+                <p className="mt-1">
+                  It looks like you didn&apos;t complete the payment process.
+                  The payment link may have expired. You can reset your
+                  subscription to try again.
                 </p>
               </div>
             )}
@@ -146,10 +209,21 @@ export function CurrentSubscriptionCard({
             variant="outline"
             className="w-full sm:w-auto"
             onClick={onChangePlan}
-            disabled={isPending || loading}
+            disabled={(isPending && !isAbandoned) || loading}
           >
             Change Plan
           </Button>
+
+          {isPending && isAbandoned && (
+            <Button
+              variant="default"
+              className="w-full sm:w-auto"
+              onClick={handleResetAbandonedSubscription}
+              disabled={resetLoading || loading}
+            >
+              {resetLoading ? "Resetting..." : "Reset & Try Again"}
+            </Button>
+          )}
 
           {isActive && (
             <Button

@@ -1055,3 +1055,143 @@ export async function createCreditTransaction(
     throw error;
   }
 }
+
+/**
+ * Check if a PENDING subscription is considered abandoned (older than 30 minutes)
+ */
+export async function isSubscriptionAbandoned(
+  organizationId: string
+): Promise<boolean> {
+  const subscription = await prisma.subscription.findUnique({
+    where: { organizationId },
+  });
+
+  if (!subscription || subscription.status !== SubscriptionStatus.PENDING) {
+    return false;
+  }
+
+  // Check if subscription was updated more than 30 minutes ago
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+  return subscription.updatedAt < thirtyMinutesAgo;
+}
+
+/**
+ * Reset an abandoned PENDING subscription to allow retry
+ */
+export async function resetAbandonedSubscription(organizationId: string) {
+  try {
+    const subscription = await prisma.subscription.findUnique({
+      where: { organizationId },
+    });
+
+    if (!subscription || subscription.status !== SubscriptionStatus.PENDING) {
+      throw new Error("No pending subscription found to reset");
+    }
+
+    // Check if it's actually abandoned
+    const isAbandoned = await isSubscriptionAbandoned(organizationId);
+    if (!isAbandoned) {
+      throw new Error(
+        "Subscription is not abandoned yet (less than 30 minutes old)"
+      );
+    }
+
+    // Reset the subscription to allow a new attempt
+    await prisma.subscription.update({
+      where: { id: subscription.id },
+      data: {
+        status:
+          subscription.metadata &&
+          (subscription.metadata as Record<string, unknown>)
+            .previousTrialSubscription
+            ? SubscriptionStatus.TRIALING // Reset to trial if it was a trial upgrade
+            : SubscriptionStatus.ACTIVE, // Reset to active if it was a plan change
+        externalId: null, // Clear the external ID so a new subscription can be created
+        metadata: {
+          ...((subscription.metadata as Record<string, unknown>) || {}),
+          pendingPlanType: null,
+          paymentInitiated: null,
+          resetAt: new Date().toISOString(),
+          resetReason: "abandoned_checkout",
+        },
+        updatedAt: new Date(),
+      },
+    });
+
+    console.log(
+      `Reset abandoned subscription for organization ${organizationId}`
+    );
+    return true;
+  } catch (error) {
+    console.error("Error resetting abandoned subscription:", error);
+    throw error;
+  }
+}
+
+/**
+ * Background job function to clean up abandoned PENDING subscriptions
+ * Should be called periodically (e.g., every hour) via a cron job
+ */
+export async function cleanupAbandonedSubscriptions() {
+  try {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
+
+    // Find all PENDING subscriptions that are older than 2 hours
+    const abandonedSubscriptions = await prisma.subscription.findMany({
+      where: {
+        status: SubscriptionStatus.PENDING,
+        updatedAt: {
+          lt: twoHoursAgo,
+        },
+      },
+    });
+
+    console.log(
+      `Found ${abandonedSubscriptions.length} abandoned subscriptions to clean up`
+    );
+
+    let cleanedUp = 0;
+    for (const subscription of abandonedSubscriptions) {
+      try {
+        await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            status:
+              subscription.metadata &&
+              (subscription.metadata as Record<string, unknown>)
+                .previousTrialSubscription
+                ? SubscriptionStatus.TRIALING // Reset to trial if it was a trial upgrade
+                : SubscriptionStatus.ACTIVE, // Reset to active if it was a plan change
+            externalId: null, // Clear the external ID
+            metadata: {
+              ...((subscription.metadata as Record<string, unknown>) || {}),
+              pendingPlanType: null,
+              paymentInitiated: null,
+              cleanedUpAt: new Date().toISOString(),
+              cleanupReason: "abandoned_2_hours",
+            },
+            updatedAt: new Date(),
+          },
+        });
+
+        cleanedUp++;
+        console.log(
+          `Cleaned up abandoned subscription for organization ${subscription.organizationId}`
+        );
+      } catch (error) {
+        console.error(
+          `Failed to clean up subscription ${subscription.id}:`,
+          error
+        );
+      }
+    }
+
+    console.log(
+      `Successfully cleaned up ${cleanedUp} out of ${abandonedSubscriptions.length} abandoned subscriptions`
+    );
+    return { cleanedUp, total: abandonedSubscriptions.length };
+  } catch (error) {
+    console.error("Error during abandoned subscription cleanup:", error);
+    throw error;
+  }
+}

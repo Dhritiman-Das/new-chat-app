@@ -10,6 +10,8 @@ import {
   updateOrganizationSubscription,
   cancelOrganizationSubscription,
   activateOrganizationSubscription,
+  isSubscriptionAbandoned,
+  resetAbandonedSubscription,
 } from "@/lib/payment/billing-service";
 import { BillingCycle } from "@/lib/payment/types";
 import { getDowngradeImpact } from "@/lib/payment/bot-limit-service";
@@ -453,6 +455,72 @@ export const checkDowngradeImpact = action
             error instanceof Error
               ? error.message
               : "Failed to check downgrade impact",
+        },
+      };
+    }
+  });
+
+const resetSubscriptionSchema = z.object({
+  organizationId: z.string(),
+});
+
+export const resetAbandonedSubscriptionAction = action
+  .schema(resetSubscriptionSchema)
+  .action(async ({ parsedInput }) => {
+    try {
+      const { organizationId } = parsedInput;
+
+      // Check authentication
+      await requireAuth();
+
+      // Check if the subscription is actually abandoned
+      const isAbandoned = await isSubscriptionAbandoned(organizationId);
+
+      if (!isAbandoned) {
+        return {
+          success: false,
+          error: {
+            code: "SUBSCRIPTION_NOT_ABANDONED",
+            message:
+              "Subscription is not abandoned yet. Please wait at least 30 minutes after the last payment attempt.",
+          },
+        };
+      }
+
+      // Reset the subscription
+      await resetAbandonedSubscription(organizationId);
+
+      return {
+        success: true,
+        data: {
+          message:
+            "Subscription has been reset successfully. You can now try selecting a plan again.",
+        },
+      };
+    } catch (error) {
+      console.error("Error resetting abandoned subscription:", error);
+
+      if (
+        error instanceof Error &&
+        error.message.includes("No pending subscription")
+      ) {
+        return {
+          success: false,
+          error: {
+            code: "NO_PENDING_SUBSCRIPTION",
+            message: "No pending subscription found to reset",
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: {
+          code: "SUBSCRIPTION_RESET_FAILED",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to reset subscription",
         },
       };
     }
