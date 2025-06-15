@@ -1,7 +1,7 @@
 import { requireAuth } from "@/utils/auth";
 import {
   getBotById,
-  getBotDetails,
+  getBotCounts,
   getBotConversations,
   getOrganizationById,
 } from "@/lib/queries/cached-queries";
@@ -26,10 +26,55 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ConversationItem } from "./_components/conversation-item";
+import { SetupProgressTracker } from "./_components/setup-progress-tracker";
 import Link from "next/link";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string }>;
+}
+
+// Clickable stat card component
+function StatCard({
+  name,
+  value,
+  change,
+  icon,
+  href,
+  className,
+}: {
+  name: string;
+  value: string;
+  change: string;
+  icon: React.ReactNode;
+  href: string;
+  className?: string;
+}) {
+  return (
+    <Link href={href} className="block group">
+      <Card
+        className={cn(
+          "rounded-none border-0 shadow-none transition-colors hover:bg-muted/50",
+          className
+        )}
+      >
+        <CardContent className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 p-4 sm:p-6">
+          <div className="flex justify-between w-full">
+            <div className="text-sm font-medium text-muted-foreground">
+              {name}
+            </div>
+            <div className="flex items-center gap-2">
+              {icon}
+              <Icons.ArrowUpRight className="h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </div>
+          </div>
+          <div className="w-full flex-none text-3xl font-medium tracking-tight text-foreground group-hover:text-primary transition-colors">
+            {value}
+          </div>
+          <div className="text-xs text-muted-foreground">{change}</div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
 }
 
 export default async function Dashboard({ params }: PageProps) {
@@ -39,19 +84,23 @@ export default async function Dashboard({ params }: PageProps) {
   // Fetch data in parallel
   const [
     botResponse,
-    botDetailsResponse,
+    botCountsResponse,
     recentConversationsResponse,
     organizationResponse,
   ] = await Promise.all([
     getBotById(botId),
-    getBotDetails(botId),
+    getBotCounts(botId),
     getBotConversations(botId, 1, 5),
     getOrganizationById(orgId),
   ]);
 
   const bot = botResponse?.data;
-  const botDetails = botDetailsResponse?.data;
-  const knowledgeBaseCount = botDetails?.knowledgeBases?.length || 0;
+  const counts = botCountsResponse || {
+    knowledgeBases: 0,
+    botTools: 0,
+    deployments: 0,
+    conversations: 0,
+  };
   const recentConversations = recentConversationsResponse?.data || [];
   const organization = organizationResponse?.data;
 
@@ -63,18 +112,35 @@ export default async function Dashboard({ params }: PageProps) {
         bot?.createdAt || Date.now()
       ).toLocaleDateString()}`,
       icon: <Icons.Bot className="h-4 w-4 text-muted-foreground" />,
+      href: `/dashboard/${orgId}/bots/${botId}/settings`,
     },
     {
       name: "Knowledge Bases",
-      value: String(knowledgeBaseCount),
+      value: String(counts.knowledgeBases),
       change: "Connected to this bot",
       icon: <Icons.Database className="h-4 w-4 text-muted-foreground" />,
+      href: `/dashboard/${orgId}/bots/${botId}/knowledge`,
+    },
+    {
+      name: "Active Tools",
+      value: String(counts.botTools),
+      change: "Enabled and ready to use",
+      icon: <Icons.Hammer className="h-4 w-4 text-muted-foreground" />,
+      href: `/dashboard/${orgId}/bots/${botId}/tools`,
+    },
+    {
+      name: "Deployments",
+      value: String(counts.deployments),
+      change: "Active deployments",
+      icon: <Icons.Globe className="h-4 w-4 text-muted-foreground" />,
+      href: `/dashboard/${orgId}/bots/${botId}/deployments`,
     },
     {
       name: "Recent Conversations",
-      value: String(recentConversations.length),
-      change: "With this bot",
+      value: String(counts.conversations),
+      change: "In the last 7 days",
       icon: <Icons.MessageSquare className="h-4 w-4 text-muted-foreground" />,
+      href: `/dashboard/${orgId}/bots/${botId}/conversations`,
     },
   ];
 
@@ -127,41 +193,60 @@ export default async function Dashboard({ params }: PageProps) {
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-6">Overview</h1>
 
-        <div className="mx-auto grid grid-cols-1 gap-px rounded-xl bg-border sm:grid-cols-3 mb-8">
+        {/* Setup Progress Tracker */}
+        <div className="mb-8">
+          <SetupProgressTracker orgId={orgId} botId={botId} counts={counts} />
+        </div>
+
+        {/* Stats Cards */}
+        <div className="mx-auto grid grid-cols-1 gap-px rounded-xl bg-border sm:grid-cols-2 lg:grid-cols-5 mb-8">
           {stats.map((stat, index) => (
-            <Card
+            <StatCard
               key={stat.name}
+              name={stat.name}
+              value={stat.value}
+              change={stat.change}
+              icon={stat.icon}
+              href={stat.href}
               className={cn(
-                "rounded-none border-0 shadow-none",
-                index === 0 && "rounded-l-xl",
-                index === stats.length - 1 && "rounded-r-xl"
+                // Mobile: first and last cards get rounded corners
+                index === 0 && "rounded-t-xl",
+                index === stats.length - 1 && "rounded-b-xl",
+                // Tablet (sm): first and last in each row get rounded corners
+                "sm:rounded-none",
+                index === 0 && "sm:rounded-tl-xl",
+                index === 1 && "sm:rounded-tr-xl",
+                index === stats.length - 2 && "sm:rounded-bl-xl",
+                index === stats.length - 1 && "sm:rounded-br-xl",
+                // Desktop (lg): single row, first and last get rounded corners
+                "lg:rounded-none",
+                index === 0 && "lg:rounded-l-xl",
+                index === stats.length - 1 && "lg:rounded-r-xl"
               )}
-            >
-              <CardContent className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 p-4 sm:p-6">
-                <div className="flex justify-between w-full">
-                  <div className="text-sm font-medium text-muted-foreground">
-                    {stat.name}
-                  </div>
-                  {stat.icon}
-                </div>
-                <div className="w-full flex-none text-3xl font-medium tracking-tight text-foreground">
-                  {stat.value}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {stat.change}
-                </div>
-              </CardContent>
-            </Card>
+            />
           ))}
         </div>
 
+        {/* Recent Conversations Section */}
         {recentConversations.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>Recent Conversations</CardTitle>
-              <CardDescription>
-                This bot&apos;s most recent interactions
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Recent Conversations</CardTitle>
+                  <CardDescription>
+                    This bot&apos;s most recent interactions
+                  </CardDescription>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    href={`/dashboard/${orgId}/bots/${botId}/conversations`}
+                  >
+                    View all
+                    <Icons.ArrowRight className="h-4 w-4 ml-2" />
+                  </Link>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
@@ -191,12 +276,22 @@ export default async function Dashboard({ params }: PageProps) {
                 Get started by testing your bot in the playground. You can have
                 conversations and see how it responds.
               </p>
-              <Button asChild>
-                <Link href={`/dashboard/${orgId}/bots/${botId}/playground`}>
-                  <Icons.Terminal className="h-4 w-4 mr-2" />
-                  Try in Playground
-                </Link>
-              </Button>
+              <div className="flex gap-2">
+                <Button asChild>
+                  <Link href={`/dashboard/${orgId}/bots/${botId}/playground`}>
+                    <Icons.Terminal className="h-4 w-4 mr-2" />
+                    Try in Playground
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link
+                    href={`/dashboard/${orgId}/bots/${botId}/conversations`}
+                  >
+                    View conversations
+                    <Icons.ArrowRight className="h-4 w-4 ml-2" />
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
