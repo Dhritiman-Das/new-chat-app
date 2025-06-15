@@ -6,6 +6,7 @@ export const searchParamsCache = z.object({
   per_page: z.coerce.number().default(10),
   sort: z.string().optional(),
   filters: z.string().optional(),
+  search: z.string().optional(),
 });
 
 // Validation schema for conversation filters
@@ -14,10 +15,10 @@ export const conversationFilterSchema = z.object({
     .array(z.enum(["ACTIVE", "COMPLETED", "FAILED", "ABANDONED"]))
     .optional(),
   source: z.array(z.string()).optional(),
-  date: z
+  startedAt: z
     .object({
-      from: z.date().optional(),
-      to: z.date().optional(),
+      from: z.coerce.date().optional(),
+      to: z.coerce.date().optional(),
     })
     .optional(),
 });

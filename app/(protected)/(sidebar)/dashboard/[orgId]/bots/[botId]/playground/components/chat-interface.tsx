@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useClipboard } from "@/hooks/use-clipboard";
 
 interface ChatInterfaceProps {
   model: Model;
@@ -47,7 +48,7 @@ export default function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
-
+  const { copy } = useClipboard();
   const {
     messages,
     input,
@@ -146,10 +147,15 @@ export default function ChatInterface({
           </div>
 
           <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm">
+            {/* <Button variant="outline" size="sm">
               Synced
-            </Button>
-            <Button variant="outline" size="sm" className="px-2">
+            </Button> */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="px-2"
+              onClick={() => copy(conversationId as string)}
+            >
               <svg
                 className="h-4 w-4"
                 xmlns="http://www.w3.org/2000/svg"
@@ -166,7 +172,7 @@ export default function ChatInterface({
                 <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
               </svg>
             </Button>
-            <Button variant="outline" size="sm" className="px-2">
+            {/* <Button variant="outline" size="sm" className="px-2">
               <svg
                 className="h-4 w-4"
                 xmlns="http://www.w3.org/2000/svg"
@@ -183,10 +189,10 @@ export default function ChatInterface({
                 <polyline points="17 21 17 13 7 13 7 21" />
                 <polyline points="7 3 7 8 15 8" />
               </svg>
-            </Button>
-            <Button variant="outline" size="sm" className="px-2">
+            </Button> */}
+            {/* <Button variant="outline" size="sm" className="px-2">
               <span className="text-lg">⋯</span>
-            </Button>
+            </Button> */}
             <Button
               variant="outline"
               size="sm"

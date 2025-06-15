@@ -81,7 +81,6 @@ export function ConversationsTable({
     data,
     columns,
     pageCount,
-    enableAdvancedFilter,
     initialState: {
       sorting: [{ id: "startedAt", desc: true }],
       columnPinning: { right: ["actions"] },

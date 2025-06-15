@@ -57,7 +57,8 @@ export default async function ConversationsPage({
       search.page,
       search.per_page,
       search.sort,
-      validFilters // Pass the filters directly
+      validFilters, // Pass the filters directly
+      search.search // Pass the search parameter
     ),
     getCachedConversationStatusCounts(botId),
   ]);

@@ -661,7 +661,8 @@ export const getCachedConversations = async (
   page = 1,
   per_page = 10,
   sort?: string,
-  filters?: string | object
+  filters?: string | object,
+  search?: string
 ) => {
   await requireAuth();
 
@@ -677,7 +678,8 @@ export const getCachedConversations = async (
         page,
         per_page,
         sort,
-        filtersStr
+        filtersStr,
+        search
       );
     },
     [
@@ -687,6 +689,7 @@ export const getCachedConversations = async (
       per_page.toString(),
       sort || "default",
       filtersStr || "none",
+      search || "none",
     ],
     {
       tags: [CACHE_TAGS.BOT_CONVERSATIONS(botId)],
