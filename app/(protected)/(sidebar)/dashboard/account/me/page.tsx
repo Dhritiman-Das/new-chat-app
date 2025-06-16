@@ -13,6 +13,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ProfileForm } from "./_components/profile-form";
 import { ThemeSelector } from "./_components/theme-selector";
 import { DangerZone } from "./_components/danger-zone";
+import { PasswordForm } from "./_components/password-form";
 import {
   Card,
   CardContent,
@@ -84,6 +85,18 @@ export default async function AccountPage() {
             </CardHeader>
             <CardContent>
               <ThemeSelector />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Password & Security</CardTitle>
+              <CardDescription>
+                Update your password or set one if you signed in with a provider
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PasswordForm />
             </CardContent>
           </Card>
 
