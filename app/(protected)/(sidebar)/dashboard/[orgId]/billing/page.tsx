@@ -171,6 +171,7 @@ export default async function BillingPage({ params }: BillingPageProps) {
         currentPeriodEnd:
           subscription.currentPeriodEnd?.toISOString() ||
           new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: subscription.updatedAt || new Date(),
       }
     : {
         id: "", // Empty string for non-existent subscription
@@ -180,6 +181,7 @@ export default async function BillingPage({ params }: BillingPageProps) {
         currentPeriodEnd: new Date(
           Date.now() + 30 * 24 * 60 * 60 * 1000
         ).toISOString(),
+        updatedAt: new Date(),
       };
 
   // Get plan limits and add-ons in parallel

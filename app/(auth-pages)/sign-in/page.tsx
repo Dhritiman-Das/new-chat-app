@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Icons } from "@/components/icons";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
-import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
+// import { AppleSignInButton } from "@/components/auth/apple-sign-in-button";
 
 export default async function Login(props: { searchParams: Promise<Message> }) {
   const searchParams = await props.searchParams;
@@ -36,7 +36,7 @@ export default async function Login(props: { searchParams: Promise<Message> }) {
             <form className="flex flex-col">
               <div className="grid gap-6">
                 <div className="flex flex-col gap-4">
-                  <AppleSignInButton />
+                  {/* <AppleSignInButton /> */}
                   <GoogleSignInButton />
                 </div>
                 <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
@@ -95,8 +95,9 @@ export default async function Login(props: { searchParams: Promise<Message> }) {
           </CardContent>
         </Card>
         <div className="text-balance text-center text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-4 [&_a]:hover:text-primary">
-          By continuing, you agree to our <a href="#">Terms of Service</a> and{" "}
-          <a href="#">Privacy Policy</a>.
+          By continuing, you agree to our{" "}
+          <a href="https://www.bonti.co/terms">Terms of Service</a> and{" "}
+          <a href="https://www.bonti.co/privacy-policy">Privacy Policy</a>.
         </div>
       </div>
     </div>

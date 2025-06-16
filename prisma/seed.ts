@@ -11,6 +11,16 @@ const prisma = new PrismaClient({
 });
 
 // Seed data
+const users = [
+  {
+    id: "a228b7ae-2ef0-4290-84f7-9591edb81625",
+    email: "seeduser@bonti.co",
+    firstName: "Seed",
+    lastName: "User",
+    avatarUrl: null,
+  },
+];
+
 const planFeatures = [
   {
     id: "01912345-6789-7abc-def0-123456789abc",
@@ -568,6 +578,25 @@ Always be professional, knowledgeable, and helpful while building rapport with p
   },
 ];
 
+async function seedUsers() {
+  console.log("🌱 Seeding Users...");
+
+  for (const user of users) {
+    await prisma.user.upsert({
+      where: { id: user.id },
+      update: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatarUrl: user.avatarUrl,
+      },
+      create: user,
+    });
+  }
+
+  console.log(`✅ Created/updated ${users.length} users`);
+}
+
 async function seedPlanFeatures() {
   console.log("🌱 Seeding Plan Features...");
 
@@ -706,12 +735,18 @@ async function main() {
   console.log("🚀 Starting database seed...");
 
   try {
+    // Create users first (required for templates)
+    await seedUsers();
+
+    // Create independent entities
     await seedPlanFeatures();
     await seedPlanLimits();
     await seedAddOns();
     await seedModelCreditCosts();
     await seedTools();
     await seedTemplateCategories();
+
+    // Create templates last (depends on users and categories)
     await seedTemplates();
 
     console.log("🎉 Database seed completed successfully!");

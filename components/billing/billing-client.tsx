@@ -94,6 +94,7 @@ interface BillingClientProps {
       billingCycle: string;
       currentPeriodEnd: string;
       externalId?: string;
+      updatedAt: Date;
     };
     creditBalance: number;
     usageData: {
@@ -567,11 +568,15 @@ export function BillingClient({ orgId, initialData }: BillingClientProps) {
 
         <TabsContent value="subscription" className="space-y-4">
           <CurrentSubscriptionCard
-            subscription={subscription}
+            subscription={{
+              ...subscription,
+              updatedAt: new Date(initialData.subscription.updatedAt),
+            }}
             onCancelSubscription={handleCancelSubscription}
             onReactivateSubscription={handleReactivateSubscription}
             onChangePlan={() => setShowPlansDialog(true)}
             loading={loading}
+            organizationId={orgId}
           />
         </TabsContent>
 
