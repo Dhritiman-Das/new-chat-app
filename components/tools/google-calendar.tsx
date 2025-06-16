@@ -71,6 +71,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Interface for serialized tool object
 interface SerializableTool {
@@ -82,6 +83,7 @@ interface SerializableTool {
   version: string;
   defaultConfig?: Record<string, unknown>;
   functionsMeta: Record<string, { description: string }>;
+  moreDetailsDialog?: React.ReactNode;
 }
 
 interface GoogleCalendarToolProps {
@@ -511,705 +513,816 @@ export default function GoogleCalendarTool({
   };
 
   return (
-    <div>
-      <Tabs
-        defaultValue="settings"
-        onValueChange={setActiveTab}
-        value={activeTab}
-      >
-        <TabsList className="mb-6">
-          <TabsTrigger value="settings" className="w-[150px]">
-            Settings
-          </TabsTrigger>
-          <TabsTrigger value="functions" className="w-[150px]">
-            Functions
-          </TabsTrigger>
-          <TabsTrigger value="auth" className="w-[150px]">
-            Authentication
-          </TabsTrigger>
-          <TabsTrigger value="appointments" className="w-[150px]">
-            Appointments
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Google Calendar Settings</CardTitle>
-              <CardDescription>
-                Configure how your bot handles calendar appointments
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isConfigLoading || isLoading ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Icons.Spinner className="h-8 w-8 animate-spin text-primary mb-4" />
-                  <p className="text-sm text-muted-foreground">
-                    Loading configuration...
-                  </p>
-                </div>
+    <>
+      {/* Conditional Alert based on connection and configuration status */}
+      {!isConnected ? (
+        <Alert className="mb-8" variant="destructive">
+          <Icons.Info className="h-4 w-4" />
+          <AlertTitle>Authentication Required</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              You need to connect your Google Calendar account to use this tool.
+              Please authenticate your account to get started.
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleConnectGoogleCalendar}
+              disabled={isConnecting}
+              className="ml-4 shrink-0"
+            >
+              {isConnecting ? (
+                <>
+                  <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                  Connecting...
+                </>
               ) : (
-                <Form {...form}>
-                  <form
-                    onSubmit={form.handleSubmit(onSubmit)}
-                    className="space-y-6"
-                  >
-                    {/* First row: Appointment Duration & Availability Window */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="appointmentDuration"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              Default Appointment Duration (minutes)
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseInt(e.target.value))
-                                }
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Default meeting duration when booking appointments
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
+                <>
+                  <Icons.Calendar className="mr-2 h-4 w-4" />
+                  Connect Account
+                </>
+              )}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : !selectedCalendar ? (
+        <Alert className="mb-8" variant="default">
+          <Icons.Warning className="h-4 w-4" />
+          <AlertTitle>Configuration Required</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              You&apos;re connected to Google Calendar but haven&apos;t selected
+              a default calendar. Please choose a default calendar to complete
+              the setup.
+            </span>
+            <div className="ml-4 shrink-0">
+              <Select
+                disabled={!isConnected || calendars.length === 0}
+                value={selectedCalendar || undefined}
+                onValueChange={handleCalendarSelection}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue
+                    placeholder={
+                      !isConnected
+                        ? "Connect account first"
+                        : calendars.length === 0
+                        ? "No calendars available"
+                        : "Select a calendar"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {calendars.map((calendar) => (
+                    <SelectItem
+                      key={calendar.id}
+                      value={calendar.id}
+                      className="flex items-center"
+                    >
+                      <div className="flex items-center gap-2">
+                        {calendar.backgroundColor && (
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{
+                              backgroundColor: calendar.backgroundColor,
+                            }}
+                          ></div>
                         )}
-                      />
+                        <span>
+                          {calendar.name}
+                          {calendar.isPrimary && " (Primary)"}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Alert className="mb-8">
+          <Icons.CheckCircle className="h-4 w-4" />
+          <AlertTitle>Ready to Use</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Google Calendar is connected and configured. Your bot can now
+              manage calendar appointments and check availability.
+            </span>
+          </AlertDescription>
+        </Alert>
+      )}
+      <div>
+        <Tabs
+          defaultValue="settings"
+          onValueChange={setActiveTab}
+          value={activeTab}
+        >
+          <TabsList className="mb-6">
+            <TabsTrigger value="settings" className="w-[150px]">
+              Settings
+            </TabsTrigger>
+            <TabsTrigger value="functions" className="w-[150px]">
+              Functions
+            </TabsTrigger>
+            <TabsTrigger value="auth" className="w-[150px]">
+              Authentication
+            </TabsTrigger>
+            <TabsTrigger value="appointments" className="w-[150px]">
+              Appointments
+            </TabsTrigger>
+          </TabsList>
 
-                      <FormField
-                        control={form.control}
-                        name="availabilityWindowDays"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Availability Window (days)</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseInt(e.target.value))
-                                }
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              How many days in advance can appointments be
-                              booked
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Second row: Buffer Time & Timezone */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="bufferTimeBetweenMeetings"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              Buffer Time Between Meetings (minutes)
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseInt(e.target.value))
-                                }
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Add buffer time between scheduled meetings
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="timeZone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Timezone</FormLabel>
-                            <FormControl>
-                              <TimezoneCombobox
-                                value={field.value}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              All appointments will use this timezone by
-                              default.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div>
-                      <h3 className="text-md font-medium mb-2">
-                        Available Time Slots
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Select which days you are available for appointments and
-                        set your available hours
-                      </p>
-
-                      <div className="space-y-6 mb-4">
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {DAYS_OF_WEEK.map((day) => {
-                            const isSelected = form
-                              .watch("availableTimeSlots")
-                              ?.some((slot) => slot.day === day.id);
-
-                            return (
-                              <Button
-                                key={day.id}
-                                type="button"
-                                variant={isSelected ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => {
-                                  const currentSlots =
-                                    form.watch("availableTimeSlots") || [];
-
-                                  if (isSelected) {
-                                    // Remove this day
-                                    form.setValue(
-                                      "availableTimeSlots",
-                                      currentSlots.filter(
-                                        (slot) => slot.day !== day.id
-                                      )
-                                    );
-                                  } else {
-                                    // Add this day with default 9-5 hours
-                                    form.setValue("availableTimeSlots", [
-                                      ...currentSlots,
-                                      {
-                                        day: day.id as z.infer<
-                                          typeof timeSlotSchema
-                                        >["day"],
-                                        startTime: "09:00",
-                                        endTime: "17:00",
-                                      },
-                                    ]);
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Google Calendar Settings</CardTitle>
+                <CardDescription>
+                  Configure how your bot handles calendar appointments
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isConfigLoading || isLoading ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <Icons.Spinner className="h-8 w-8 animate-spin text-primary mb-4" />
+                    <p className="text-sm text-muted-foreground">
+                      Loading configuration...
+                    </p>
+                  </div>
+                ) : (
+                  <Form {...form}>
+                    <form
+                      onSubmit={form.handleSubmit(onSubmit)}
+                      className="space-y-6"
+                    >
+                      {/* First row: Appointment Duration & Availability Window */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="appointmentDuration"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                Default Appointment Duration (minutes)
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseInt(e.target.value))
                                   }
-                                }}
-                                className="flex items-center gap-2"
-                              >
-                                {isSelected ? (
-                                  <Icons.Check className="h-4 w-4" />
-                                ) : (
-                                  <Icons.Add className="h-4 w-4" />
-                                )}
-                                <span>{day.label}</span>
-                              </Button>
-                            );
-                          })}
-                        </div>
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Default meeting duration when booking
+                                appointments
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                        {form.watch("availableTimeSlots")?.length === 0 && (
-                          <div className="p-4 border border-dashed rounded-md flex items-center justify-center">
-                            <p className="text-sm text-muted-foreground">
-                              Select at least one day to set your availability
-                            </p>
-                          </div>
-                        )}
+                        <FormField
+                          control={form.control}
+                          name="availabilityWindowDays"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Availability Window (days)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseInt(e.target.value))
+                                  }
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                How many days in advance can appointments be
+                                booked
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-                        {form
-                          .watch("availableTimeSlots")
-                          ?.sort((a, b) => {
-                            const dayOrder =
-                              DAYS_OF_WEEK.findIndex((d) => d.id === a.day) -
-                              DAYS_OF_WEEK.findIndex((d) => d.id === b.day);
-                            return dayOrder;
-                          })
-                          .map((slot, index) => {
-                            const dayObj = DAYS_OF_WEEK.find(
-                              (d) => d.id === slot.day
-                            );
+                      {/* Second row: Buffer Time & Timezone */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="bufferTimeBetweenMeetings"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                Buffer Time Between Meetings (minutes)
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseInt(e.target.value))
+                                  }
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Add buffer time between scheduled meetings
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                            return (
-                              <div
-                                key={`${slot.day}-${index}`}
-                                className="p-4 border rounded-md"
-                              >
-                                <div className="flex items-center justify-between mb-4">
-                                  <h4 className="font-medium">
-                                    {dayObj?.label}
-                                  </h4>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      const currentSlots =
-                                        form.watch("availableTimeSlots");
+                        <FormField
+                          control={form.control}
+                          name="timeZone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Timezone</FormLabel>
+                              <FormControl>
+                                <TimezoneCombobox
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                All appointments will use this timezone by
+                                default.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <h3 className="text-md font-medium mb-2">
+                          Available Time Slots
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Select which days you are available for appointments
+                          and set your available hours
+                        </p>
+
+                        <div className="space-y-6 mb-4">
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {DAYS_OF_WEEK.map((day) => {
+                              const isSelected = form
+                                .watch("availableTimeSlots")
+                                ?.some((slot) => slot.day === day.id);
+
+                              return (
+                                <Button
+                                  key={day.id}
+                                  type="button"
+                                  variant={isSelected ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => {
+                                    const currentSlots =
+                                      form.watch("availableTimeSlots") || [];
+
+                                    if (isSelected) {
+                                      // Remove this day
                                       form.setValue(
                                         "availableTimeSlots",
-                                        currentSlots.filter((_, i) => {
-                                          const slotToRemove =
-                                            currentSlots[index];
-                                          return !(
-                                            slotToRemove.day === slot.day &&
-                                            i === index
-                                          );
-                                        })
+                                        currentSlots.filter(
+                                          (slot) => slot.day !== day.id
+                                        )
                                       );
-                                    }}
-                                    className="h-8 w-8 p-0 text-destructive"
-                                  >
-                                    <Icons.Trash className="h-4 w-4" />
-                                    <span className="sr-only">Remove</span>
-                                  </Button>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                  <FormField
-                                    control={form.control}
-                                    name={`availableTimeSlots.${index}.startTime`}
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>Start Time</FormLabel>
-                                        <FormControl>
-                                          <Input type="time" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-
-                                  <FormField
-                                    control={form.control}
-                                    name={`availableTimeSlots.${index}.endTime`}
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel>End Time</FormLabel>
-                                        <FormControl>
-                                          <Input type="time" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </div>
-
-                    <Button type="submit" disabled={isSaving} className="mt-6">
-                      {isSaving ? (
-                        <>
-                          <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        "Save Configuration"
-                      )}
-                    </Button>
-                  </form>
-                </Form>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="functions">
-          <Card>
-            <CardHeader>
-              <CardTitle>Available Functions</CardTitle>
-              <CardDescription>
-                Functions this tool provides for your bot to use
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {Object.entries(tool.functionsMeta).map(([name, func]) => (
-                  <div key={name} className="space-y-2">
-                    <div className="flex items-start space-x-4">
-                      <Icons.Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{name}</h3>
-                          <div className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                            Function
+                                    } else {
+                                      // Add this day with default 9-5 hours
+                                      form.setValue("availableTimeSlots", [
+                                        ...currentSlots,
+                                        {
+                                          day: day.id as z.infer<
+                                            typeof timeSlotSchema
+                                          >["day"],
+                                          startTime: "09:00",
+                                          endTime: "17:00",
+                                        },
+                                      ]);
+                                    }
+                                  }}
+                                  className="flex items-center gap-2"
+                                >
+                                  {isSelected ? (
+                                    <Icons.Check className="h-4 w-4" />
+                                  ) : (
+                                    <Icons.Add className="h-4 w-4" />
+                                  )}
+                                  <span>{day.label}</span>
+                                </Button>
+                              );
+                            })}
                           </div>
+
+                          {form.watch("availableTimeSlots")?.length === 0 && (
+                            <div className="p-4 border border-dashed rounded-md flex items-center justify-center">
+                              <p className="text-sm text-muted-foreground">
+                                Select at least one day to set your availability
+                              </p>
+                            </div>
+                          )}
+
+                          {form
+                            .watch("availableTimeSlots")
+                            ?.sort((a, b) => {
+                              const dayOrder =
+                                DAYS_OF_WEEK.findIndex((d) => d.id === a.day) -
+                                DAYS_OF_WEEK.findIndex((d) => d.id === b.day);
+                              return dayOrder;
+                            })
+                            .map((slot, index) => {
+                              const dayObj = DAYS_OF_WEEK.find(
+                                (d) => d.id === slot.day
+                              );
+
+                              return (
+                                <div
+                                  key={`${slot.day}-${index}`}
+                                  className="p-4 border rounded-md"
+                                >
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h4 className="font-medium">
+                                      {dayObj?.label}
+                                    </h4>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        const currentSlots =
+                                          form.watch("availableTimeSlots");
+                                        form.setValue(
+                                          "availableTimeSlots",
+                                          currentSlots.filter((_, i) => {
+                                            const slotToRemove =
+                                              currentSlots[index];
+                                            return !(
+                                              slotToRemove.day === slot.day &&
+                                              i === index
+                                            );
+                                          })
+                                        );
+                                      }}
+                                      className="h-8 w-8 p-0 text-destructive"
+                                    >
+                                      <Icons.Trash className="h-4 w-4" />
+                                      <span className="sr-only">Remove</span>
+                                    </Button>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                      control={form.control}
+                                      name={`availableTimeSlots.${index}.startTime`}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Start Time</FormLabel>
+                                          <FormControl>
+                                            <Input type="time" {...field} />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    <FormField
+                                      control={form.control}
+                                      name={`availableTimeSlots.${index}.endTime`}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>End Time</FormLabel>
+                                          <FormControl>
+                                            <Input type="time" {...field} />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {func.description}
-                        </p>
                       </div>
-                    </div>
-                    <Separator className="my-2" />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="auth">
-          <Card>
-            <CardHeader>
-              <CardTitle>Google Authentication</CardTitle>
-              <CardDescription>
-                Connect your Google Calendar account to enable calendar
-                functions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Connect Google Account</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Grant permissions to manage your calendars
-                    </p>
-                  </div>
-                  {isLoading ? (
-                    <Button variant="outline" disabled>
-                      <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-                      Loading...
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleToggleConnection}
-                      disabled={isConnecting}
-                      variant={isConnected ? "outline" : "default"}
-                      className={
-                        isConnected
-                          ? "text-destructive border-destructive hover:bg-destructive/10"
-                          : ""
-                      }
-                    >
-                      {isConnecting ? (
-                        <>
-                          <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-                          {isConnected ? "Disconnecting..." : "Connecting..."}
-                        </>
-                      ) : isConnected ? (
-                        <>
-                          <Icons.X className="mr-2 h-4 w-4" />
-                          Disconnect Account
-                        </>
-                      ) : (
-                        <>
-                          <Icons.Calendar className="mr-2 h-4 w-4" />
-                          Connect Account
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-
-                {/* Disconnect Confirmation Dialog */}
-                <Dialog
-                  open={showDisconnectDialog}
-                  onOpenChange={setShowDisconnectDialog}
-                >
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Disconnect Google Calendar?</DialogTitle>
-                      <DialogDescription>
-                        Are you sure you want to disconnect Google Calendar?
-                        This will remove access to all calendars.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
                       <Button
-                        variant="destructive"
-                        onClick={handleDisconnectGoogleCalendar}
+                        type="submit"
+                        disabled={isSaving}
+                        className="mt-6"
+                      >
+                        {isSaving ? (
+                          <>
+                            <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Configuration"
+                        )}
+                      </Button>
+                    </form>
+                  </Form>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="functions">
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Functions</CardTitle>
+                <CardDescription>
+                  Functions this tool provides for your bot to use
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {Object.entries(tool.functionsMeta).map(([name, func]) => (
+                    <div key={name} className="space-y-2">
+                      <div className="flex items-start space-x-4">
+                        <Icons.Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium">{name}</h3>
+                            <div className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                              Function
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {func.description}
+                          </p>
+                        </div>
+                      </div>
+                      <Separator className="my-2" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="auth">
+            <Card>
+              <CardHeader>
+                <CardTitle>Google Authentication</CardTitle>
+                <CardDescription>
+                  Connect your Google Calendar account to enable calendar
+                  functions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">Connect Google Account</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Grant permissions to manage your calendars
+                      </p>
+                    </div>
+                    {isLoading ? (
+                      <Button variant="outline" disabled>
+                        <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                        Loading...
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleToggleConnection}
                         disabled={isConnecting}
+                        variant={isConnected ? "outline" : "default"}
+                        className={
+                          isConnected
+                            ? "text-destructive border-destructive hover:bg-destructive/10"
+                            : ""
+                        }
                       >
                         {isConnecting ? (
-                          <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
-                        ) : null}
-                        Disconnect
+                          <>
+                            <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                            {isConnected ? "Disconnecting..." : "Connecting..."}
+                          </>
+                        ) : isConnected ? (
+                          <>
+                            <Icons.X className="mr-2 h-4 w-4" />
+                            Disconnect Account
+                          </>
+                        ) : (
+                          <>
+                            <Icons.Calendar className="mr-2 h-4 w-4" />
+                            Connect Account
+                          </>
+                        )}
                       </Button>
-                      <DialogClose asChild>
-                        <Button variant="outline" disabled={isConnecting}>
-                          Cancel
+                    )}
+                  </div>
+
+                  {/* Disconnect Confirmation Dialog */}
+                  <Dialog
+                    open={showDisconnectDialog}
+                    onOpenChange={setShowDisconnectDialog}
+                  >
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Disconnect Google Calendar?</DialogTitle>
+                        <DialogDescription>
+                          Are you sure you want to disconnect Google Calendar?
+                          This will remove access to all calendars.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="destructive"
+                          onClick={handleDisconnectGoogleCalendar}
+                          disabled={isConnecting}
+                        >
+                          {isConnecting ? (
+                            <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                          ) : null}
+                          Disconnect
                         </Button>
-                      </DialogClose>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                        <DialogClose asChild>
+                          <Button variant="outline" disabled={isConnecting}>
+                            Cancel
+                          </Button>
+                        </DialogClose>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
 
-                <Separator />
+                  <Separator />
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Default Calendar</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Select a default calendar for appointments
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">Default Calendar</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Select a default calendar for appointments
+                      </p>
+                    </div>
+                    {isLoading ? (
+                      <div className="w-[200px] h-10 flex items-center justify-center">
+                        <Icons.Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <Select
+                        disabled={!isConnected || calendars.length === 0}
+                        value={selectedCalendar || undefined}
+                        onValueChange={handleCalendarSelection}
+                      >
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue
+                            placeholder={
+                              !isConnected
+                                ? "Connect account first"
+                                : calendars.length === 0
+                                ? "No calendars available"
+                                : "Select a calendar"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {calendars.map((calendar) => (
+                            <SelectItem
+                              key={calendar.id}
+                              value={calendar.id}
+                              className="flex items-center"
+                            >
+                              <div className="flex items-center gap-2">
+                                {calendar.backgroundColor && (
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{
+                                      backgroundColor: calendar.backgroundColor,
+                                    }}
+                                  ></div>
+                                )}
+                                <span>
+                                  {calendar.name}
+                                  {calendar.isPrimary && " (Primary)"}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">Auto-Accept Invitations</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Automatically accept calendar invitations created by the
+                        bot
+                      </p>
+                    </div>
+                    <Switch disabled={!isConnected} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="appointments">
+            <AppointmentsTab
+              botId={botId}
+              openAppointmentDetails={openAppointmentDetails}
+              activeTab={activeTab}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {/* Appointment Details Dialog */}
+        <Dialog
+          open={isAppointmentDetailsOpen}
+          onOpenChange={setIsAppointmentDetailsOpen}
+        >
+          <DialogContent className="lg:max-w-screen-md overflow-y-scroll max-h-screen">
+            <DialogHeader>
+              <DialogTitle>Appointment Details</DialogTitle>
+              <DialogDescription>
+                Details for the selected appointment
+              </DialogDescription>
+            </DialogHeader>
+            {selectedAppointment && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-1 gap-2">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Title</p>
+                    <p className="text-base">
+                      {selectedAppointment.title || "Untitled Appointment"}
                     </p>
                   </div>
-                  {isLoading ? (
-                    <div className="w-[200px] h-10 flex items-center justify-center">
-                      <Icons.Spinner className="h-4 w-4 animate-spin text-muted-foreground" />
+
+                  {selectedAppointment.description && (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Description</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                        {selectedAppointment.description}
+                      </p>
                     </div>
-                  ) : (
-                    <Select
-                      disabled={!isConnected || calendars.length === 0}
-                      value={selectedCalendar || undefined}
-                      onValueChange={handleCalendarSelection}
-                    >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue
-                          placeholder={
-                            !isConnected
-                              ? "Connect account first"
-                              : calendars.length === 0
-                              ? "No calendars available"
-                              : "Select a calendar"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {calendars.map((calendar) => (
-                          <SelectItem
-                            key={calendar.id}
-                            value={calendar.id}
-                            className="flex items-center"
-                          >
-                            <div className="flex items-center gap-2">
-                              {calendar.backgroundColor && (
-                                <div
-                                  className="w-3 h-3 rounded-full"
-                                  style={{
-                                    backgroundColor: calendar.backgroundColor,
-                                  }}
-                                ></div>
-                              )}
-                              <span>
-                                {calendar.name}
-                                {calendar.isPrimary && " (Primary)"}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   )}
                 </div>
 
-                <Separator />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Auto-Accept Invitations</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically accept calendar invitations created by the
-                      bot
-                    </p>
-                  </div>
-                  <Switch disabled={!isConnected} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="appointments">
-          <AppointmentsTab
-            botId={botId}
-            openAppointmentDetails={openAppointmentDetails}
-            activeTab={activeTab}
-          />
-        </TabsContent>
-      </Tabs>
-
-      {/* Appointment Details Dialog */}
-      <Dialog
-        open={isAppointmentDetailsOpen}
-        onOpenChange={setIsAppointmentDetailsOpen}
-      >
-        <DialogContent className="lg:max-w-screen-md overflow-y-scroll max-h-screen">
-          <DialogHeader>
-            <DialogTitle>Appointment Details</DialogTitle>
-            <DialogDescription>
-              Details for the selected appointment
-            </DialogDescription>
-          </DialogHeader>
-          {selectedAppointment && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-1 gap-2">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Title</p>
-                  <p className="text-base">
-                    {selectedAppointment.title || "Untitled Appointment"}
-                  </p>
-                </div>
-
-                {selectedAppointment.description && (
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">Description</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {selectedAppointment.description}
+                    <p className="text-sm font-medium">Date</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatDate(selectedAppointment.startTime)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Status</p>
+                    <Badge
+                      variant={
+                        selectedAppointment.status === "cancelled"
+                          ? "destructive"
+                          : selectedAppointment.status === "confirmed"
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {selectedAppointment.status || "confirmed"}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Start Time</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatTime(selectedAppointment.startTime)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">End Time</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatTime(selectedAppointment.endTime)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Timezone</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedAppointment.timeZone || "UTC"}
+                  </p>
+                </div>
+
+                {selectedAppointment.location && (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Location</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedAppointment.location}
                     </p>
                   </div>
                 )}
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Date</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatDate(selectedAppointment.startTime)}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Status</p>
-                  <Badge
-                    variant={
-                      selectedAppointment.status === "cancelled"
-                        ? "destructive"
-                        : selectedAppointment.status === "confirmed"
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {selectedAppointment.status || "confirmed"}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Start Time</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatTime(selectedAppointment.startTime)}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">End Time</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatTime(selectedAppointment.endTime)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Timezone</p>
-                <p className="text-sm text-muted-foreground">
-                  {selectedAppointment.timeZone || "UTC"}
-                </p>
-              </div>
-
-              {selectedAppointment.location && (
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Location</p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedAppointment.location}
-                  </p>
-                </div>
-              )}
-
-              {selectedAppointment.attendees &&
-                selectedAppointment.attendees.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Attendees</p>
-                    <div className="space-y-1">
-                      {selectedAppointment.attendees.map((attendee, index) => (
-                        <div
-                          key={index}
-                          className="text-sm text-muted-foreground"
-                        >
-                          {attendee.name
-                            ? `${attendee.name} (${attendee.email})`
-                            : attendee.email}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              {selectedAppointment.meetingLink && (
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Meeting Link</p>
-                  <a
-                    href={selectedAppointment.meetingLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary underline"
-                  >
-                    {selectedAppointment.meetingLink}
-                  </a>
-                </div>
-              )}
-
-              {selectedAppointment.conversationId && (
-                <div className="mt-2">
-                  <Link
-                    href={`/dashboard/${orgId}/bots/${botId}/conversations/${selectedAppointment.conversationId}`}
-                    target="_blank"
-                    className="flex items-center hover:underline text-sm"
-                  >
-                    Check conversation
-                    <Icons.ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </div>
-              )}
-
-              {/* Properties */}
-              {selectedAppointment.properties &&
-                Object.keys(selectedAppointment.properties).length > 0 && (
-                  <>
-                    <Separator className="my-2" />
+                {selectedAppointment.attendees &&
+                  selectedAppointment.attendees.length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="text-sm font-semibold">Properties</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        {Object.entries(selectedAppointment.properties).map(
-                          ([key, value]) => (
-                            <div key={key} className="space-y-1">
-                              <p className="text-sm font-medium capitalize">
-                                {key}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {value === null || value === undefined
-                                  ? "—"
-                                  : typeof value === "object"
-                                  ? JSON.stringify(value)
-                                  : String(value)}
-                              </p>
+                      <p className="text-sm font-medium">Attendees</p>
+                      <div className="space-y-1">
+                        {selectedAppointment.attendees.map(
+                          (attendee, index) => (
+                            <div
+                              key={index}
+                              className="text-sm text-muted-foreground"
+                            >
+                              {attendee.name
+                                ? `${attendee.name} (${attendee.email})`
+                                : attendee.email}
                             </div>
                           )
                         )}
                       </div>
                     </div>
-                  </>
+                  )}
+
+                {selectedAppointment.meetingLink && (
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Meeting Link</p>
+                    <a
+                      href={selectedAppointment.meetingLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary underline"
+                    >
+                      {selectedAppointment.meetingLink}
+                    </a>
+                  </div>
                 )}
 
-              {/* Metadata */}
-              {selectedAppointment.metadata &&
-                Object.keys(selectedAppointment.metadata).length > 0 && (
-                  <>
-                    <Separator className="my-2" />
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-semibold">Metadata</h4>
-                      <pre className="bg-secondary/50 p-4 rounded-md overflow-auto text-xs">
-                        {JSON.stringify(selectedAppointment.metadata, null, 2)}
-                      </pre>
-                    </div>
-                  </>
+                {selectedAppointment.conversationId && (
+                  <div className="mt-2">
+                    <Link
+                      href={`/dashboard/${orgId}/bots/${botId}/conversations/${selectedAppointment.conversationId}`}
+                      target="_blank"
+                      className="flex items-center hover:underline text-sm"
+                    >
+                      Check conversation
+                      <Icons.ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </div>
                 )}
-            </div>
-          )}
-          <DialogClose asChild>
-            <Button variant="outline">Close</Button>
-          </DialogClose>
-        </DialogContent>
-      </Dialog>
-    </div>
+
+                {/* Properties */}
+                {selectedAppointment.properties &&
+                  Object.keys(selectedAppointment.properties).length > 0 && (
+                    <>
+                      <Separator className="my-2" />
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold">Properties</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          {Object.entries(selectedAppointment.properties).map(
+                            ([key, value]) => (
+                              <div key={key} className="space-y-1">
+                                <p className="text-sm font-medium capitalize">
+                                  {key}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {value === null || value === undefined
+                                    ? "—"
+                                    : typeof value === "object"
+                                    ? JSON.stringify(value)
+                                    : String(value)}
+                                </p>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                {/* Metadata */}
+                {selectedAppointment.metadata &&
+                  Object.keys(selectedAppointment.metadata).length > 0 && (
+                    <>
+                      <Separator className="my-2" />
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold">Metadata</h4>
+                        <pre className="bg-secondary/50 p-4 rounded-md overflow-auto text-xs">
+                          {JSON.stringify(
+                            selectedAppointment.metadata,
+                            null,
+                            2
+                          )}
+                        </pre>
+                      </div>
+                    </>
+                  )}
+              </div>
+            )}
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </>
   );
 }

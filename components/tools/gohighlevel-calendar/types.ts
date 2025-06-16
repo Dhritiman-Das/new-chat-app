@@ -16,6 +16,7 @@ export interface SerializableTool {
   version: string;
   defaultConfig?: Record<string, unknown>;
   functionsMeta: Record<string, { description: string }>;
+  moreDetailsDialog?: React.ReactNode;
 }
 
 export const timeSlotSchema = {
