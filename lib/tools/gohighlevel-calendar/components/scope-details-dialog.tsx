@@ -47,7 +47,7 @@ export default function GoHighLevelScopeDialog() {
           </div>
 
           <Card>
-            <CardHeader className="py-4">
+            <CardHeader className="">
               <CardTitle className="text-base">Integration Features</CardTitle>
               <CardDescription>
                 What this tool can do for your bot

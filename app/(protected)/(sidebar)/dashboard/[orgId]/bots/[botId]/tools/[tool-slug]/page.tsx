@@ -18,12 +18,10 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { initializeTools } from "@/lib/tools";
 import { notFound } from "next/navigation";
 import ToolComponentWrapper from "@/components/tools/tool-component-wrapper";
 import InstallToolCard from "@/components/tools/install-tool-card";
-import { ToolAuthStatus } from "@/components/tools/tool-auth-status";
 import { AuthRequirement } from "@/lib/tools/definitions/tool-interface";
 import { BackButton } from "@/components/back-button";
 import ToggleToolStatus from "@/components/tools/toggle-tool-status";
@@ -39,6 +37,7 @@ interface SerializableTool {
   defaultConfig?: Record<string, unknown>;
   functionsMeta: Record<string, { description: string }>;
   auth?: AuthRequirement;
+  moreDetailsDialog?: React.ReactNode;
 }
 
 interface PageProps {
@@ -126,6 +125,7 @@ export default async function ToolDetailPage({ params }: PageProps) {
     ),
     // Include auth requirements
     auth: tool.auth,
+    moreDetailsDialog: tool.moreDetailsDialog,
   };
 
   return (
@@ -201,35 +201,6 @@ export default async function ToolDetailPage({ params }: PageProps) {
             isActive={botTool?.isEnabled ?? false}
           />
         </div>
-
-        <Alert className="mb-8">
-          <Icons.Info className="h-4 w-4" />
-          <AlertTitle>Integration Type</AlertTitle>
-          <AlertDescription className="flex items-center justify-between">
-            <span>
-              {tool.integrationType ? (
-                <>
-                  This tool integrates with {tool.integrationType} and requires
-                  authentication. Click {tool.moreDetailsDialog} for more
-                  information.
-                </>
-              ) : (
-                "This tool doesn't require any external integration."
-              )}
-            </span>
-
-            {isToolInstalled && tool.auth?.required && (
-              <div className="ml-auto">
-                <ToolAuthStatus
-                  toolId={toolSlug}
-                  botId={botId}
-                  orgId={orgId}
-                  authRequirement={tool.auth}
-                />
-              </div>
-            )}
-          </AlertDescription>
-        </Alert>
 
         {/* Conditionally render either the installation card or the tool component */}
         {isToolInstalled ? (

@@ -68,7 +68,7 @@ export default function ToggleToolStatus({
       <Tooltip>
         <TooltipTrigger>
           <Badge
-            variant={isActive ? "default" : "outline"}
+            variant={isActive ? "default" : "destructive"}
             className={cn(
               "text-sm font-medium leading-none",
               isLoading && "opacity-50 cursor-not-allowed"
