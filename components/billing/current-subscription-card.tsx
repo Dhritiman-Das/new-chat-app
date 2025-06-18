@@ -58,13 +58,6 @@ export function CurrentSubscriptionCard({
       const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
       const subscriptionUpdatedAt = new Date(subscription.updatedAt);
       setIsAbandoned(subscriptionUpdatedAt < thirtyMinutesAgo);
-      console.log(
-        "logic",
-        subscriptionUpdatedAt < thirtyMinutesAgo,
-        thirtyMinutesAgo,
-        subscriptionUpdatedAt,
-        subscription
-      );
     } else {
       setIsAbandoned(false);
     }
@@ -186,8 +179,9 @@ export function CurrentSubscriptionCard({
                 <p className="font-medium">Payment Processing</p>
                 <p className="mt-1">
                   Your subscription payment is being processed. This may take up
-                  to 30 minutes. If you don&apos;t see your subscription
-                  activated, please contact us.
+                  to 30 minutes. If you need to try a different payment method
+                  or the payment isn&apos;t going through, you can reset and try
+                  again.
                 </p>
               </div>
             )}
@@ -209,12 +203,12 @@ export function CurrentSubscriptionCard({
             variant="outline"
             className="w-full sm:w-auto"
             onClick={onChangePlan}
-            disabled={(isPending && !isAbandoned) || loading}
+            disabled={isPending || loading}
           >
             Change Plan
           </Button>
 
-          {isPending && isAbandoned && (
+          {isPending && (
             <Button
               variant="default"
               className="w-full sm:w-auto"
