@@ -135,7 +135,7 @@ export default function LeadCaptureTool({
     defaultValue: "settings",
   });
   const [newTrigger, setNewTrigger] = useState("");
-  const [newCustomTrigger, setNewCustomTrigger] = useState("");
+  // const [newCustomTrigger, setNewCustomTrigger] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfigLoading, setIsConfigLoading] = useState(false);
@@ -320,24 +320,24 @@ export default function LeadCaptureTool({
     );
   }
 
-  function addCustomTriggerPhrase() {
-    if (!newCustomTrigger || newCustomTrigger.trim() === "") return;
+  // function addCustomTriggerPhrase() {
+  //   if (!newCustomTrigger || newCustomTrigger.trim() === "") return;
 
-    const currentPhrases = form.getValues().customTriggerPhrases || [];
-    form.setValue("customTriggerPhrases", [
-      ...currentPhrases,
-      newCustomTrigger.trim(),
-    ]);
-    setNewCustomTrigger("");
-  }
+  //   const currentPhrases = form.getValues().customTriggerPhrases || [];
+  //   form.setValue("customTriggerPhrases", [
+  //     ...currentPhrases,
+  //     newCustomTrigger.trim(),
+  //   ]);
+  //   setNewCustomTrigger("");
+  // }
 
-  function removeCustomTriggerPhrase(phrase: string) {
-    const currentPhrases = form.getValues().customTriggerPhrases || [];
-    form.setValue(
-      "customTriggerPhrases",
-      currentPhrases.filter((p) => p !== phrase)
-    );
-  }
+  // function removeCustomTriggerPhrase(phrase: string) {
+  //   const currentPhrases = form.getValues().customTriggerPhrases || [];
+  //   form.setValue(
+  //     "customTriggerPhrases",
+  //     currentPhrases.filter((p) => p !== phrase)
+  //   );
+  // }
 
   // Handle exporting leads
   const handleExportLeads = async (format: "csv" | "json" = "csv") => {
@@ -584,7 +584,7 @@ export default function LeadCaptureTool({
 
                     <Separator className="my-6" />
 
-                    <div>
+                    {/* <div>
                       <h3 className="text-md font-medium mb-2">
                         Custom Trigger Phrases
                       </h3>
@@ -627,7 +627,7 @@ export default function LeadCaptureTool({
                           Add
                         </Button>
                       </div>
-                    </div>
+                    </div> */}
 
                     <Button type="submit" disabled={isSaving}>
                       {isSaving ? (
