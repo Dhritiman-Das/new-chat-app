@@ -29,6 +29,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useClipboard } from "@/hooks/use-clipboard";
+import ConversationHistoryDialog from "./conversation-history-dialog";
+import { getConversationMessages } from "@/app/actions/organizations";
 
 interface ChatInterfaceProps {
   model: Model;
@@ -48,6 +50,8 @@ export default function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const { copy } = useClipboard();
   const {
     messages,
@@ -94,6 +98,51 @@ export default function ChatInterface({
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isLoading]);
+
+  // Function to load a conversation from history
+  const handleLoadConversation = async (selectedConversationId: string) => {
+    setIsLoadingConversation(true);
+    try {
+      const result = await getConversationMessages({
+        conversationId: selectedConversationId,
+      });
+
+      if (result?.data?.success && result.data.data) {
+        const conversationMessages = result.data.data;
+
+        // Convert prisma messages to useChat format
+        const formattedMessages = conversationMessages.map(
+          (msg: { id: string; role: string; content: string }) => ({
+            id: msg.id,
+            role: msg.role.toLowerCase() as "user" | "assistant" | "system",
+            content: msg.content,
+          })
+        );
+
+        // Set the conversation ID and messages
+        setConversationId(selectedConversationId);
+        setMessages(formattedMessages);
+
+        toast.success("Conversation loaded successfully");
+      } else {
+        const errorMessage =
+          result?.data?.error?.message || "Failed to load conversation";
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Error loading conversation:", error);
+      toast.error("Failed to load conversation");
+    } finally {
+      setIsLoadingConversation(false);
+    }
+  };
+
+  // Function to restart conversation
+  const handleRestartConversation = () => {
+    setConversationId(null);
+    setMessages([]);
+    toast.success("Started a new conversation");
+  };
 
   const getProviderIcon = (provider: string) => {
     switch (provider) {
@@ -147,14 +196,33 @@ export default function ChatInterface({
           </div>
 
           <div className="flex items-center space-x-2">
-            {/* <Button variant="outline" size="sm">
-              Synced
-            </Button> */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsHistoryDialogOpen(true)}
+              title="Load past conversation"
+            >
+              <Icons.History className="h-4 w-4 mr-1" />
+              History
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRestartConversation}
+              title="Start new conversation"
+            >
+              <Icons.RefreshCcw className="h-4 w-4 mr-1" />
+              New
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
               className="px-2"
               onClick={() => copy(conversationId as string)}
+              disabled={!conversationId}
+              title="Copy conversation ID"
             >
               <svg
                 className="h-4 w-4"
@@ -172,27 +240,7 @@ export default function ChatInterface({
                 <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
               </svg>
             </Button>
-            {/* <Button variant="outline" size="sm" className="px-2">
-              <svg
-                className="h-4 w-4"
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                <polyline points="17 21 17 13 7 13 7 21" />
-                <polyline points="7 3 7 8 15 8" />
-              </svg>
-            </Button> */}
-            {/* <Button variant="outline" size="sm" className="px-2">
-              <span className="text-lg">⋯</span>
-            </Button> */}
+
             <Button
               variant="outline"
               size="sm"
@@ -363,12 +411,20 @@ export default function ChatInterface({
           <Button
             type="submit"
             size="icon"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input.trim() || isLoadingConversation}
           >
             <ArrowUpRight className="h-4 w-4" />
           </Button>
         </form>
       </CardFooter>
+
+      {/* Conversation History Dialog */}
+      <ConversationHistoryDialog
+        open={isHistoryDialogOpen}
+        onOpenChange={setIsHistoryDialogOpen}
+        botId={botId}
+        onSelectConversation={handleLoadConversation}
+      />
     </Card>
   );
 }
