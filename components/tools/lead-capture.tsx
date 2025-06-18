@@ -135,7 +135,7 @@ export default function LeadCaptureTool({
     defaultValue: "settings",
   });
   const [newTrigger, setNewTrigger] = useState("");
-  const [newCustomTrigger, setNewCustomTrigger] = useState("");
+  // const [newCustomTrigger, setNewCustomTrigger] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isConfigLoading, setIsConfigLoading] = useState(false);
@@ -320,39 +320,147 @@ export default function LeadCaptureTool({
     );
   }
 
-  function addCustomTriggerPhrase() {
-    if (!newCustomTrigger || newCustomTrigger.trim() === "") return;
+  // function addCustomTriggerPhrase() {
+  //   if (!newCustomTrigger || newCustomTrigger.trim() === "") return;
 
-    const currentPhrases = form.getValues().customTriggerPhrases || [];
-    form.setValue("customTriggerPhrases", [
-      ...currentPhrases,
-      newCustomTrigger.trim(),
-    ]);
-    setNewCustomTrigger("");
-  }
+  //   const currentPhrases = form.getValues().customTriggerPhrases || [];
+  //   form.setValue("customTriggerPhrases", [
+  //     ...currentPhrases,
+  //     newCustomTrigger.trim(),
+  //   ]);
+  //   setNewCustomTrigger("");
+  // }
 
-  function removeCustomTriggerPhrase(phrase: string) {
-    const currentPhrases = form.getValues().customTriggerPhrases || [];
-    form.setValue(
-      "customTriggerPhrases",
-      currentPhrases.filter((p) => p !== phrase)
+  // function removeCustomTriggerPhrase(phrase: string) {
+  //   const currentPhrases = form.getValues().customTriggerPhrases || [];
+  //   form.setValue(
+  //     "customTriggerPhrases",
+  //     currentPhrases.filter((p) => p !== phrase)
+  //   );
+  // }
+
+  // CSV generation utility function
+  const generateLeadsCSV = (leads: Lead[]): string => {
+    if (leads.length === 0) return "";
+
+    // Get all unique field keys from all leads
+    const allFieldKeys = getAllLeadFieldKeys(leads);
+
+    // Helper function to escape CSV values
+    const escapeCSVValue = (value: unknown): string => {
+      if (value === null || value === undefined) return "";
+      const stringValue = String(value);
+      // Escape quotes and wrap in quotes if contains comma, quote, or newline
+      if (
+        stringValue.includes(",") ||
+        stringValue.includes('"') ||
+        stringValue.includes("\n")
+      ) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    // Create headers
+    const headers = allFieldKeys.map(
+      (key) => key.charAt(0).toUpperCase() + key.slice(1)
     );
-  }
+
+    // Add additional system fields
+    headers.push("Date Captured", "Last Updated");
+
+    // Generate CSV rows
+    const rows = leads.map((lead) => {
+      const row = allFieldKeys.map((key) => {
+        switch (key) {
+          case "name":
+            return escapeCSVValue(lead.name);
+          case "email":
+            return escapeCSVValue(lead.email);
+          case "phone":
+            return escapeCSVValue(lead.phone);
+          case "company":
+            return escapeCSVValue(lead.company);
+          case "source":
+            return escapeCSVValue(lead.source);
+          case "status":
+            return escapeCSVValue(lead.status);
+          case "triggerKeyword":
+            return escapeCSVValue(lead.triggerKeyword);
+          default:
+            // Handle custom properties
+            if (lead.properties && lead.properties[key] !== undefined) {
+              const value = lead.properties[key];
+              return escapeCSVValue(
+                typeof value === "object" && value !== null
+                  ? JSON.stringify(value)
+                  : value
+              );
+            }
+            return "";
+        }
+      });
+
+      // Add system fields
+      row.push(
+        escapeCSVValue(new Date(lead.createdAt).toLocaleString()),
+        escapeCSVValue(new Date(lead.updatedAt).toLocaleString())
+      );
+
+      return row;
+    });
+
+    // Combine headers and rows
+    return [headers, ...rows].map((row) => row.join(",")).join("\n");
+  };
+
+  // Download CSV function
+  const downloadCSV = (csvContent: string, filename: string): void => {
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  };
 
   // Handle exporting leads
   const handleExportLeads = async (format: "csv" | "json" = "csv") => {
     try {
       setIsExporting(true);
-      const result = await exportLeads({
-        botId,
-        format,
-      });
 
-      if (result?.data?.success && result.data?.data) {
-        const exportData = result.data.data as ExportResponse;
-        toast.success(exportData.message);
+      if (format === "csv") {
+        // Generate CSV client-side for better UX
+        const csvContent = generateLeadsCSV(leads);
+        if (csvContent) {
+          const filename = `leads-${
+            new Date().toISOString().split("T")[0]
+          }.csv`;
+          downloadCSV(csvContent, filename);
+          toast.success(`${leads.length} leads exported successfully`);
+        } else {
+          toast.error("No leads to export");
+        }
       } else {
-        toast.error("Failed to export leads");
+        // For JSON format, still use the server action if needed
+        const result = await exportLeads({
+          botId,
+          format,
+        });
+
+        if (result?.data?.success && result.data?.data) {
+          const exportData = result.data.data as ExportResponse;
+          toast.success(exportData.message);
+        } else {
+          toast.error("Failed to export leads");
+        }
       }
     } catch (error) {
       console.error("Error exporting leads:", error);
@@ -584,7 +692,7 @@ export default function LeadCaptureTool({
 
                     <Separator className="my-6" />
 
-                    <div>
+                    {/* <div>
                       <h3 className="text-md font-medium mb-2">
                         Custom Trigger Phrases
                       </h3>
@@ -627,7 +735,7 @@ export default function LeadCaptureTool({
                           Add
                         </Button>
                       </div>
-                    </div>
+                    </div> */}
 
                     <Button type="submit" disabled={isSaving}>
                       {isSaving ? (

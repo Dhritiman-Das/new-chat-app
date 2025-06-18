@@ -9,12 +9,14 @@ interface ModelComparisonProps {
   models: Model[];
   botId: string;
   defaultModelId?: string | null;
+  modelCreditCosts: Map<string, number>;
 }
 
 export default function ModelComparison({
   models,
   botId,
   defaultModelId,
+  modelCreditCosts,
 }: ModelComparisonProps) {
   // Generate unique ID prefix for playgrounds
   const playgroundIdPrefix = `playground-${Math.random()
@@ -93,6 +95,7 @@ export default function ModelComparison({
                 model={model}
                 botId={botId}
                 models={models}
+                modelCreditCosts={modelCreditCosts}
                 onModelChange={(modelId) =>
                   handleModelChange(playground.id, modelId)
                 }

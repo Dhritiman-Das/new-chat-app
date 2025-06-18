@@ -179,6 +179,12 @@ const modelCreditCosts = [
     isActive: true,
   },
   {
+    id: "01912345-6789-7abc-def0-456789012ac6",
+    modelName: "gpt-4o-mini",
+    creditsPerQuery: 1,
+    isActive: true,
+  },
+  {
     id: "01912345-6789-7abc-def0-456789012abe",
     modelName: "grok-3",
     creditsPerQuery: 5,
