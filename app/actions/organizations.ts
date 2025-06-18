@@ -15,6 +15,7 @@ import { createSafeActionClient } from "next-safe-action";
 import { z } from "zod";
 import { createCreditTransaction } from "@/lib/payment/billing-service";
 import * as CACHE_TAGS from "@/lib/constants/cache-tags";
+import { Conversation, Message } from "@/lib/generated/prisma";
 
 // Create safe action client
 const action = createSafeActionClient();
@@ -311,3 +312,138 @@ export const checkSlugAvailability = action
       }
     }
   );
+
+// Schema for getting playground conversations
+const getPlaygroundConversationsSchema = z.object({
+  botId: z.string(),
+  limit: z.number().int().positive().optional().default(20),
+});
+
+// Schema for getting conversation messages
+const getConversationMessagesSchema = z.object({
+  conversationId: z.string(),
+});
+
+// Action to get playground conversations for a bot
+export const getPlaygroundConversations = action
+  .schema(getPlaygroundConversationsSchema)
+  .action(async ({ parsedInput }): Promise<ActionResponse<Conversation[]>> => {
+    try {
+      const { botId, limit } = parsedInput;
+
+      // Get the authenticated user
+      const user = await requireAuth();
+
+      // Check if the user has access to this bot
+      const bot = await prisma.bot.findFirst({
+        where: {
+          id: botId,
+          userId: user.id,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!bot) {
+        return {
+          success: false,
+          error: appErrors.UNAUTHORIZED,
+        };
+      }
+
+      // Get playground conversations for the bot
+      const conversations = await prisma.conversation.findMany({
+        where: {
+          botId,
+          source: "playground",
+        },
+        orderBy: {
+          startedAt: "desc",
+        },
+        take: limit,
+        include: {
+          messages: {
+            take: 1, // Get the last message for preview
+            orderBy: {
+              timestamp: "desc",
+            },
+            select: {
+              content: true,
+              timestamp: true,
+            },
+          },
+          _count: {
+            select: {
+              messages: true,
+            },
+          },
+        },
+      });
+
+      return {
+        success: true,
+        data: conversations,
+      };
+    } catch (error) {
+      console.error("Error fetching playground conversations:", error);
+      return {
+        success: false,
+        error: appErrors.UNEXPECTED_ERROR,
+      };
+    }
+  });
+
+// Action to get messages for a specific conversation
+export const getConversationMessages = action
+  .schema(getConversationMessagesSchema)
+  .action(async ({ parsedInput }): Promise<ActionResponse<Message[]>> => {
+    try {
+      const { conversationId } = parsedInput;
+
+      // Get the authenticated user
+      const user = await requireAuth();
+
+      // First check if the conversation exists and user has access
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          id: conversationId,
+          bot: {
+            userId: user.id,
+          },
+        },
+        select: {
+          id: true,
+          botId: true,
+        },
+      });
+
+      if (!conversation) {
+        return {
+          success: false,
+          error: appErrors.NOT_FOUND,
+        };
+      }
+
+      // Get all messages for this conversation
+      const messages = await prisma.message.findMany({
+        where: {
+          conversationId,
+        },
+        orderBy: {
+          timestamp: "asc",
+        },
+      });
+
+      return {
+        success: true,
+        data: messages,
+      };
+    } catch (error) {
+      console.error("Error fetching conversation messages:", error);
+      return {
+        success: false,
+        error: appErrors.UNEXPECTED_ERROR,
+      };
+    }
+  });
