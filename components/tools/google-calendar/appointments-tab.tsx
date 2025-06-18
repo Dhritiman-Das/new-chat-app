@@ -38,6 +38,82 @@ interface AppointmentsTabProps {
   activeTab: string;
 }
 
+// Add CSV generation utility function
+function generateCSV(appointments: Appointment[]): string {
+  if (appointments.length === 0) return "";
+
+  // Define CSV headers
+  const headers = [
+    "Title",
+    "Date",
+    "Start Time",
+    "End Time",
+    "Status",
+    "Timezone",
+    "Calendar ID",
+    "Description",
+    "Location",
+    "Meeting Link",
+    "Organizer Email",
+    "Attendees",
+    "Created At",
+    "Updated At",
+  ];
+
+  // Helper function to escape CSV values
+  const escapeCSVValue = (value: unknown): string => {
+    if (value === null || value === undefined) return "";
+    const stringValue = String(value);
+    // Escape quotes and wrap in quotes if contains comma, quote, or newline
+    if (
+      stringValue.includes(",") ||
+      stringValue.includes('"') ||
+      stringValue.includes("\n")
+    ) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    return stringValue;
+  };
+
+  // Generate CSV rows
+  const rows = appointments.map((appointment) => [
+    escapeCSVValue(appointment.title || "Untitled Appointment"),
+    escapeCSVValue(formatDate(appointment.startTime)),
+    escapeCSVValue(formatTime(appointment.startTime)),
+    escapeCSVValue(formatTime(appointment.endTime)),
+    escapeCSVValue(appointment.status || "confirmed"),
+    escapeCSVValue(appointment.timeZone || "UTC"),
+    escapeCSVValue(appointment.calendarId || "Primary"),
+    escapeCSVValue(appointment.description || ""),
+    escapeCSVValue(appointment.location || ""),
+    escapeCSVValue(appointment.meetingLink || ""),
+    escapeCSVValue(appointment.organizer?.email || ""),
+    escapeCSVValue(appointment.attendees?.map((a) => a.email).join("; ") || ""),
+    escapeCSVValue(new Date(appointment.createdAt).toLocaleString()),
+    escapeCSVValue(new Date(appointment.updatedAt).toLocaleString()),
+  ]);
+
+  // Combine headers and rows
+  return [headers, ...rows].map((row) => row.join(",")).join("\n");
+}
+
+// Add download trigger function
+function downloadCSV(csvContent: string, filename: string): void {
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+
+  if (link.download !== undefined) {
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function AppointmentsTab({
   botId,
   openAppointmentDetails,
@@ -47,6 +123,7 @@ export function AppointmentsTab({
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Fetch appointments function
   const fetchAppointments = useCallback(async () => {
@@ -115,6 +192,39 @@ export function AppointmentsTab({
       fetchAppointments();
     }
   }, [activeTab, currentPage, fetchAppointments]);
+
+  // Add export handler function
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true);
+
+      // If we only have current page data, fetch all appointments
+      if (appointments.length < 50) {
+        // Reasonable limit for direct export
+        const csvContent = generateCSV(appointments);
+        const filename = `google-calendar-appointments-${
+          new Date().toISOString().split("T")[0]
+        }.csv`;
+        downloadCSV(csvContent, filename);
+        toast.success("Appointments exported successfully");
+      } else {
+        // For larger datasets, we might want to fetch all data first
+        toast.info("Exporting large dataset, please wait...");
+        // You could implement pagination to fetch all data here if needed
+        const csvContent = generateCSV(appointments);
+        const filename = `google-calendar-appointments-${
+          new Date().toISOString().split("T")[0]
+        }.csv`;
+        downloadCSV(csvContent, filename);
+        toast.success("Appointments exported successfully");
+      }
+    } catch (error) {
+      console.error("Error exporting appointments:", error);
+      toast.error("Failed to export appointments");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <Card>
@@ -236,12 +346,17 @@ export function AppointmentsTab({
       <CardFooter className="flex justify-between">
         <Button
           variant="outline"
-          onClick={() =>
-            toast.info("Export functionality will be implemented soon")
-          }
-          disabled={appointments.length === 0}
+          onClick={handleExportCSV}
+          disabled={appointments.length === 0 || isExporting}
         >
-          Export to CSV
+          {isExporting ? (
+            <>
+              <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+              Exporting...
+            </>
+          ) : (
+            "Export to CSV"
+          )}
         </Button>
         <div className="flex items-center gap-2">
           <Button
