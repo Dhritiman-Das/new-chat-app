@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getAvailableModels } from "@/lib/models";
 import { getBotById, getOrganizationById } from "@/lib/queries/cached-queries";
+import { getModelCreditCosts } from "@/app/actions/models";
 import ModelComparison from "./components/model-comparison";
 
 interface PageProps {
@@ -22,11 +23,13 @@ export default async function PlaygroundPage({ params }: PageProps) {
   const { orgId, botId } = await params;
   const availableModels = getAvailableModels();
 
-  // Fetch bot and organization data
-  const [botResponse, organizationResponse] = await Promise.all([
-    getBotById(botId),
-    getOrganizationById(orgId),
-  ]);
+  // Fetch bot and organization data, and model credit costs
+  const [botResponse, organizationResponse, modelCreditCosts] =
+    await Promise.all([
+      getBotById(botId),
+      getOrganizationById(orgId),
+      getModelCreditCosts(),
+    ]);
 
   const bot = botResponse?.data;
   const organization = organizationResponse?.data;
@@ -88,6 +91,7 @@ export default async function PlaygroundPage({ params }: PageProps) {
           models={availableModels}
           botId={botId}
           defaultModelId={defaultModelId}
+          modelCreditCosts={modelCreditCosts}
         />
       </div>
     </div>

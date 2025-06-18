@@ -11,16 +11,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  ArrowUpRight,
-  ArrowUpRight as ExternalLink,
-  PlusCircle,
-} from "@/components/icons";
+import { ArrowUpRight, PlusCircle } from "@/components/icons";
 import { Icons } from "@/components/icons";
 import { useChat } from "@ai-sdk/react";
 import { type Model } from "@/lib/models";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -36,6 +31,7 @@ interface ChatInterfaceProps {
   model: Model;
   botId: string;
   models: Model[];
+  modelCreditCosts: Map<string, number>;
   onModelChange: (modelId: string) => void;
   onAddPlayground: () => void;
 }
@@ -44,6 +40,7 @@ export default function ChatInterface({
   model,
   botId,
   models,
+  modelCreditCosts,
   onModelChange,
   onAddPlayground,
 }: ChatInterfaceProps) {
@@ -286,62 +283,13 @@ export default function ChatInterface({
 
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-sm">Context</span>
+                      <span className="text-sm">Credits per Message</span>
                       <span className="text-sm font-medium">
-                        {model.contextWindow.toLocaleString()} tokens
+                        {modelCreditCosts.get(model.id) || "N/A"} credits
                       </span>
                     </div>
-                    {model.inputPricing && (
-                      <div className="flex justify-between">
-                        <span className="text-sm">Input Pricing</span>
-                        <span className="text-sm font-medium">
-                          {model.inputPricing}
-                        </span>
-                      </div>
-                    )}
-                    {model.outputPricing && (
-                      <div className="flex justify-between">
-                        <span className="text-sm">Output Pricing</span>
-                        <span className="text-sm font-medium">
-                          {model.outputPricing}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
-
-                <Separator />
-
-                <CardFooter className="flex justify-between py-3">
-                  <div className="flex gap-2">
-                    {model.modelPageUrl && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() =>
-                          window.open(model.modelPageUrl, "_blank")
-                        }
-                      >
-                        Model Page
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Button>
-                    )}
-                    {model.modelPriceUrl && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() =>
-                          window.open(model.modelPriceUrl, "_blank")
-                        }
-                      >
-                        Pricing
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Button>
-                    )}
-                  </div>
-                </CardFooter>
               </Card>
 
               <div className="text-center mt-6">
