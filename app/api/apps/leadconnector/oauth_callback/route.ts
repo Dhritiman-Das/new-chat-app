@@ -407,23 +407,23 @@ export async function GET(request: NextRequest) {
                   },
                   {
                     type: "WhatsApp",
-                    active: false,
+                    active: true,
                   },
                   {
                     type: "IG",
-                    active: false,
+                    active: true,
                   },
                   {
                     type: "FB",
-                    active: false,
+                    active: true,
                   },
                   {
                     type: "Live_Chat",
-                    active: false,
+                    active: true,
                   },
                   {
                     type: "CALL",
-                    active: false,
+                    active: true,
                   },
                 ],
                 globalSettings: {
