@@ -9,7 +9,9 @@ export interface LeadNotificationData {
   triggerKeyword: string | null;
   source: string | null;
   capturedAt: string;
+  botId: string;
   botName: string;
+  orgId: string;
   organizationName: string;
   conversationId?: string | null;
   customProperties?: Record<string, unknown>;
@@ -269,9 +271,9 @@ export function generateLeadNotificationEmail(
         </div>
 
         <div class="actions">
-            <a href="${
-              process.env.NEXT_PUBLIC_APP_URL
-            }/dashboard/leads" class="cta-button">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/${
+    data.orgId
+  }/bots/${data.botId}/tools/lead-capture?tab=leads" class="cta-button">
                 View All Leads
             </a>
             ${
