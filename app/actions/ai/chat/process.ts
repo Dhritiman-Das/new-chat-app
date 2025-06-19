@@ -252,12 +252,25 @@ export async function processChatRequest(
             toolKey = `${botTool.tool.id}_${functionName}`;
           }
 
+          // Special handling for pause conversation checkPauseCondition to include dynamic description
+          let toolDescription = func.description;
+          if (
+            botTool.tool.id === "pause-conversation" &&
+            functionName === "checkPauseCondition"
+          ) {
+            const config = (botTool.config as Record<string, unknown>) || {};
+            const pauseCondition =
+              (config.pauseConditionPrompt as string) ||
+              "The user wants to end the conversation or talk to a human";
+            toolDescription = `Analyze the user message to determine if it matches the pause condition. Pause condition: "${pauseCondition}". You must determine if the user message indicates that the conversation should be paused based on this specific condition.`;
+          }
+
           enabledTools[toolKey] = {
-            description: func.description,
+            description: toolDescription,
             parameters: func.parameters,
             execute: async (params: Record<string, unknown>) => {
               // Execute the tool through the execution service
-              return toolExecutionService.executeTool(
+              const toolResult = await toolExecutionService.executeTool(
                 botTool.tool.id,
                 functionName,
                 params,
@@ -269,6 +282,21 @@ export async function processChatRequest(
                   webhookPayload: webhookPayload,
                 }
               );
+
+              // Check if this is a pause conversation tool that should skip response
+              if (
+                botTool.tool.id === "pause-conversation" &&
+                functionName === "pauseConversation" &&
+                toolResult &&
+                typeof toolResult === "object" &&
+                "skipResponse" in toolResult &&
+                toolResult.skipResponse === true
+              ) {
+                // Signal that this conversation should be paused without response
+                throw new Error("CONVERSATION_PAUSED_NO_RESPONSE");
+              }
+
+              return toolResult;
             },
           };
         }
@@ -282,6 +310,11 @@ export async function processChatRequest(
       if (enabledTools["lead-capture_detectTriggerKeyword"]) {
         toolsWithExecutionConditions.push(
           "Run the `lead-capture_detectTriggerKeyword` tool in every message. And if it returns `{detected: true}`, then run the `lead-capture_requestLeadInfo` tool. Once you have collected all the information, run the `lead-capture_saveLead` tool."
+        );
+      }
+      if (enabledTools["pause-conversation_checkPauseCondition"]) {
+        toolsWithExecutionConditions.push(
+          "Run the `pause-conversation_checkPauseCondition` tool in every message. If it returns `{detected: true}`, then run the `pause-conversation_pauseConversation` tool immediately. When the conversation is paused without a response message, no reply should be sent to the user."
         );
       }
 
@@ -386,51 +419,83 @@ export async function processChatRequest(
       };
 
       // Choose between streaming and non-streaming based on option
-      if (useStreaming) {
-        // Stream the AI response
-        const response = streamText({
-          model: aiModel,
-          system: systemMessage,
-          messages: messages as CoreMessage[],
-          tools: hasTools ? (enabledTools as ToolSet) : undefined,
-          maxSteps: 5, // Allow multiple tool calls if needed
-          onFinish({ response, usage, text }) {
-            // Handle the completion asynchronously without blocking the stream
-            handleFinish(
-              text,
-              usage,
-              JSON.parse(JSON.stringify(response.messages))
-            );
-          },
-        });
+      try {
+        if (useStreaming) {
+          // Stream the AI response
+          const response = streamText({
+            model: aiModel,
+            system: systemMessage,
+            messages: messages as CoreMessage[],
+            tools: hasTools ? (enabledTools as ToolSet) : undefined,
+            maxSteps: 5, // Allow multiple tool calls if needed
+            onFinish({ response, usage, text }) {
+              // Handle the completion asynchronously without blocking the stream
+              handleFinish(
+                text,
+                usage,
+                JSON.parse(JSON.stringify(response.messages))
+              );
+            },
+          });
 
-        return {
-          stream: response.toDataStreamResponse().body,
-          text: null,
-          conversationId: currentConversationId || "",
-        };
-      } else {
-        // Generate text without streaming
-        const response = await generateText({
-          model: aiModel,
-          system: systemMessage,
-          messages: messages as CoreMessage[],
-          tools: hasTools ? (enabledTools as ToolSet) : undefined,
-          maxSteps: 5, // Allow multiple tool calls if needed
-        });
+          return {
+            stream: response.toDataStreamResponse().body,
+            text: null,
+            conversationId: currentConversationId || "",
+          };
+        } else {
+          // Generate text without streaming
+          const response = await generateText({
+            model: aiModel,
+            system: systemMessage,
+            messages: messages as CoreMessage[],
+            tools: hasTools ? (enabledTools as ToolSet) : undefined,
+            maxSteps: 5, // Allow multiple tool calls if needed
+          });
 
-        // Handle the completion and wait for it to ensure message is saved
-        await handleFinish(
-          response.text,
-          response.usage,
-          response.response.messages
-        );
+          // Handle the completion and wait for it to ensure message is saved
+          await handleFinish(
+            response.text,
+            response.usage,
+            response.response.messages
+          );
 
-        return {
-          stream: null,
-          text: response.text,
-          conversationId: currentConversationId || "",
-        };
+          return {
+            stream: null,
+            text: response.text,
+            conversationId: currentConversationId || "",
+          };
+        }
+      } catch (error) {
+        // Handle conversation pause without response
+        if (
+          error instanceof Error &&
+          error.message === "CONVERSATION_PAUSED_NO_RESPONSE"
+        ) {
+          console.log("Conversation paused without response");
+
+          // Check if conversation is actually paused now
+          try {
+            const conversation = await prisma.conversation.findUnique({
+              where: { id: currentConversationId },
+              select: { isPaused: true },
+            });
+
+            if (conversation?.isPaused) {
+              // Return empty response when conversation is paused without message
+              return {
+                stream: null,
+                text: "",
+                conversationId: currentConversationId || "",
+              };
+            }
+          } catch (pauseCheckError) {
+            console.error("Error checking pause status:", pauseCheckError);
+          }
+        }
+
+        // Re-throw other errors
+        throw error;
       }
     },
     // Allow both active and trialing subscriptions to use this feature

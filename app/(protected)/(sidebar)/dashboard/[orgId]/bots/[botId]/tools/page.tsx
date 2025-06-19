@@ -85,8 +85,6 @@ export default async function ToolsPage({ params }: PageProps) {
   // This shows: 1) Public/admin tools (available to all bots) 2) Custom tools created by this specific bot
   const tools = [...registryTools, ...botSpecificToolsFormatted];
 
-  console.log({ tools });
-
   return (
     <div>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
