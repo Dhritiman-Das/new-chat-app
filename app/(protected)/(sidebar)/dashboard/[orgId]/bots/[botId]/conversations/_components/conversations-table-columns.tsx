@@ -28,6 +28,8 @@ import {
   activateConversation,
   completeConversation,
   failConversation,
+  pauseConversation,
+  resumeConversation,
 } from "@/app/actions/conversation-tracking";
 import Link from "next/link";
 
@@ -66,6 +68,19 @@ export function getConversationsTableColumns({
     const [isAbandonPending, startAbandonTransition] = React.useTransition();
     const [isFailedPending, startFailedTransition] = React.useTransition();
     const [isActivePending, startActiveTransition] = React.useTransition();
+    const [isPausePending, startPauseTransition] = React.useTransition();
+    const [isResumePending, startResumeTransition] = React.useTransition();
+
+    // Optimistic state for pause status
+    const [optimisticIsPaused, setOptimisticIsPaused] = React.useState(
+      conversation.isPaused || false
+    );
+
+    // Sync optimistic state when conversation data changes
+    React.useEffect(() => {
+      setOptimisticIsPaused(conversation.isPaused || false);
+    }, [conversation.isPaused]);
+
     const isActive = conversation.status === "ACTIVE";
 
     // Extract orgId and botId from the current path
@@ -157,6 +172,54 @@ export function getConversationsTableColumns({
             </>
           )}
           <DropdownMenuSeparator />
+          {optimisticIsPaused ? (
+            <DropdownMenuItem
+              disabled={isResumePending}
+              onSelect={() => {
+                startResumeTransition(async () => {
+                  // Optimistically update the state
+                  setOptimisticIsPaused(false);
+
+                  const result = await resumeConversation(conversation.id);
+                  if (result.success) {
+                    toast.success(
+                      "Conversation resumed - bot can respond again"
+                    );
+                  } else {
+                    // Revert optimistic update on failure
+                    setOptimisticIsPaused(true);
+                    toast.error("Failed to resume conversation");
+                  }
+                });
+              }}
+            >
+              Resume Bot Responses
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              disabled={isPausePending}
+              onSelect={() => {
+                startPauseTransition(async () => {
+                  // Optimistically update the state
+                  setOptimisticIsPaused(true);
+
+                  const result = await pauseConversation(conversation.id);
+                  if (result.success) {
+                    toast.success(
+                      "Conversation paused - bot won't respond to new messages"
+                    );
+                  } else {
+                    // Revert optimistic update on failure
+                    setOptimisticIsPaused(false);
+                    toast.error("Failed to pause conversation");
+                  }
+                });
+              }}
+            >
+              Pause Bot Responses
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() => {
               setRowAction({ row, variant: "delete" });
@@ -205,9 +268,19 @@ export function getConversationsTableColumns({
       ),
       cell: ({ row }) => {
         const id = row.original.id;
+        const isPaused = row.original.isPaused;
         // Get first 8 characters of ID
         const shortId = id.substring(0, 8);
-        return <div className="w-28 font-mono text-xs">{shortId}...</div>;
+        return (
+          <div className="flex items-center gap-2">
+            <div className="w-28 font-mono text-xs">{shortId}...</div>
+            {isPaused && (
+              <Badge variant="secondary" className="text-xs">
+                Paused
+              </Badge>
+            )}
+          </div>
+        );
       },
       enableSorting: false,
     },

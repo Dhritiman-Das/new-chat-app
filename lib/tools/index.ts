@@ -2,6 +2,7 @@ import { toolRegistry } from "./registry";
 import { googleCalendarTool } from "./google-calendar";
 import { leadCaptureTool } from "./lead-capture";
 import { gohighlevelCalendarTool } from "./gohighlevel-calendar";
+import { pauseConversationTool } from "./pause-conversation";
 import { prisma } from "@/lib/db/prisma";
 import { createCustomToolDefinition } from "./custom-tool";
 
@@ -11,6 +12,7 @@ export async function initializeTools() {
   toolRegistry.register(googleCalendarTool);
   toolRegistry.register(leadCaptureTool);
   toolRegistry.register(gohighlevelCalendarTool);
+  toolRegistry.register(pauseConversationTool);
   // toolRegistry.register(highlevelAddContactFieldTool);
   // toolRegistry.register(highlevelAddTagTool);
 
@@ -84,6 +86,7 @@ export function initializeToolsSync() {
   toolRegistry.register(googleCalendarTool);
   toolRegistry.register(leadCaptureTool);
   toolRegistry.register(gohighlevelCalendarTool);
+  toolRegistry.register(pauseConversationTool);
   // toolRegistry.register(highlevelAddContactFieldTool);
   // toolRegistry.register(highlevelAddTagTool);
 
@@ -101,3 +104,4 @@ export * from "./services/tool-execution-service";
 export * from "./services/credentials-service";
 export * from "./google-calendar";
 export * from "./lead-capture";
+export * from "./pause-conversation";

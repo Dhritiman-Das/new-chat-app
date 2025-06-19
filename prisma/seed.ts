@@ -259,6 +259,13 @@ const tools = [
     isActive: true,
     version: "1.0.0",
   },
+  {
+    id: "pause-conversation",
+    name: "Pause Conversation",
+    description: "",
+    type: ToolType.DATA_QUERY,
+    isActive: true,
+  },
 ];
 
 const templateCategories = [

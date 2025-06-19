@@ -35,6 +35,11 @@ const LeadCaptureTool = dynamic(() => import("./lead-capture"), {
   loading: () => <ToolLoading name="Lead Capture" />,
 });
 
+const PauseConversationTool = dynamic(() => import("./pause-conversation"), {
+  ssr: false,
+  loading: () => <ToolLoading name="Pause Conversation" />,
+});
+
 interface ToolComponentWrapperProps {
   toolSlug: string;
   tool: SerializableTool;
@@ -139,6 +144,8 @@ export default function ToolComponentWrapper({
       return (
         <GoHighLevelCalendarTool tool={tool} botId={botId} orgId={orgId} />
       );
+    case "pause-conversation":
+      return <PauseConversationTool tool={tool} botId={botId} orgId={orgId} />;
     default:
       return <DefaultToolComponent tool={tool} botId={botId} orgId={orgId} />;
   }
