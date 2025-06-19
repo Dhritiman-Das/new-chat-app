@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ConversationPauseToggle } from "./components/conversation-pause-toggle";
 
 interface PageProps {
   params: Promise<{ orgId: string; botId: string; conversationId: string }>;
@@ -357,6 +358,11 @@ export default async function ConversationDetailPage({ params }: PageProps) {
                 </div>
               </CardContent>
             </Card>
+
+            <ConversationPauseToggle
+              conversationId={conversationId}
+              initialIsPaused={conversation.isPaused || false}
+            />
 
             <div>
               {conversation.messages && conversation.messages.length > 0 ? (

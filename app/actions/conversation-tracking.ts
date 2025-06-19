@@ -538,6 +538,70 @@ export async function activateConversation(conversationId: string) {
   }
 }
 
+/**
+ * Pause conversation (bot won't respond to new messages)
+ */
+export async function pauseConversation(conversationId: string) {
+  try {
+    const conversation = await prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        isPaused: true,
+      },
+      select: {
+        botId: true,
+      },
+    });
+
+    // Revalidate conversation cache tags
+    revalidateTag(CACHE_TAGS.BOT_CONVERSATIONS(conversation.botId));
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error pausing conversation:", error);
+    return {
+      success: false,
+      error: appErrors.CONVERSATION_ERROR,
+    };
+  }
+}
+
+/**
+ * Resume conversation (bot can respond to new messages again)
+ */
+export async function resumeConversation(conversationId: string) {
+  try {
+    const conversation = await prisma.conversation.update({
+      where: {
+        id: conversationId,
+      },
+      data: {
+        isPaused: false,
+      },
+      select: {
+        botId: true,
+      },
+    });
+
+    // Revalidate conversation cache tags
+    revalidateTag(CACHE_TAGS.BOT_CONVERSATIONS(conversation.botId));
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error resuming conversation:", error);
+    return {
+      success: false,
+      error: appErrors.CONVERSATION_ERROR,
+    };
+  }
+}
+
 // Action to delete one or more conversations
 export const deleteConversations = createSafeActionClient()
   .schema(deleteConversationsSchema)

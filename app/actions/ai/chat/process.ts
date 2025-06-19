@@ -121,6 +121,23 @@ export async function processChatRequest(
           console.error("Error creating conversation:", error);
           // Continue even if conversation tracking fails
         }
+      } else {
+        // Check if the existing conversation is paused
+        try {
+          const existingConversation = await prisma.conversation.findUnique({
+            where: { id: currentConversationId },
+            select: { isPaused: true },
+          });
+
+          if (existingConversation?.isPaused) {
+            throw new Error(
+              "This conversation is currently paused. Bot responses are disabled."
+            );
+          }
+        } catch (error) {
+          console.error("Error checking conversation pause status:", error);
+          throw error; // Re-throw to prevent processing when paused
+        }
       }
 
       // Add user message to the conversation

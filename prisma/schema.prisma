@@ -358,6 +358,7 @@ model Conversation {
   startedAt      DateTime           @default(now()) @map("started_at")
   endedAt        DateTime?          @map("ended_at")
   status         ConversationStatus @default(ACTIVE) // Status of the conversation
+  isPaused       Boolean            @default(false) @map("is_paused") // When true, bot won't respond to new messages
   metadata       Json? // General metadata about the conversation
   clientInfo     Json?              @map("client_info") // Info about client (browser, device, etc.)
   sentiment      Float? // Optional sentiment score (-1 to 1)
@@ -375,6 +376,7 @@ model Conversation {
   @@index([source])
   @@index([startedAt])
   @@index([status])
+  @@index([isPaused])
   @@map("conversations")
 }
 
