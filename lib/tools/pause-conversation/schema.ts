@@ -9,13 +9,6 @@ export const pauseConversationConfigSchema = z.object({
     .describe(
       "Condition that determines when to pause the conversation. Be specific about what phrases or situations should trigger a pause."
     ),
-  pauseMessage: z
-    .string()
-    .optional()
-    .default("")
-    .describe(
-      "Message to display when the conversation is paused. Leave empty to pause without sending any response to the user."
-    ),
 });
 
 // No credentials needed for this tool

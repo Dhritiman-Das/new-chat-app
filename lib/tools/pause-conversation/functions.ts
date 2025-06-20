@@ -13,7 +13,6 @@ interface PauseConversationToolContext {
 // Type for config
 interface PauseConversationConfig {
   pauseConditionPrompt?: string;
-  pauseMessage?: string;
 }
 
 // Function that dynamically generates the checkPauseCondition tool based on config
@@ -120,10 +119,6 @@ export const pauseConversation: ToolFunction = {
         triggerMessage,
       });
 
-      // Get config from context
-      const config = (toolContext.config || {}) as PauseConversationConfig;
-      const pauseMessage = config.pauseMessage?.trim() || "";
-
       // Update the conversation to set isPaused to true
       const updatedConversation = await prisma.conversation.update({
         where: { id: conversationId },
@@ -134,39 +129,24 @@ export const pauseConversation: ToolFunction = {
             pausedReason: reason,
             pausedBy: "pause-conversation-tool",
             triggerMessage: triggerMessage || null,
-            shouldSendResponse: pauseMessage.length > 0, // Track if we should send a response
+            shouldSendResponse: false, // Never send a response when pausing
           },
         },
       });
 
       console.log("Conversation paused successfully:", updatedConversation.id);
 
-      // If pauseMessage is empty, signal that no response should be sent
-      if (pauseMessage.length === 0) {
-        return {
-          success: true,
-          message: "", // Empty message
-          data: {
-            conversationId: updatedConversation.id,
-            pausedAt: new Date().toISOString(),
-            reason,
-            pauseMessage: "",
-            shouldSendResponse: false, // Signal to not send any response
-          },
-          skipResponse: true, // Custom flag to indicate no response should be sent
-        };
-      }
-
+      // Always pause without sending any response
       return {
         success: true,
-        message: pauseMessage,
+        message: "", // Empty message
         data: {
           conversationId: updatedConversation.id,
           pausedAt: new Date().toISOString(),
           reason,
-          pauseMessage,
-          shouldSendResponse: true,
+          shouldSendResponse: false, // Never send any response
         },
+        skipResponse: true, // Custom flag to indicate no response should be sent
       };
     } catch (error) {
       console.error("Error pausing conversation:", error);

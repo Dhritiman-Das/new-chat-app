@@ -18,7 +18,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,7 +51,6 @@ const configSchema = z.object({
   pauseConditionPrompt: z.string().min(1, {
     message: "Pause condition prompt is required",
   }),
-  pauseMessage: z.string().optional(),
 });
 
 export default function PauseConversationTool({
@@ -74,7 +73,6 @@ export default function PauseConversationTool({
       pauseConditionPrompt:
         (tool.defaultConfig?.pauseConditionPrompt as string) ||
         "The user wants to end the conversation or talk to a human",
-      pauseMessage: (tool.defaultConfig?.pauseMessage as string) || "",
     },
   });
 
@@ -101,10 +99,6 @@ export default function PauseConversationTool({
               "pauseConditionPrompt",
               data.config.pauseConditionPrompt
             );
-          }
-
-          if (data.config.pauseMessage !== undefined) {
-            form.setValue("pauseMessage", data.config.pauseMessage);
           }
         }
       } catch (error) {
@@ -240,40 +234,6 @@ export default function PauseConversationTool({
 
                     <Separator />
 
-                    <div>
-                      <h3 className="text-md font-medium mb-2">
-                        Pause Response
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Configure the message shown when a conversation is
-                        paused
-                      </p>
-
-                      <FormField
-                        control={form.control}
-                        name="pauseMessage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Pause Message</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Message to show when conversation is paused..."
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              This message will be displayed to users when the
-                              conversation is paused. Leave empty to pause
-                              without sending any response to the user.
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <Separator />
-
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                       <div className="flex items-start space-x-3">
                         <Icons.Warning className="h-5 w-5 text-amber-600 mt-0.5" />
@@ -285,8 +245,9 @@ export default function PauseConversationTool({
                             When this tool is enabled, it automatically checks
                             every user message against your pause conditions. If
                             a match is found, the conversation will be paused
-                            immediately and no further bot responses will be
-                            sent until a human takes over.
+                            immediately without sending any response to the
+                            user, and no further bot responses will be sent
+                            until a human takes over.
                           </p>
                         </div>
                       </div>
