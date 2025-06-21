@@ -40,8 +40,8 @@ const plans: Plan[] = [
     priceMonthly: 49,
     priceYearly: 490, // 2 months free
     features: [
-      "2 agents",
-      "2,000 message credits",
+      "1 agent",
+      "500 message credits",
       "5 website links",
       "Limited Tools",
     ],
@@ -57,7 +57,7 @@ const plans: Plan[] = [
     features: [
       "Everything from Hobby",
       "5 agents",
-      "12,000 message credits",
+      "2,000 message credits",
       "Basic analytics",
       "25 website links",
       "All Tools",
@@ -74,7 +74,7 @@ const plans: Plan[] = [
     features: [
       "Everything from Standard",
       "15 agents",
-      "10,000 message credits",
+      "6,000 message credits",
       "Advanced analytics",
       "100 website links",
       "All Tools",

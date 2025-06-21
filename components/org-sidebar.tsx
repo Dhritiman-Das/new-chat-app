@@ -64,30 +64,35 @@ export function OrgSidebar({
         url: `/dashboard/${orgId}/billing`,
         icon: Icons.Billing,
       },
-      {
-        title: "Access tokens",
-        url: `/dashboard/${orgId}/access-tokens`,
-        icon: Icons.Key,
-      },
-      {
-        title: "Notifications",
-        url: `/dashboard/${orgId}/notifications`,
-        icon: Icons.Bell,
-      },
+      // {
+      //   title: "Access tokens",
+      //   url: `/dashboard/${orgId}/access-tokens`,
+      //   icon: Icons.Key,
+      // },
+      // {
+      //   title: "Notifications",
+      //   url: `/dashboard/${orgId}/notifications`,
+      //   icon: Icons.Bell,
+      // },
     ],
     [orgId]
   );
 
   const documentationItems = useMemo(
     () => [
+      // {
+      //   title: "API Reference",
+      //   url: `/dashboard/api-reference`,
+      //   icon: Icons.ExternalLink,
+      // },
+      // {
+      //   title: "Change log",
+      //   url: `/dashboard/change-log`,
+      //   icon: Icons.ExternalLink,
+      // },
       {
-        title: "API Reference",
-        url: `/dashboard/api-reference`,
-        icon: Icons.ExternalLink,
-      },
-      {
-        title: "Change log",
-        url: `/dashboard/change-log`,
+        title: "Follow us on X",
+        url: "https://x.com/bontidotco",
         icon: Icons.ExternalLink,
       },
     ],

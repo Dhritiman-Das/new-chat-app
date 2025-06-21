@@ -123,7 +123,7 @@ const planLimits = [
     id: "01912345-6789-7abc-def0-234567890ac5",
     planType: PlanType.PRO,
     featureId: "01912345-6789-7abc-def0-123456789abd",
-    value: 10000,
+    value: 6000,
     isUnlimited: false,
   },
   {
