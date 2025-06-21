@@ -98,7 +98,7 @@
     "nextjs-toploader": "^3.8.16",
     "npm": "^11.3.0",
     "nuqs": "^2.4.3",
-    "openai": "^4.94.0",
+    "openai": "^4.104.0",
     "pdf-parse": "1.1.1",
     "pdfjs-dist": "^5.2.133",
     "prisma": "^6.6.0",
