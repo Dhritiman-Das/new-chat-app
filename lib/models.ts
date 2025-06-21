@@ -87,8 +87,7 @@ export const models: Model[] = [
     name: "GPT-4.1",
     provider: "openai",
     providerName: "OpenAI",
-    description:
-      "OpenAI’s latest model, offering improved reasoning and code capabilities.",
+    description: "OpenAI’s latest model, flagship GPT model for complex tasks",
     contextWindow: 128000,
     attributes: ["Pro", "New"],
     isAvailable: true,
@@ -103,9 +102,9 @@ export const models: Model[] = [
     provider: "openai",
     providerName: "OpenAI",
     description:
-      "OpenAI’s latest model, offering improved reasoning and code capabilities.",
+      "OpenAI’s latest model, balanced for intelligence, speed, and cost.",
     contextWindow: 128000,
-    attributes: ["Pro", "New"],
+    attributes: ["Fast", "New"],
     isAvailable: true,
     modelPageUrl: "https://openai.com/api/models/gpt-4.1-mini",
     modelPriceUrl: "https://openai.com/api/pricing",
