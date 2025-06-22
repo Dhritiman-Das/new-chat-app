@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Icons } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -22,6 +23,7 @@ interface ToolInfo {
   type: string;
   integrationType?: string;
   defaultConfig?: Record<string, unknown>;
+  beta?: boolean;
 }
 
 interface InstallToolCardProps {
@@ -74,10 +76,22 @@ export default function InstallToolCard({ tool, botId }: InstallToolCardProps) {
           <div className="p-3 rounded-md bg-muted flex items-center justify-center">
             {iconMap[tool.type] || <Icons.Hammer className="h-10 w-10" />}
           </div>
-          <div>
-            <CardTitle className="text-xl">{tool.name}</CardTitle>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <CardTitle className="text-xl">{tool.name}</CardTitle>
+              {tool.beta && (
+                <Badge
+                  variant="outline"
+                  className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700/50"
+                >
+                  Beta
+                </Badge>
+              )}
+            </div>
             <CardDescription>
-              This tool is available but not installed
+              {tool.beta
+                ? "This tool is in beta and requires access approval"
+                : "This tool is available but not installed"}
             </CardDescription>
           </div>
         </div>
@@ -85,6 +99,30 @@ export default function InstallToolCard({ tool, botId }: InstallToolCardProps) {
       <CardContent className="flex-grow">
         <div className="space-y-4">
           <p className="text-muted-foreground">{tool.description}</p>
+
+          {tool.beta && (
+            <div className="rounded-md bg-amber-50 p-4 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-700/50">
+              <h3 className="font-medium mb-2 flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                <Icons.Warning className="h-4 w-4" />
+                Beta Tool - Access Required
+              </h3>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                This tool is currently in beta testing. To get access, please
+                contact us with your use case and requirements.
+              </p>
+              <div className="flex items-center gap-2 text-sm">
+                <Icons.Mail className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <a
+                  href={`mailto:iamdhritiman01@gmail.com?subject=${encodeURIComponent(
+                    `Beta Access Request for ${tool.name}`
+                  )}`}
+                  className="text-amber-600 dark:text-amber-400 hover:underline"
+                >
+                  iamdhritiman01@gmail.com
+                </a>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-md bg-muted/50 p-4 border border-muted">
             <h3 className="font-medium mb-2 flex items-center gap-2">
@@ -111,23 +149,39 @@ export default function InstallToolCard({ tool, botId }: InstallToolCardProps) {
         </div>
       </CardContent>
       <CardFooter className="pt-4 border-t">
-        <Button
-          onClick={handleInstall}
-          className="w-full"
-          disabled={installing}
-        >
-          {installing ? (
-            <>
-              <Icons.Loader className="mr-2 h-4 w-4 animate-spin" />
-              Installing...
-            </>
-          ) : (
-            <>
-              <Icons.PlusCircle className="mr-2 h-4 w-4" />
-              Install Tool
-            </>
-          )}
-        </Button>
+        {tool.beta ? (
+          <Button asChild variant="outline" className="w-full">
+            <a
+              href={`mailto:iamdhritiman01@gmail.com?subject=${encodeURIComponent(
+                `Beta Access Request for ${tool.name}`
+              )}&body=${encodeURIComponent(
+                `Hi,\n\nI would like to request beta access for the ${tool.name} tool.\n\nMy use case:\n\n\nThank you!`
+              )}`}
+              className="flex items-center justify-center"
+            >
+              <Icons.Mail className="mr-2 h-4 w-4" />
+              Request Beta Access
+            </a>
+          </Button>
+        ) : (
+          <Button
+            onClick={handleInstall}
+            className="w-full"
+            disabled={installing}
+          >
+            {installing ? (
+              <>
+                <Icons.Loader className="mr-2 h-4 w-4 animate-spin" />
+                Installing...
+              </>
+            ) : (
+              <>
+                <Icons.PlusCircle className="mr-2 h-4 w-4" />
+                Install Tool
+              </>
+            )}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

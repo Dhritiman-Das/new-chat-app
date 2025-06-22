@@ -43,4 +43,5 @@ export interface ToolDefinition {
   defaultConfig?: Record<string, unknown>;
   auth?: AuthRequirement; // Authentication requirements
   moreDetailsDialog?: React.ReactNode;
+  beta?: boolean; // Indicates if the tool is in beta status
 }

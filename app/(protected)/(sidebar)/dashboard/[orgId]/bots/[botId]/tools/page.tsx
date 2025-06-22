@@ -159,14 +159,24 @@ export default async function ToolsPage({ params }: PageProps) {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CardTitle className="text-lg">{tool.name}</CardTitle>
-                      {isEnabled && (
-                        <Badge
-                          variant="secondary"
-                          className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 transition-all duration-200 group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/50"
-                        >
-                          In use
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {tool.beta && (
+                          <Badge
+                            variant="outline"
+                            className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700/50"
+                          >
+                            Beta
+                          </Badge>
+                        )}
+                        {isEnabled && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 transition-all duration-200 group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900/50"
+                          >
+                            In use
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="p-1 rounded-md bg-muted">{tool.icon}</div>
                   </div>

@@ -25,6 +25,7 @@ export interface SerializableTool {
   version: string;
   defaultConfig?: Record<string, unknown>;
   functionsMeta: Record<string, { description: string }>;
+  beta?: boolean;
 }
 
 export interface LeadsResponse {

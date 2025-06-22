@@ -84,6 +84,7 @@ interface SerializableTool {
   defaultConfig?: Record<string, unknown>;
   functionsMeta: Record<string, { description: string }>;
   moreDetailsDialog?: React.ReactNode;
+  beta?: boolean;
 }
 
 interface GoogleCalendarToolProps {
