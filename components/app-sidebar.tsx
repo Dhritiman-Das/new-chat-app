@@ -103,6 +103,20 @@ export function AppSidebar({
   const items = getItems(orgId, botId);
   const tools = getTools(orgId, botId);
 
+  // Documentation items
+  const documentationItems = [
+    {
+      title: "Contact us",
+      url: "mailto:iamdhritiman01@gmail.com",
+      icon: Icons.Mail,
+    },
+    {
+      title: "Follow us on X",
+      url: "https://x.com/bontidotco",
+      icon: Icons.ExternalLink,
+    },
+  ];
+
   // Check if a given URL is active
   const isActive = (url: string) => {
     return pathname === url || pathname.startsWith(`${url}/`);
@@ -154,6 +168,37 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               {tools.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    className={cn(
+                      isActive(item.url) &&
+                        "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    <Link href={item.url} prefetch={true}>
+                      <item.icon
+                        className={cn(
+                          "h-4 w-4",
+                          isActive(item.url) && "text-accent-foreground"
+                        )}
+                      />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator className="my-2" />
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Contact</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {documentationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

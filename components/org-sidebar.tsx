@@ -91,6 +91,11 @@ export function OrgSidebar({
       //   icon: Icons.ExternalLink,
       // },
       {
+        title: "Contact us",
+        url: "mailto:iamdhritiman01@gmail.com",
+        icon: Icons.Mail,
+      },
+      {
         title: "Follow us on X",
         url: "https://x.com/bontidotco",
         icon: Icons.ExternalLink,
@@ -203,7 +208,7 @@ export function OrgSidebar({
         <SidebarSeparator className="" />
 
         <SidebarGroup>
-          <SidebarGroupLabel>Documentation</SidebarGroupLabel>
+          <SidebarGroupLabel>Contact</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {documentationItems.map((item) => (

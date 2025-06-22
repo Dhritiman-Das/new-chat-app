@@ -38,6 +38,7 @@ interface SerializableTool {
   functionsMeta: Record<string, { description: string }>;
   auth?: AuthRequirement;
   moreDetailsDialog?: React.ReactNode;
+  beta?: boolean;
 }
 
 interface PageProps {
@@ -126,6 +127,7 @@ export default async function ToolDetailPage({ params }: PageProps) {
     // Include auth requirements
     auth: tool.auth,
     moreDetailsDialog: tool.moreDetailsDialog,
+    beta: tool.beta,
   };
 
   return (

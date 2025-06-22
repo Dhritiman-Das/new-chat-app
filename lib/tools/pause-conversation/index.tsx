@@ -25,4 +25,5 @@ export const pauseConversationTool: ToolDefinition = {
     pauseConditionPrompt:
       "The user wants to end the conversation or talk to a human",
   },
+  beta: true,
 };

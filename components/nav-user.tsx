@@ -117,6 +117,12 @@ export function NavUser({
                   </Link>
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem asChild>
+                <Link href="mailto:iamdhritiman01@gmail.com">
+                  <Icons.Mail />
+                  Support
+                </Link>
+              </DropdownMenuItem>
               {/* <DropdownMenuItem>
                 <Icons.Bell />
                 Notifications

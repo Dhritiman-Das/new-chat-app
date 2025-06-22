@@ -75,6 +75,11 @@ export function UserSidebar({ user, userOrganizations }: OrgSidebarProps) {
       //   icon: Icons.ExternalLink,
       // },
       {
+        title: "Contact us",
+        url: "mailto:iamdhritiman01@gmail.com",
+        icon: Icons.Mail,
+      },
+      {
         title: "Follow us on X",
         url: "https://x.com/bontidotco",
         icon: Icons.ExternalLink,
@@ -181,7 +186,7 @@ export function UserSidebar({ user, userOrganizations }: OrgSidebarProps) {
         <SidebarSeparator className="" />
 
         <SidebarGroup>
-          <SidebarGroupLabel>Documentation</SidebarGroupLabel>
+          <SidebarGroupLabel>Contact</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {documentationItems.map((item) => (
