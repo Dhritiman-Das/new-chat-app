@@ -115,6 +115,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true });
       }
 
+      // Check for access code if configured
+      if (config.globalSettings?.accessCode) {
+        const accessCode = config.globalSettings.accessCode.trim();
+        const messageContent = String(body.messageBody || body.body || "");
+
+        // If access code is configured but not found in message, skip processing
+        if (!messageContent.includes(accessCode)) {
+          console.log(
+            `Access code "${accessCode}" not found in message, skipping processing`
+          );
+          return NextResponse.json({ success: true });
+        }
+      }
+
       // Check if we need to ignore conversations with kill_switch tag
       if (config.globalSettings?.checkKillSwitch) {
         // The actual check will be done in the message handler

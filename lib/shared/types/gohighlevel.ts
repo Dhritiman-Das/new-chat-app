@@ -35,6 +35,7 @@ export interface GoHighLevelChannel {
 export interface GoHighLevelGlobalSettings {
   checkKillSwitch?: boolean;
   defaultResponseTime?: string;
+  accessCode?: string; // Optional access code to filter messages
   [key: string]: unknown;
 }
 
