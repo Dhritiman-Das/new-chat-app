@@ -16,6 +16,7 @@ import { BackButton } from "@/components/back-button";
 import { deploymentLogos } from "@/lib/bot-deployments";
 import { getGoHighLevelIntegrations } from "../utils";
 import { GoHighLevelChannelList } from "@/components/gohighlevel/gohighlevel-channel-list";
+import { GoHighLevelAccessCodeForm } from "@/components/gohighlevel/gohighlevel-access-code-form";
 import {
   Card,
   CardContent,
@@ -73,6 +74,10 @@ export default async function GoHighLevelSettingsPage({ params }: PageProps) {
 
   // Get channel information from deployment config
   const channels = integration?.deployment?.config.channels || [];
+
+  // Get current access code from global settings
+  const currentAccessCode =
+    integration?.deployment?.config.globalSettings?.accessCode || "";
 
   return (
     <div className="flex flex-col h-full">
@@ -176,6 +181,12 @@ export default async function GoHighLevelSettingsPage({ params }: PageProps) {
                 />
               </CardContent>
             </Card>
+
+            <GoHighLevelAccessCodeForm
+              integrationId={integration.id}
+              deploymentId={integration.deployment?.id}
+              currentAccessCode={currentAccessCode}
+            />
 
             {/* Additional settings can be added here in the future */}
           </div>

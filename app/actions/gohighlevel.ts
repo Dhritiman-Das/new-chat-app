@@ -57,6 +57,13 @@ const fetchCalendarsSchema = z.object({
   credentialId: z.string(),
 });
 
+// Schema for updating GoHighLevel access code
+const updateAccessCodeSchema = z.object({
+  integrationId: z.string(),
+  deploymentId: z.string().optional(),
+  accessCode: z.string().optional(),
+});
+
 // Initialize GoHighLevel connection
 export const initiateGoHighLevelConnection = action
   .schema(initiateConnectionSchema)
@@ -399,6 +406,100 @@ export const fetchGoHighLevelCalendars = action
     }
   });
 
-/**
- * Fetch GoHighLevel
- */
+// Update GoHighLevel access code
+export const updateGoHighLevelAccessCode = action
+  .schema(updateAccessCodeSchema)
+  .action(async ({ parsedInput }): Promise<ActionResponse> => {
+    try {
+      const session = await auth();
+      const { integrationId, deploymentId, accessCode } = parsedInput;
+
+      if (!session?.user?.id) {
+        return {
+          success: false,
+          error: {
+            code: "NOT_AUTHENTICATED",
+            message: "Not authenticated",
+          },
+        };
+      }
+
+      const integration = await prisma.integration.findUnique({
+        where: { id: integrationId },
+        include: {
+          bot: true,
+          deployments: {
+            where: {
+              type: DeploymentType.GOHIGHLEVEL,
+            },
+          },
+        },
+      });
+
+      if (!integration) {
+        return {
+          success: false,
+          error: {
+            code: "INTEGRATION_NOT_FOUND",
+            message: "Integration not found",
+          },
+        };
+      }
+
+      // Get the existing deployment
+      const deployment = integration.deployments[0];
+      if (!deployment) {
+        return {
+          success: false,
+          error: {
+            code: "DEPLOYMENT_NOT_FOUND",
+            message: "Deployment not found",
+          },
+        };
+      }
+
+      // Get current config and update global settings
+      const currentConfig = deployment.config as unknown as {
+        locationId: string;
+        channels: unknown[];
+        globalSettings?: Record<string, unknown>;
+      };
+
+      const updatedConfig = {
+        ...currentConfig,
+        globalSettings: {
+          ...currentConfig.globalSettings,
+          accessCode: accessCode?.trim() || undefined,
+        },
+      };
+
+      // Update deployment with new access code
+      const updatedDeployment = await prisma.deployment.update({
+        where: {
+          id: deploymentId || deployment.id,
+        },
+        data: {
+          config: updatedConfig as unknown as Prisma.InputJsonValue,
+        },
+      });
+
+      // Revalidate paths to reflect changes
+      revalidatePath(
+        `/dashboard/${integration.bot.organizationId}/bots/${integration.botId}/deployments/gohighlevel/settings`
+      );
+
+      return {
+        success: true,
+        data: { deployment: updatedDeployment },
+      };
+    } catch (error) {
+      console.error("Error updating GoHighLevel access code:", error);
+      return {
+        success: false,
+        error: {
+          code: "FAILED_TO_UPDATE_ACCESS_CODE",
+          message: "Failed to update GoHighLevel access code",
+        },
+      };
+    }
+  });
