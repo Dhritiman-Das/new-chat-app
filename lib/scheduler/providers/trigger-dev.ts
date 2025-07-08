@@ -147,8 +147,8 @@ export class TriggerDevSchedulerService extends SchedulerService {
               const scheduleInfoStr = await redis.get(
                 `${this.REDIS_KEY_PREFIX}${id}`
               );
-              return scheduleInfoStr && typeof scheduleInfoStr === "string"
-                ? (JSON.parse(scheduleInfoStr) as ScheduleInfo)
+              return scheduleInfoStr && typeof scheduleInfoStr === "object"
+                ? (scheduleInfoStr as ScheduleInfo)
                 : null;
             })
         );

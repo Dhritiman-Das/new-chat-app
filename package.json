@@ -15,7 +15,9 @@
     "db:reset": "prisma migrate reset --force",
     "db:seed-dev": "prisma migrate reset --force && npx tsx prisma/seed.ts",
     "seed": "SKIP_ENV_VALIDATION=true npx tsx prisma/seed.ts",
-    "seed:simple": "npx tsx prisma/seed.ts"
+    "seed:simple": "npx tsx prisma/seed.ts",
+    "trigger:dev": "npx trigger.dev@latest dev",
+    "deploy:trigger-prod": "npx trigger.dev@3.0.0 deploy"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.12",

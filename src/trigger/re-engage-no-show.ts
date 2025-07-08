@@ -41,10 +41,6 @@ export const reEngageNoShowTask = task({
       deploymentId,
       scheduleId: __scheduleId,
       provider: "gohighlevel", // This is specifically for GoHighLevel
-      hasDatabaseUrl: !!process.env.DATABASE_URL,
-      hasDirectUrl: !!process.env.DIRECT_URL,
-      nodeEnv: process.env.NODE_ENV,
-      databaseUrlPrefix: process.env.DATABASE_URL?.substring(0, 20) + "...",
     });
 
     try {
