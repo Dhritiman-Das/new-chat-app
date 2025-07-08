@@ -36,6 +36,13 @@ export interface GoHighLevelGlobalSettings {
   checkKillSwitch?: boolean;
   defaultResponseTime?: string;
   accessCode?: string; // Optional access code to filter messages
+  reEngage?: {
+    enabled: boolean;
+    noShowTag: string; // Default: "no-show"
+    timeLimit: string; // e.g., "1h", "30m", "2d" - when to re-engage after tag is added
+    manualMessage?: string; // If empty, bot will auto-generate
+    type: "no_show" | "unresponsive_message"; // Extensible for future types
+  };
   [key: string]: unknown;
 }
 
@@ -79,6 +86,39 @@ export interface GoHighLevelWebhookPayload {
   timestamp?: string;
   webhookId?: string; // For webhook validation
   tags?: Array<{ name: string }>;
+  [key: string]: unknown;
+}
+
+/**
+ * Contact Tag Update webhook payload structure
+ */
+export interface GoHighLevelContactTagUpdatePayload {
+  type: "ContactTagUpdate";
+  locationId: string;
+  id: string; // Contact ID
+  address1?: string;
+  city?: string;
+  state?: string;
+  companyName?: string;
+  country?: string;
+  source?: string;
+  dateAdded: string;
+  dateOfBirth?: string;
+  dnd?: boolean;
+  email?: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  postalCode?: string;
+  tags: string[]; // Array of tag names
+  website?: string;
+  attachments?: unknown[];
+  assignedTo?: string;
+  customFields?: Array<{
+    id: string;
+    value: string;
+  }>;
   [key: string]: unknown;
 }
 

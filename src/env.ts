@@ -31,6 +31,9 @@ export const env = createEnv({
     // Resend
     RESEND_API_KEY: z.string().min(1),
 
+    // Trigger.dev
+    TRIGGER_SECRET_KEY: z.string().min(1),
+
     // Payment
     PAYMENT_PROVIDER: z.string().default("dodo"),
     DODO_PAYMENTS_API_KEY: z.string().min(1),
