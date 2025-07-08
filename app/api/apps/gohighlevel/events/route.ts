@@ -4,13 +4,259 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   GoHighLevelWebhookPayload,
   GoHighLevelDeploymentConfig,
+  GoHighLevelContactTagUpdatePayload,
 } from "@/lib/shared/types/gohighlevel";
 import { $Enums } from "@/lib/generated/prisma";
 import { redis } from "@/lib/db/kv";
 import { TokenContext } from "@/lib/auth/types";
 import { verifyWebhookSignature } from "@/lib/auth/services/webhook-verification";
+import { getSchedulerService } from "@/lib/scheduler";
+import { processChatRequest } from "@/app/actions/ai/chat/process";
+import { CoreMessage } from "ai";
 
 const MAX_ALLOWED_TIME_DIFF_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_MESSAGE_CONTEXT_LENGTH = 5;
+const DEFAULT_RE_ENGAGEMENT_MESSAGE =
+  "Hi! I noticed you missed your appointment. Would you like to reschedule?";
+
+/**
+ * Generate an AI-powered re-engagement message using recent conversation context
+ */
+async function generateReEngagementMessage(
+  contactId: string,
+  locationId: string,
+  tokenContext: TokenContext,
+  bot: {
+    id: string;
+    defaultModelId?: string | null;
+    userId: string;
+    organizationId: string;
+  },
+  noShowTag: string
+): Promise<string> {
+  try {
+    // Import and create GoHighLevel client
+    const { createGoHighLevelClient } = await import(
+      "@/lib/auth/clients/gohighlevel/index"
+    );
+    const ghlClient = await createGoHighLevelClient(tokenContext, locationId);
+
+    // Get recent conversations for the contact
+    const conversations = await ghlClient.messaging.searchConversations({
+      contactId,
+      limit: 1,
+      sortBy: "last_message_date",
+      sort: "desc",
+    });
+
+    if (conversations.conversations.length === 0) {
+      console.log("No conversations found for contact, using fallback message");
+      return DEFAULT_RE_ENGAGEMENT_MESSAGE;
+    }
+
+    // Get recent messages from the most recent conversation
+    const recentConversation = conversations.conversations[0];
+    const messages = await ghlClient.messaging.getMessages(
+      recentConversation.id,
+      10,
+      0
+    );
+
+    if (!messages || messages.length === 0) {
+      console.log("No messages found in conversation, using fallback message");
+      return DEFAULT_RE_ENGAGEMENT_MESSAGE;
+    }
+
+    // Convert messages to AI format
+    const aiMessages: CoreMessage[] = [];
+    console.log("Messages:", messages);
+    // Add recent messages as context (limit to last 5 to avoid token limits)
+    const recentMessages = messages
+      .slice(-MAX_MESSAGE_CONTEXT_LENGTH)
+      .filter((msg: { body?: string }) => msg.body && msg.body.trim())
+      .map((msg: { direction: string; body: string }) => ({
+        role:
+          msg.direction === "inbound"
+            ? ("user" as const)
+            : ("assistant" as const),
+        content: msg.body || "",
+      }));
+
+    if (recentMessages.length > 0) {
+      aiMessages.push(...recentMessages);
+    }
+
+    // Add a final user message to prompt the AI with system context
+    aiMessages.push({
+      role: "user" as const,
+      content: `Based on our conversation history, generate a re-engagement message for a customer who was tagged with "${noShowTag}" indicating they missed their appointment. The message should be:
+- Friendly and understanding
+- Reference their missed appointment naturally
+- Offer to help reschedule
+- Keep it concise (1-2 sentences)
+- Match the tone of our previous conversation
+
+Generate the re-engagement message now:`,
+    });
+
+    // Process through AI
+    const result = await processChatRequest({
+      messages: aiMessages,
+      modelId: bot.defaultModelId || "gpt-4o",
+      botId: bot.id,
+      userId: bot.userId,
+      organizationId: bot.organizationId,
+      source: "webhook",
+      useStreaming: false,
+    });
+
+    if (result.text && result.text.trim()) {
+      console.log("Generated AI re-engagement message:", result.text);
+      return result.text.trim();
+    }
+
+    // Fallback if AI didn't generate a proper response
+    console.log("AI did not generate a valid message, using fallback");
+    return DEFAULT_RE_ENGAGEMENT_MESSAGE;
+  } catch (error) {
+    console.error("Error generating AI re-engagement message:", error);
+    // Always fallback to a safe message if anything goes wrong
+    return DEFAULT_RE_ENGAGEMENT_MESSAGE;
+  }
+}
+
+/**
+ * Handle ContactTagUpdate webhook events
+ */
+async function handleContactTagUpdate(
+  body: GoHighLevelContactTagUpdatePayload
+) {
+  try {
+    const { locationId, id, tags } = body;
+
+    // Find integration for this location
+    const integration = await prisma.integration.findFirst({
+      where: {
+        provider: "gohighlevel",
+        metadata: {
+          path: ["locationId"],
+          equals: locationId,
+        },
+      },
+      include: {
+        credential: true,
+        bot: true,
+        deployments: {
+          where: {
+            type: $Enums.DeploymentType.GOHIGHLEVEL,
+          },
+        },
+      },
+    });
+
+    if (!integration || !integration.credential) {
+      console.error(
+        "No integration found for GoHighLevel location",
+        locationId
+      );
+      return NextResponse.json(
+        { error: "Integration not found" },
+        { status: 404 }
+      );
+    }
+
+    const deployment = integration.deployments[0];
+    if (!deployment) {
+      console.log("No deployment found for integration");
+      return NextResponse.json({ success: true });
+    }
+
+    const config = deployment.config as unknown as GoHighLevelDeploymentConfig;
+    const reEngageSettings = config.globalSettings?.reEngage;
+
+    if (!reEngageSettings?.enabled) {
+      console.log("Re-engagement not enabled for this deployment");
+      return NextResponse.json({ success: true });
+    }
+
+    const { noShowTag, timeLimit, manualMessage } = reEngageSettings;
+    const hasNoShowTag = tags.includes(noShowTag as string);
+    const schedulerService = getSchedulerService();
+
+    // Check if contact currently has a scheduled re-engagement for this provider
+    const existingSchedules = await schedulerService.listSchedules(
+      id,
+      "gohighlevel"
+    );
+    const hasExistingSchedule = existingSchedules.some(
+      (schedule) => schedule.metadata?.triggerType === "no_show"
+    );
+
+    if (hasNoShowTag && !hasExistingSchedule) {
+      // Contact tagged as no-show, schedule re-engagement
+      let message = manualMessage as string;
+
+      // If no manual message is provided, generate one using AI
+      if (!message || message.trim() === "") {
+        const tokenContext: TokenContext = {
+          userId: integration.userId,
+          provider: "gohighlevel",
+          credentialId: integration.credential.id,
+        };
+
+        message = await generateReEngagementMessage(
+          id,
+          locationId,
+          tokenContext,
+          {
+            id: integration.bot.id,
+            defaultModelId: integration.bot.defaultModelId,
+            userId: integration.bot.userId,
+            organizationId: integration.bot.organizationId,
+          },
+          noShowTag as string
+        );
+      }
+
+      await schedulerService.scheduleTask({
+        taskId: "re-engage-no-show",
+        delay: timeLimit as string,
+        payload: {
+          contactId: id,
+          locationId,
+          deploymentId: deployment.id,
+          message,
+          noShowTag,
+        },
+        metadata: {
+          contactId: id,
+          locationId,
+          provider: "gohighlevel",
+          triggerType: "no_show" as const,
+        },
+      });
+
+      console.log("Scheduled re-engagement task for contact", id);
+    } else if (!hasNoShowTag && hasExistingSchedule) {
+      // Contact no longer has no-show tag, cancel scheduled re-engagement
+      await schedulerService.cancelSchedule({
+        contactId: id,
+        provider: "gohighlevel",
+        triggerType: "no_show",
+      });
+
+      console.log("Cancelled re-engagement task for contact", id);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error handling ContactTagUpdate:", error);
+    return NextResponse.json(
+      { error: "Failed to process ContactTagUpdate" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,6 +285,13 @@ export async function POST(request: NextRequest) {
         console.error("Webhook timestamp too old");
         return NextResponse.json({ error: "Request too old" }, { status: 400 });
       }
+    }
+
+    // Handle different event types
+    if (body.type === "ContactTagUpdate") {
+      return await handleContactTagUpdate(
+        body as unknown as GoHighLevelContactTagUpdatePayload
+      );
     }
 
     // Skip requests if they're not inbound messages

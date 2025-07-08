@@ -64,6 +64,18 @@ const updateAccessCodeSchema = z.object({
   accessCode: z.string().optional(),
 });
 
+// Schema for updating GoHighLevel re-engagement settings
+const updateReEngageSettingsSchema = z.object({
+  deploymentId: z.string(),
+  settings: z.object({
+    enabled: z.boolean(),
+    noShowTag: z.string(),
+    timeLimit: z.string(),
+    manualMessage: z.string().optional(),
+    type: z.literal("no_show"),
+  }),
+});
+
 // Initialize GoHighLevel connection
 export const initiateGoHighLevelConnection = action
   .schema(initiateConnectionSchema)
@@ -499,6 +511,113 @@ export const updateGoHighLevelAccessCode = action
         error: {
           code: "FAILED_TO_UPDATE_ACCESS_CODE",
           message: "Failed to update GoHighLevel access code",
+        },
+      };
+    }
+  });
+
+// Update GoHighLevel re-engagement settings
+export const updateGoHighLevelReEngageSettings = action
+  .schema(updateReEngageSettingsSchema)
+  .action(async ({ parsedInput }): Promise<ActionResponse> => {
+    try {
+      const session = await auth();
+      const { deploymentId, settings } = parsedInput;
+
+      if (!session?.user?.id) {
+        return {
+          success: false,
+          error: {
+            code: "NOT_AUTHENTICATED",
+            message: "Not authenticated",
+          },
+        };
+      }
+
+      // Get the deployment
+      const deployment = await prisma.deployment.findUnique({
+        where: { id: deploymentId },
+        include: {
+          bot: true,
+        },
+      });
+
+      if (!deployment) {
+        return {
+          success: false,
+          error: {
+            code: "DEPLOYMENT_NOT_FOUND",
+            message: "Deployment not found",
+          },
+        };
+      }
+
+      // Verify user has access to this deployment
+      if (deployment.bot.userId !== session.user.id) {
+        return {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "You don't have permission to update this deployment",
+          },
+        };
+      }
+
+      // Get current config and update re-engagement settings
+      const currentConfig = deployment.config as unknown as {
+        locationId: string;
+        channels: unknown[];
+        globalSettings?: {
+          accessCode?: string;
+          checkKillSwitch?: boolean;
+          defaultResponseTime?: string;
+          reEngage?: {
+            enabled: boolean;
+            noShowTag: string;
+            timeLimit: string;
+            manualMessage?: string;
+            type: string;
+          };
+        };
+      };
+
+      const updatedConfig = {
+        ...currentConfig,
+        globalSettings: {
+          ...currentConfig.globalSettings,
+          reEngage: settings,
+        },
+      };
+
+      // Update deployment with new re-engagement settings
+      const updatedDeployment = await prisma.deployment.update({
+        where: {
+          id: deploymentId,
+        },
+        data: {
+          config: updatedConfig as unknown as Prisma.InputJsonValue,
+        },
+      });
+
+      // Revalidate paths to reflect changes
+      revalidatePath(
+        `/dashboard/${deployment.bot.organizationId}/bots/${deployment.botId}/deployments/gohighlevel/settings`
+      );
+
+      return {
+        success: true,
+        data: { deployment: updatedDeployment },
+      };
+    } catch (error) {
+      console.error(
+        "Error updating GoHighLevel re-engagement settings:",
+        error
+      );
+      return {
+        success: false,
+        error: {
+          code: "FAILED_TO_UPDATE_RE_ENGAGE_SETTINGS",
+          message: "Failed to update GoHighLevel re-engagement settings",
         },
       };
     }
