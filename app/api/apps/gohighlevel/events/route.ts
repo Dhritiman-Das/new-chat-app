@@ -32,7 +32,8 @@ async function generateReEngagementMessage(
     userId: string;
     organizationId: string;
   },
-  noShowTag: string
+  triggerTag: string,
+  customPrompt?: string
 ): Promise<string> {
   try {
     // Import and create GoHighLevel client
@@ -87,16 +88,23 @@ async function generateReEngagementMessage(
     }
 
     // Add a final user message to prompt the AI with system context
-    aiMessages.push({
-      role: "user" as const,
-      content: `Based on our conversation history, generate a re-engagement message for a customer who was tagged with "${noShowTag}" indicating they missed their appointment. The message should be:
+    const defaultPrompt = `Based on our conversation history, generate a re-engagement message for a customer who was tagged with "${triggerTag}". The message should be:
 - Friendly and understanding
-- Reference their missed appointment naturally
-- Offer to help reschedule
+- Reference the situation naturally
+- Offer appropriate help or next steps
 - Keep it concise (1-2 sentences)
 - Match the tone of our previous conversation
 
-Generate the re-engagement message now:`,
+Generate the re-engagement message now:`;
+
+    const promptToUse =
+      customPrompt && customPrompt.trim()
+        ? `${customPrompt}\n\nBased on our conversation history and the above instructions, generate an appropriate re-engagement message for a customer who was tagged with "${triggerTag}".`
+        : defaultPrompt;
+
+    aiMessages.push({
+      role: "user" as const,
+      content: promptToUse,
     });
 
     // Process through AI
@@ -172,80 +180,102 @@ async function handleContactTagUpdate(
     }
 
     const config = deployment.config as unknown as GoHighLevelDeploymentConfig;
-    const reEngageSettings = config.globalSettings?.reEngage;
+    const followUpSituations = config.globalSettings?.followUpSituations || [];
 
-    if (!reEngageSettings?.enabled) {
-      console.log("Re-engagement not enabled for this deployment");
+    if (followUpSituations.length === 0) {
+      console.log("No follow-up situations configured for this deployment");
       return NextResponse.json({ success: true });
     }
 
-    const { noShowTag, timeLimit, manualMessage } = reEngageSettings;
-    const hasNoShowTag = tags.includes(noShowTag as string);
     const schedulerService = getSchedulerService();
 
-    // Check if contact currently has a scheduled re-engagement for this provider
-    const existingSchedules = await schedulerService.listSchedules(
-      id,
-      "gohighlevel"
-    );
-    const hasExistingSchedule = existingSchedules.some(
-      (schedule) => schedule.metadata?.triggerType === "no_show"
-    );
+    // Process each follow-up situation
+    for (const situation of followUpSituations) {
+      if (!situation.enabled) continue;
 
-    if (hasNoShowTag && !hasExistingSchedule) {
-      // Contact tagged as no-show, schedule re-engagement
-      let message = manualMessage as string;
+      const hasTag = tags.includes(situation.tag);
 
-      // If no manual message is provided, generate one using AI
-      if (!message || message.trim() === "") {
-        const tokenContext: TokenContext = {
-          userId: integration.userId,
-          provider: "gohighlevel",
-          credentialId: integration.credential.id,
-        };
+      // Check if contact currently has a scheduled follow-up for this specific situation
+      const existingSchedules = await schedulerService.listSchedules(
+        id,
+        "gohighlevel"
+      );
+      const hasExistingSchedule = existingSchedules.some(
+        (schedule) =>
+          schedule.metadata?.triggerType === "follow_up" &&
+          schedule.metadata?.situationId === situation.id
+      );
 
-        message = await generateReEngagementMessage(
-          id,
-          locationId,
-          tokenContext,
-          {
-            id: integration.bot.id,
-            defaultModelId: integration.bot.defaultModelId,
-            userId: integration.bot.userId,
-            organizationId: integration.bot.organizationId,
+      if (hasTag && !hasExistingSchedule) {
+        // Contact tagged with this situation's tag, schedule follow-up
+        let message = "";
+
+        if (situation.messageType === "manual" && situation.manualMessage) {
+          message = situation.manualMessage;
+        } else {
+          // Generate AI message using custom prompt if provided
+          const tokenContext: TokenContext = {
+            userId: integration.userId,
+            provider: "gohighlevel",
+            credentialId: integration.credential.id,
+          };
+
+          message = await generateReEngagementMessage(
+            id,
+            locationId,
+            tokenContext,
+            {
+              id: integration.bot.id,
+              defaultModelId: integration.bot.defaultModelId,
+              userId: integration.bot.userId,
+              organizationId: integration.bot.organizationId,
+            },
+            situation.tag,
+            situation.customPrompt
+          );
+        }
+
+        await schedulerService.scheduleTask({
+          taskId: "re-engage-follow-up",
+          delay: situation.timeLimit,
+          payload: {
+            contactId: id,
+            locationId,
+            deploymentId: deployment.id,
+            message,
+            situationId: situation.id,
+            situationTag: situation.tag,
           },
-          noShowTag as string
+          metadata: {
+            contactId: id,
+            locationId,
+            provider: "gohighlevel",
+            triggerType: "follow_up" as const,
+            situationId: situation.id,
+          },
+        });
+
+        console.log(
+          "Scheduled follow-up task for contact",
+          id,
+          "situation",
+          situation.name
+        );
+      } else if (!hasTag && hasExistingSchedule) {
+        // Contact no longer has this situation's tag, cancel scheduled follow-up
+        await schedulerService.cancelSchedule({
+          contactId: id,
+          provider: "gohighlevel",
+          triggerType: "follow_up",
+        });
+
+        console.log(
+          "Cancelled follow-up task for contact",
+          id,
+          "situation",
+          situation.name
         );
       }
-
-      await schedulerService.scheduleTask({
-        taskId: "re-engage-no-show",
-        delay: timeLimit as string,
-        payload: {
-          contactId: id,
-          locationId,
-          deploymentId: deployment.id,
-          message,
-          noShowTag,
-        },
-        metadata: {
-          contactId: id,
-          locationId,
-          provider: "gohighlevel",
-          triggerType: "no_show" as const,
-        },
-      });
-
-      console.log("Scheduled re-engagement task for contact", id);
-    } else if (!hasNoShowTag && hasExistingSchedule) {
-      // Contact no longer has no-show tag, cancel scheduled re-engagement
-      await schedulerService.cancelSchedule({
-        contactId: id,
-        provider: "gohighlevel",
-        triggerType: "no_show",
-      });
-
-      console.log("Cancelled re-engagement task for contact", id);
     }
 
     return NextResponse.json({ success: true });

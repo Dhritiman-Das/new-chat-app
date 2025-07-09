@@ -17,7 +17,7 @@ import { deploymentLogos } from "@/lib/bot-deployments";
 import { getGoHighLevelIntegrations } from "../utils";
 import { GoHighLevelChannelList } from "@/components/gohighlevel/gohighlevel-channel-list";
 import { GoHighLevelAccessCodeForm } from "@/components/gohighlevel/gohighlevel-access-code-form";
-import { GoHighLevelReEngageSettings } from "@/components/gohighlevel/gohighlevel-re-engage-settings";
+import { GoHighLevelFollowUpSituations } from "@/components/gohighlevel/gohighlevel-follow-up-situations";
 import {
   Card,
   CardContent,
@@ -80,9 +80,9 @@ export default async function GoHighLevelSettingsPage({ params }: PageProps) {
   const currentAccessCode =
     integration?.deployment?.config.globalSettings?.accessCode || "";
 
-  // Get current re-engagement settings from global settings
-  const currentReEngageSettings =
-    integration?.deployment?.config.globalSettings?.reEngage;
+  // Get current follow-up situations from global settings
+  const currentFollowUpSituations =
+    integration?.deployment?.config.globalSettings?.followUpSituations || [];
 
   return (
     <div className="flex flex-col h-full">
@@ -193,9 +193,9 @@ export default async function GoHighLevelSettingsPage({ params }: PageProps) {
               currentAccessCode={currentAccessCode}
             />
 
-            <GoHighLevelReEngageSettings
+            <GoHighLevelFollowUpSituations
               deploymentId={integration.deployment?.id}
-              currentSettings={currentReEngageSettings}
+              currentSituations={currentFollowUpSituations}
             />
 
             {/* Additional settings can be added here in the future */}

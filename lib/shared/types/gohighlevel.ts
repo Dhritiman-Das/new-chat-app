@@ -30,19 +30,27 @@ export interface GoHighLevelChannel {
 }
 
 /**
+ * Follow-up situation configuration
+ */
+export interface GoHighLevelFollowUpSituation {
+  id: string; // Unique identifier for the situation
+  enabled: boolean;
+  name: string; // Display name for the situation (e.g., "No-Show Follow Up", "Unresponsive Customer")
+  tag: string; // The tag that triggers this follow-up
+  timeLimit: string; // e.g., "1h", "30m", "2d" - when to follow up after tag is added
+  messageType: "manual" | "ai_generated"; // Whether to use manual message or AI-generated
+  manualMessage?: string; // Fixed message to send (used when messageType is "manual")
+  customPrompt?: string; // Custom prompt for AI generation (used when messageType is "ai_generated")
+}
+
+/**
  * Global settings for the deployment
  */
 export interface GoHighLevelGlobalSettings {
   checkKillSwitch?: boolean;
   defaultResponseTime?: string;
   accessCode?: string; // Optional access code to filter messages
-  reEngage?: {
-    enabled: boolean;
-    noShowTag: string; // Default: "no-show"
-    timeLimit: string; // e.g., "1h", "30m", "2d" - when to re-engage after tag is added
-    manualMessage?: string; // If empty, bot will auto-generate
-    type: "no_show" | "unresponsive_message"; // Extensible for future types
-  };
+  followUpSituations?: GoHighLevelFollowUpSituation[]; // Array of follow-up situations
   [key: string]: unknown;
 }
 
