@@ -64,16 +64,21 @@ const updateAccessCodeSchema = z.object({
   accessCode: z.string().optional(),
 });
 
-// Schema for updating GoHighLevel re-engagement settings
-const updateReEngageSettingsSchema = z.object({
+// Schema for updating GoHighLevel follow-up situations
+const updateFollowUpSituationsSchema = z.object({
   deploymentId: z.string(),
-  settings: z.object({
-    enabled: z.boolean(),
-    noShowTag: z.string(),
-    timeLimit: z.string(),
-    manualMessage: z.string().optional(),
-    type: z.literal("no_show"),
-  }),
+  situations: z.array(
+    z.object({
+      id: z.string(),
+      enabled: z.boolean(),
+      name: z.string(),
+      tag: z.string(),
+      timeLimit: z.string(),
+      messageType: z.enum(["manual", "ai_generated"]),
+      manualMessage: z.string().optional(),
+      customPrompt: z.string().optional(),
+    })
+  ),
 });
 
 // Initialize GoHighLevel connection
@@ -516,13 +521,13 @@ export const updateGoHighLevelAccessCode = action
     }
   });
 
-// Update GoHighLevel re-engagement settings
-export const updateGoHighLevelReEngageSettings = action
-  .schema(updateReEngageSettingsSchema)
+// Update GoHighLevel follow-up situations
+export const updateGoHighLevelFollowUpSituations = action
+  .schema(updateFollowUpSituationsSchema)
   .action(async ({ parsedInput }): Promise<ActionResponse> => {
     try {
       const session = await auth();
-      const { deploymentId, settings } = parsedInput;
+      const { deploymentId, situations } = parsedInput;
 
       if (!session?.user?.id) {
         return {
@@ -563,7 +568,7 @@ export const updateGoHighLevelReEngageSettings = action
         };
       }
 
-      // Get current config and update re-engagement settings
+      // Get current config and update follow-up situations
       const currentConfig = deployment.config as unknown as {
         locationId: string;
         channels: unknown[];
@@ -571,13 +576,7 @@ export const updateGoHighLevelReEngageSettings = action
           accessCode?: string;
           checkKillSwitch?: boolean;
           defaultResponseTime?: string;
-          reEngage?: {
-            enabled: boolean;
-            noShowTag: string;
-            timeLimit: string;
-            manualMessage?: string;
-            type: string;
-          };
+          followUpSituations?: unknown[];
         };
       };
 
@@ -585,11 +584,11 @@ export const updateGoHighLevelReEngageSettings = action
         ...currentConfig,
         globalSettings: {
           ...currentConfig.globalSettings,
-          reEngage: settings,
+          followUpSituations: situations,
         },
       };
 
-      // Update deployment with new re-engagement settings
+      // Update deployment with new follow-up situations
       const updatedDeployment = await prisma.deployment.update({
         where: {
           id: deploymentId,
@@ -609,15 +608,12 @@ export const updateGoHighLevelReEngageSettings = action
         data: { deployment: updatedDeployment },
       };
     } catch (error) {
-      console.error(
-        "Error updating GoHighLevel re-engagement settings:",
-        error
-      );
+      console.error("Error updating GoHighLevel follow-up situations:", error);
       return {
         success: false,
         error: {
-          code: "FAILED_TO_UPDATE_RE_ENGAGE_SETTINGS",
-          message: "Failed to update GoHighLevel re-engagement settings",
+          code: "FAILED_TO_UPDATE_FOLLOW_UP_SITUATIONS",
+          message: "Failed to update GoHighLevel follow-up situations",
         },
       };
     }

@@ -47,18 +47,47 @@ export async function createGoHighLevelClient(
   context: TokenContext,
   locationId?: string
 ): Promise<GoHighLevelClient> {
-  // Fetch the provider and credentials directly to avoid recursion
-  const { getProvider } = await import("../../provider-registry");
-  const provider = await getProvider<
-    import("../../types").GoHighLevelCredentials
-  >("gohighlevel");
-  const { getCredentials } = await import("../../utils/store");
-  const credentials = await getCredentials(context);
+  try {
+    // Get the provider and handle credentials with refresh logic
+    const { getProvider } = await import("../../provider-registry");
+    const provider = await getProvider<
+      import("../../types").GoHighLevelCredentials
+    >("gohighlevel");
 
-  // Create the raw axios client using the provider's createClient
-  const axiosClient = (await provider.createClient(
-    credentials
-  )) as AxiosInstance;
+    const { getCredentials, updateCredentials } = await import(
+      "../../utils/store"
+    );
+    const { needsRefresh } = await import("../../utils/validate");
 
-  return new GoHighLevelClient(axiosClient, locationId);
+    let credentials = await getCredentials(context);
+
+    // Handle token refresh if needed
+    if (credentials.refresh_token && needsRefresh(credentials)) {
+      const refreshedCredentials = await provider.refreshToken(
+        credentials.refresh_token
+      );
+
+      // Update stored credentials
+      await updateCredentials(context, {
+        ...credentials,
+        ...refreshedCredentials,
+      });
+
+      // Use refreshed credentials
+      credentials = {
+        ...credentials,
+        ...refreshedCredentials,
+      };
+    }
+
+    // Create the raw axios client using the provider's createClient
+    const axiosClient = (await provider.createClient(
+      credentials
+    )) as AxiosInstance;
+
+    return new GoHighLevelClient(axiosClient, locationId);
+  } catch (error) {
+    console.error("Error creating GoHighLevel client:", error);
+    throw error;
+  }
 }
