@@ -1,0 +1,53 @@
+version: 2.1
+
+jobs:
+  deploy-trigger:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Deploy to Trigger.dev
+          command: npm run deploy:trigger-prod
+          environment:
+            TRIGGER_ACCESS_TOKEN: $TRIGGER_ACCESS_TOKEN
+
+  deploy-trigger-staging:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: npm install
+      - run:
+          name: Deploy to Trigger.dev (staging)
+          command: npm run deploy:trigger-staging
+          environment:
+            TRIGGER_ACCESS_TOKEN: $TRIGGER_ACCESS_TOKEN
+
+workflows:
+  version: 2
+  deploy-production:
+    jobs:
+      - deploy-trigger:
+          filters:
+            branches:
+              only: main
+  
+  deploy-staging:
+    jobs:
+      - hold-for-approval:
+          type: approval
+          filters:
+            branches:
+              only: staging
+      - deploy-trigger-staging:
+          requires:
+            - hold-for-approval
+          filters:
+            branches:
+              only: staging
