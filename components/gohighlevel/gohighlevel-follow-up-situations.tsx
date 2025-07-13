@@ -43,6 +43,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Plus, Trash2, MessageSquare, Zap } from "lucide-react";
+import { Icons } from "@/components/icons";
 import { updateGoHighLevelFollowUpSituations } from "@/app/actions/gohighlevel";
 import type { GoHighLevelFollowUpSituation } from "@/lib/shared/types/gohighlevel";
 
@@ -436,8 +437,18 @@ export function GoHighLevelFollowUpSituations({
                 Add Follow-up Situation
               </Button>
 
-              <Button type="submit" disabled={isLoading} className="gap-2">
-                {isLoading ? "Saving..." : "Save All Situations"}
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Icons.Spinner className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Icons.Check className="mr-2 h-4 w-4" />
+                    Save All Situations
+                  </>
+                )}
               </Button>
             </div>
 
