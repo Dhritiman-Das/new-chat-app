@@ -26,10 +26,17 @@ jobs:
             - node_modules
 
       - run:
+          name: Debug - Echo TRIGGER_ACCESS_TOKEN
+          command: |
+            echo "TRIGGER_ACCESS_TOKEN: ${TRIGGER_ACCESS_TOKEN}"
+            echo "Token length: ${#TRIGGER_ACCESS_TOKEN}"
+            echo "Token starts with: ${TRIGGER_ACCESS_TOKEN:0:10}..."
+
+      - run:
           name: 🚀 Deploy Trigger.dev
           command: npx trigger.dev@latest deploy
           environment:
-            TRIGGER_ACCESS_TOKEN: ${TRIGGER_ACCESS_TOKEN}
+            TRIGGER_ACCESS_TOKEN: "${TRIGGER_ACCESS_TOKEN}"
 
 workflows:
   deploy-workflow:
