@@ -1,53 +1,41 @@
 version: 2.1
 
-jobs:
-  deploy-trigger:
+executors:
+  node-executor:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:20.15
+
+jobs:
+  deploy:
+    executor: node-executor
     steps:
       - checkout
+
+      - restore_cache:
+          keys:
+            - node-modules-{{ checksum "package-lock.json" }}
+            - node-modules-
+
       - run:
           name: Install dependencies
           command: npm install
+
+      - save_cache:
+          key: node-modules-{{ checksum "package-lock.json" }}
+          paths:
+            - node_modules
+
       - run:
           name: 🚀 Deploy Trigger.dev
           command: npx trigger.dev@latest deploy
           environment:
-            TRIGGER_ACCESS_TOKEN: $TRIGGER_ACCESS_TOKEN
-
-  deploy-trigger-staging:
-    docker:
-      - image: cimg/node:20.0
-    steps:
-      - checkout
-      - run:
-          name: Install dependencies
-          command: npm install
-      - run:
-          name: 🚀 Deploy Trigger.dev (staging)
-          command: npx trigger.dev@latest deploy
-          environment:
-            TRIGGER_ACCESS_TOKEN: $TRIGGER_ACCESS_TOKEN
+            TRIGGER_ACCESS_TOKEN: ${TRIGGER_ACCESS_TOKEN}
 
 workflows:
-  version: 2
-  deploy-production:
+  deploy-workflow:
     jobs:
-      - deploy-trigger:
+      - deploy:
           filters:
             branches:
-              only: main
-
-  deploy-staging:
-    jobs:
-      - hold-for-approval:
-          type: approval
-          filters:
-            branches:
-              only: staging
-      - deploy-trigger-staging:
-          requires:
-            - hold-for-approval
-          filters:
-            branches:
-              only: staging
+              only:
+                - main
