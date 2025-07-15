@@ -34,9 +34,10 @@ jobs:
 
       - run:
           name: 🚀 Deploy Trigger.dev
-          command: npx trigger.dev@latest deploy
-          environment:
-            TRIGGER_ACCESS_TOKEN: "${TRIGGER_ACCESS_TOKEN}"
+          command: |
+            export TRIGGER_ACCESS_TOKEN="${TRIGGER_ACCESS_TOKEN}"
+            echo "Exported token starts with: ${TRIGGER_ACCESS_TOKEN:0:10}..."
+            npx trigger.dev@latest deploy
 
 workflows:
   deploy-workflow:
