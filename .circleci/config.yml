@@ -26,17 +26,12 @@ jobs:
             - node_modules
 
       - run:
-          name: Debug - Echo TRIGGER_ACCESS_TOKEN
-          command: |
-            echo "TRIGGER_ACCESS_TOKEN: ${TRIGGER_ACCESS_TOKEN}"
-            echo "Token length: ${#TRIGGER_ACCESS_TOKEN}"
-            echo "Token starts with: ${TRIGGER_ACCESS_TOKEN:0:10}..."
-
-      - run:
           name: 🚀 Deploy Trigger.dev
           command: |
             export TRIGGER_ACCESS_TOKEN="${TRIGGER_ACCESS_TOKEN}"
-            echo "Exported token starts with: ${TRIGGER_ACCESS_TOKEN:0:10}..."
+            export SKIP_ENV_VALIDATION=true
+            export NODE_ENV=production
+            echo "Deploying with SKIP_ENV_VALIDATION=true"
             npx trigger.dev@latest deploy
 
 workflows:
