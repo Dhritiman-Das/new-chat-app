@@ -24,6 +24,7 @@ export default defineConfig({
       prismaExtension({
         // update this to the path of your Prisma schema file
         schema: "prisma/schema.prisma",
+        version: "6.6.0",
       }),
     ],
   },

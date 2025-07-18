@@ -13,21 +13,25 @@ jobs:
 
       - restore_cache:
           keys:
-            - node-modules-{{ checksum "package-lock.json" }}
+            - node-modules-{{ checksum "pnpm-lock.yaml" }}
             - node-modules-
 
       - run:
+          name: Install pnpm
+          command: npm install -g pnpm
+
+      - run:
           name: Install dependencies
-          command: npm install
+          command: pnpm install --frozen-lockfile
 
       - save_cache:
-          key: node-modules-{{ checksum "package-lock.json" }}
+          key: node-modules-{{ checksum "pnpm-lock.yaml" }}
           paths:
             - node_modules
 
       - run:
           name: Generate Prisma Client with deployment targets
-          command: npx prisma generate
+          command: pnpm prisma generate
 
       - run:
           name: 🚀 Deploy Trigger.dev
