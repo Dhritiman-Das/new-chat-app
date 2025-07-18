@@ -17,12 +17,8 @@ jobs:
             - node-modules-
 
       - run:
-          name: Enable pnpm
-          command: corepack enable
-
-      - run:
           name: Install dependencies
-          command: pnpm install --frozen-lockfile
+          command: npx pnpm@latest install --frozen-lockfile
 
       - save_cache:
           key: node-modules-{{ checksum "pnpm-lock.yaml" }}
@@ -31,7 +27,7 @@ jobs:
 
       - run:
           name: Generate Prisma Client with deployment targets
-          command: pnpm prisma generate
+          command: npx pnpm@latest prisma generate
 
       - run:
           name: 🚀 Deploy Trigger.dev
