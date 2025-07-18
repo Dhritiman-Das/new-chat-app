@@ -17,8 +17,8 @@ jobs:
             - node-modules-
 
       - run:
-          name: Install pnpm
-          command: npm install -g pnpm
+          name: Enable pnpm
+          command: corepack enable
 
       - run:
           name: Install dependencies
