@@ -54,7 +54,7 @@ interface CalendarConfig {
 const DEFAULT_TIME_ZONE = "America/New_York";
 
 export const bookAppointment: ToolFunction = {
-  description: "Book a new appointment on Google Calendar",
+  description: "Book a new appointment on GoHighLevel Calendar",
   parameters: bookAppointmentSchema,
   execute: async (params, context) => {
     try {
@@ -231,7 +231,7 @@ export const bookAppointment: ToolFunction = {
         await storeCalendarAppointment({
           botId: context.botId,
           conversationId: context.conversationId,
-          calendarProvider: "google",
+          calendarProvider: "gohighlevel",
           calendarId: defaultCalendarId,
           externalEventId: response.id || undefined,
           title,
@@ -250,7 +250,7 @@ export const bookAppointment: ToolFunction = {
             bufferTime: bufferTimeBetweenMeetings,
           },
           metadata: {
-            source: "google-calendar-tool",
+            source: "gohighlevel-calendar-tool",
             created: new Date().toISOString(),
           },
         });
@@ -267,7 +267,7 @@ export const bookAppointment: ToolFunction = {
       };
     } catch (error) {
       console.error("Error booking appointment:", error);
-      // Extract the Google API error details if available
+      // Extract the GoHighLevel API error details if available
       const apiError = error as GHLApiError;
       const errorMessage =
         apiError.message ||
@@ -560,7 +560,7 @@ export const listAppointments: ToolFunction = {
       };
     } catch (error) {
       console.error("Error listing appointments:", error);
-      // Extract the Google API error details if available
+      // Extract the GoHighLevel API error details if available
       const apiError = error as GHLApiError;
       const errorMessage =
         apiError.message ||
@@ -792,7 +792,7 @@ export const listAvailableSlots: ToolFunction = {
       };
     } catch (error) {
       console.error("Error listing available slots:", error);
-      // Extract the Google API error details if available
+      // Extract the GoHighLevel API error details if available
       const apiError = error as GHLApiError;
       const errorMessage =
         apiError.message ||
