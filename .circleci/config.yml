@@ -26,6 +26,10 @@ jobs:
             - node_modules
 
       - run:
+          name: Generate Prisma Client with deployment targets
+          command: npx prisma generate
+
+      - run:
           name: 🚀 Deploy Trigger.dev
           command: |
             export TRIGGER_ACCESS_TOKEN="${TRIGGER_ACCESS_TOKEN}"
